@@ -1,12 +1,16 @@
 [package]
-name = "mry_derive"
+name = "mry_macros"
 version = "0.1.0"
 edition = "2018"
 
 [dependencies]
 mockall = "0.9.1"
+proc-macro2 = "1.0.28"
 quote = "1.0.9"
 syn = "1.0.72"
 
 [lib]
 proc-macro = true
+
+[dev-dependencies]
+similar-asserts = "1.1.0"

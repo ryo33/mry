@@ -1,7 +1,13 @@
-mod matcher;
 mod mock;
-mod behavior;
+mod mock_locator;
+mod mock_objects;
+mod mry_id;
+mod rule;
 
-pub use matcher::*;
 pub use mock::*;
-pub use behavior::*;
+pub use mock_locator::*;
+pub use mock_objects::*;
+pub use mry_id::*;
+pub use mry_macros::*;
+pub use parking_lot::MutexGuard;
+pub use rule::*;
