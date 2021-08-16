@@ -58,4 +58,26 @@ mod test {
             .to_string()
         );
     }
+
+    #[test]
+    fn support_generics() {
+        let input: ExprStruct = parse2(quote! {
+            Cat::<A> {
+                name: "aaa",
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+                Cat::<A> {
+                    name: "aaa",
+                    #[cfg(test)]
+                    mry: Default::default(),
+                }
+            }
+            .to_string()
+        );
+    }
 }

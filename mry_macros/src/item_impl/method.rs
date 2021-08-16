@@ -2,15 +2,16 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{FnArg, Ident, ImplItemMethod, ReturnType, Type};
 
-pub fn transform(method: &ImplItemMethod) -> TokenStream {
+pub fn transform(struct_name: &str, method: &ImplItemMethod) -> TokenStream {
     if !matches!(method.sig.inputs.iter().next(), Some(FnArg::Receiver(_))) {
         return method.to_token_stream();
     }
+    let generics = &method.sig.generics;
     let body = &method.block;
     let attrs = method.attrs.clone();
     let ident = method.sig.ident.clone();
     let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
-    let name = ident.to_string();
+    let name = format!("{}::{}", struct_name, ident.to_string());
     let inputs = method.sig.inputs.clone();
     let input_type_tuple: Vec<_> = method
         .sig
@@ -63,7 +64,7 @@ pub fn transform(method: &ImplItemMethod) -> TokenStream {
     let asyn = &method.sig.asyncness;
     quote! {
         #(#attrs)*
-        #asyn fn #ident(#inputs) -> #output_type {
+        #asyn fn #ident #generics(#inputs) -> #output_type {
             #[cfg(test)]
             if self.mry.is_some() {
                 return mry::MOCK_DATA
@@ -104,9 +105,9 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform("Cat", &input).to_string(),
             quote! {
-                fn meow() -> String{
+                fn meow() -> String {
                     "meow"
                 }
             }
@@ -124,14 +125,14 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform("Cat", &input).to_string(),
             quote! {
                 fn meow(&self, count: usize) -> String {
                     #[cfg(test)]
                     if self.mry.is_some() {
                         return mry::MOCK_DATA
                             .lock()
-                            .get_mut_or_create::<(usize), String>(&self.mry, "meow")
+                            .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
                             ._inner_called(&(count));
                     }
                     {
@@ -146,7 +147,7 @@ mod test {
                     }
                     mry::MockLocator {
                         id: &self.mry,
-                        name: "meow",
+                        name: "Cat::meow",
                         _phantom: Default::default(),
                     }
                 }
@@ -165,14 +166,14 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform("Cat", &input).to_string(),
             quote! {
                 fn meow(&self) -> String {
                     #[cfg(test)]
                     if self.mry.is_some() {
                         return mry::MOCK_DATA
                             .lock()
-                            .get_mut_or_create::<(), String>(&self.mry, "meow")
+                            .get_mut_or_create::<(), String>(&self.mry, "Cat::meow")
                             ._inner_called(&());
                     }
                     {
@@ -187,7 +188,7 @@ mod test {
                     }
                     mry::MockLocator {
                         id: &self.mry,
-                        name: "meow",
+                        name: "Cat::meow",
                         _phantom: Default::default(),
                     }
                 }
@@ -206,14 +207,14 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform("Cat", &input).to_string(),
             quote! {
                 fn meow(&self, base: String, count: usize) -> String {
                     #[cfg(test)]
                     if self.mry.is_some() {
                         return mry::MOCK_DATA
                             .lock()
-                            .get_mut_or_create::<(String, usize), String>(&self.mry, "meow")
+                            .get_mut_or_create::<(String, usize), String>(&self.mry, "Cat::meow")
                             ._inner_called(&(base, count));
                     }
                     {
@@ -228,7 +229,7 @@ mod test {
                     }
                     mry::MockLocator {
                         id: &self.mry,
-                        name: "meow",
+                        name: "Cat::meow",
                         _phantom: Default::default(),
                     }
                 }
@@ -247,14 +248,14 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform("Cat", &input).to_string(),
             quote! {
                 fn meow(&self, base: &mut String, count: &usize) -> () {
                     #[cfg(test)]
                     if self.mry.is_some() {
                         return mry::MOCK_DATA
                             .lock()
-                            .get_mut_or_create::<(String, usize), ()>(&self.mry, "meow")
+                            .get_mut_or_create::<(String, usize), ()>(&self.mry, "Cat::meow")
                             ._inner_called(&(base.clone(), count.clone()));
                     }
                     {
@@ -269,7 +270,7 @@ mod test {
                     }
                     mry::MockLocator {
                         id: &self.mry,
-                        name: "meow",
+                        name: "Cat::meow",
                         _phantom: Default::default(),
                     }
                 }
@@ -288,14 +289,14 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform("Cat", &input).to_string(),
             quote! {
                 async fn meow(&self, count: usize) -> String{
                     #[cfg(test)]
                     if self.mry.is_some() {
                         return mry::MOCK_DATA
                             .lock()
-                            .get_mut_or_create::<(usize), String>(&self.mry, "meow")
+                            .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
                             ._inner_called(&(count));
                     }
                     {
@@ -310,7 +311,7 @@ mod test {
                     }
                     mry::MockLocator {
                         id: &self.mry,
-                        name: "meow",
+                        name: "Cat::meow",
                         _phantom: Default::default(),
                     }
                 }

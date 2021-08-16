@@ -26,21 +26,22 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
         .map(|field| &field.ident)
         .collect::<Vec<_>>();
     let mry_struct_name = Ident::new(&format!("Mry{}", struct_name), Span::call_site());
+    let generics = &input.generics;
 
     quote! {
         #(#attrs)*
-        #vis struct #struct_name {
+        #vis struct #struct_name #generics {
             #(#struct_fields),*,
             #[cfg(test)]
             mry: mry::Mry,
         }
 
         #(#attrs)*
-        #vis struct #mry_struct_name {
+        #vis struct #mry_struct_name #generics {
             #(#struct_fields),*,
         }
 
-        impl From<#mry_struct_name> for #struct_name {
+        impl #generics From<#mry_struct_name #generics> for #struct_name #generics {
             fn from(#mry_struct_name {#(#struct_field_names),*}: #mry_struct_name) -> Self {
                 #struct_name {
                     #(#struct_field_names),*,
@@ -158,6 +159,41 @@ mod test {
                 }
 
                 impl From<MryCat> for Cat {
+                    fn from (MryCat { name }: MryCat) -> Self {
+                        Cat {
+                            name,
+                            #[cfg(test)] mry: Default::default(),
+                        }
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn support_generics() {
+        let input: ItemStruct = parse2(quote! {
+            pub struct Cat<A> {
+                pub name: A,
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+                pub struct Cat<A> {
+                    pub name: A,
+                    #[cfg(test)]
+                    mry : mry::Mry,
+                }
+
+                pub struct MryCat<A> {
+                    pub name: A,
+                }
+
+                impl<A> From<MryCat<A> > for Cat<A> {
                     fn from (MryCat { name }: MryCat) -> Self {
                         Cat {
                             name,
