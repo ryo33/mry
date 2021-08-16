@@ -1,9 +1,8 @@
+mod create_behaviors;
 mod expr_struct;
 mod item_impl;
 mod item_struct;
-use proc_macro2::Span;
-use quote::quote;
-use syn::{parse, parse_macro_input, ExprStruct, Ident, ItemImpl, ItemStruct};
+use syn::{parse, parse_macro_input, ExprStruct, ItemImpl, ItemStruct};
 
 enum Target {
     ItemStruct(ItemStruct),
@@ -30,4 +29,9 @@ pub fn mry(_: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_m
 #[proc_macro]
 pub fn new(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     expr_struct::transform(parse_macro_input!(input as ExprStruct)).into()
+}
+
+#[proc_macro]
+pub fn create_behaviors(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    proc_macro::TokenStream::from(create_behaviors::create())
 }

@@ -120,7 +120,7 @@ fn just_meow_behaves() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_just_meow().behaves(|()| "Called".into());
+    cat.mock_just_meow().behaves(|| "Called".into());
 
     assert_eq!(cat.just_meow(), "Called".to_string());
 }

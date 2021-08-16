@@ -73,11 +73,12 @@ impl<I: Clone + PartialEq + Debug, O> Mock<I, O> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::Behavior1;
 
     #[test]
     fn behaves() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves(|a| "a".repeat(a));
+        mock.behaves(Behavior1::from(|a| "a".repeat(a)));
 
         assert_eq!(mock._inner_called(&3), "aaa".to_string());
     }
@@ -86,7 +87,7 @@ mod test {
     #[should_panic(expected = "mock not found for a")]
     fn behaves_when_never() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Never, |a| "a".repeat(a));
+        mock.behaves_when(Matcher::Never, Behavior1::from(|a| "a".repeat(a)));
 
         mock._inner_called(&3);
     }
@@ -94,7 +95,7 @@ mod test {
     #[test]
     fn behaves_when_always() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, |a| "a".repeat(a));
+        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         assert_eq!(mock._inner_called(&3), "aaa".to_string());
     }
@@ -102,7 +103,7 @@ mod test {
     #[test]
     fn assert_called_with() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, |a| "a".repeat(a));
+        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         mock._inner_called(&3);
 
@@ -113,7 +114,7 @@ mod test {
     #[should_panic(expected = "a was not called")]
     fn assert_called_with_panics() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, |a| "a".repeat(a));
+        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         mock.assert_called_with(3);
     }
@@ -121,7 +122,7 @@ mod test {
     #[test]
     fn assert_called() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, |a| "a".repeat(a));
+        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         mock._inner_called(&3);
 
@@ -132,7 +133,7 @@ mod test {
     #[should_panic(expected = "a was not called")]
     fn assert_called_panics() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, |a| "a".repeat(a));
+        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         mock.assert_called();
     }

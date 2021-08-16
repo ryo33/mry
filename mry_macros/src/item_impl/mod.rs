@@ -64,7 +64,7 @@ mod test {
                     }
 
                     #[cfg(test)]
-                    fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), String> {
+                    fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), String, mry::Behavior1<(usize), String> > {
                         if self.mry.is_none() {
                             self.mry = mry::Mry::generate();
                         }

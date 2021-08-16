@@ -1,7 +1,5 @@
-use crate::Matcher;
-
 pub enum Behavior<I, O> {
-    Function(Box<dyn for<'a> FnMut(I) -> O + Send + Sync + 'static>),
+    Function(Box<dyn FnMut(I) -> O + Send + Sync + 'static>),
 }
 
 impl<I: Clone, O> Behavior<I, O> {
@@ -15,11 +13,4 @@ impl<I: Clone, O> Behavior<I, O> {
     }
 }
 
-impl<F, I, O> From<F> for Behavior<I, O>
-where
-    F: for<'a> FnMut(I) -> O + Send + Sync + 'static,
-{
-    fn from(function: F) -> Self {
-        Behavior::Function(Box::new(function))
-    }
-}
+mry_macros::create_behaviors!();
