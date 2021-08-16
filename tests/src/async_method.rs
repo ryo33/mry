@@ -1,3 +1,7 @@
+use std::time::Duration;
+
+use async_std::task::sleep;
+
 #[mry::mry]
 #[derive(Default, PartialEq)]
 struct Cat {
@@ -7,6 +11,7 @@ struct Cat {
 #[mry::mry]
 impl Cat {
     async fn meow(&self, count: usize) -> String {
+        sleep(Duration::from_secs(1)).await;
         format!("{}: {}", self.name, "meow".repeat(count))
     }
 }

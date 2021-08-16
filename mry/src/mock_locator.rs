@@ -17,7 +17,7 @@ pub struct MockLocator<'a, I, O, B> {
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Clone + Default + PartialEq + Debug + Send + 'static,
+    I: Clone + PartialEq + Debug + Send + 'static,
     O: Default + 'static,
     B: Into<Behavior<I, O>>,
 {

@@ -1,77 +1,115 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{FnArg, Ident, ImplItemMethod, ReturnType, Type};
+use syn::{
+    parse2, FnArg, Ident, ImplItemMethod, Pat, PatIdent, PatType, PatWild, ReturnType, Type,
+    TypeReference,
+};
 
 pub fn transform(struct_name: &str, method: &ImplItemMethod) -> TokenStream {
-    if !matches!(method.sig.inputs.iter().next(), Some(FnArg::Receiver(_))) {
+    // Split into receiver and other inputs
+    let receiver;
+    let mut inputs = method.sig.inputs.iter();
+    if let Some(FnArg::Receiver(rcv)) = inputs.next() {
+        receiver = rcv;
+    } else {
         return method.to_token_stream();
     }
+    let inputs: Vec<_> = inputs
+        .map(|input| {
+            if let FnArg::Typed(typed_arg) = input {
+                typed_arg.clone()
+            } else {
+                panic!("multiple receiver?");
+            }
+        })
+        .collect();
+    let mut bindings = Vec::new();
+
     let generics = &method.sig.generics;
     let body = &method.block;
     let attrs = method.attrs.clone();
     let ident = method.sig.ident.clone();
     let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
     let name = format!("{}::{}", struct_name, ident.to_string());
-    let inputs = method.sig.inputs.clone();
-    let input_type_tuple: Vec<_> = method
-        .sig
-        .inputs
+    let args_with_type: Vec<_> = inputs
         .iter()
-        .filter_map(|fn_arg| {
-            if let FnArg::Typed(typed_arg) = fn_arg {
-                let ty = match &*typed_arg.ty {
-                    Type::Reference(ty) => {
-                        let ty = &ty.elem;
-                        quote!(#ty)
-                    }
-                    ty => quote!(#ty),
-                };
-                Some(ty)
+        .enumerate()
+        .map(|(i, input)| {
+            if let Pat::Ident(_) = *input.pat {
+                input.clone()
             } else {
-                None
+                let pat = input.pat.clone();
+                let arg_name = Ident::new(&format!("arg{}", i), Span::call_site());
+                bindings.push((pat, arg_name.clone()));
+                let ident = Pat::Ident(PatIdent {
+                    attrs: Default::default(),
+                    by_ref: Default::default(),
+                    mutability: Default::default(),
+                    ident: arg_name,
+                    subpat: Default::default(),
+                });
+                let mut arg_with_type = (*input).clone();
+                arg_with_type.pat = Box::new(ident.clone());
+                arg_with_type
             }
         })
         .collect();
-    let input_tuple: Vec<_> = method
-        .sig
-        .inputs
+    let derefed_input_type_tuple: Vec<_> = args_with_type
         .iter()
-        .filter_map(|fn_arg| {
-            if let FnArg::Typed(typed_arg) = fn_arg {
-                let pat = &typed_arg.pat;
-                let input = match &*typed_arg.ty {
-                    Type::Reference(_ty) => {
-                        quote!(#pat.clone())
-                    }
-                    _ => quote!(#pat),
-                };
-                Some(input)
-            } else {
-                None
+        .map(|input| {
+            if is_str(&input.ty) {
+                return quote!(String);
             }
+            let ty = match &*input.ty {
+                Type::Reference(ty) => {
+                    let ty = &ty.elem;
+                    quote!(#ty)
+                }
+                ty => quote!(#ty),
+            };
+            ty
+        })
+        .collect();
+    let derefed_input: Vec<_> = args_with_type
+        .iter()
+        .map(|input| {
+            let pat = &input.pat;
+            if is_str(&input.ty) {
+                return quote!(#pat.to_string());
+            }
+            let input = match &*input.ty {
+                Type::Reference(_ty) => {
+                    quote!(*#pat)
+                }
+                _ => quote!(#pat),
+            };
+            input
         })
         .collect();
     let output_type = match &method.sig.output {
         ReturnType::Default => quote!(()),
         ReturnType::Type(_, ty) => quote!(#ty),
     };
-    let input_type_tuple = quote!((#(#input_type_tuple),*));
-    let input_tuple = quote!((#(#input_tuple),*));
-    let behavior_name = Ident::new(&format!("Behavior{}", inputs.len() - 1), Span::call_site());
+    let asyn = &method.sig.asyncness;
+    let args_with_type = quote!(#(#args_with_type),*);
+    let input_type_tuple = quote!((#(#derefed_input_type_tuple),*));
+    let derefed_input_tuple = quote!((#(#derefed_input),*));
+    let bindings = bindings.iter().map(|(pat, arg)| quote![let #pat = #arg;]);
+    let behavior_name = Ident::new(&format!("Behavior{}", inputs.len()), Span::call_site());
     let behavior_type = quote! {
         mry::#behavior_name<#input_type_tuple, #output_type>
     };
-    let asyn = &method.sig.asyncness;
     quote! {
         #(#attrs)*
-        #asyn fn #ident #generics(#inputs) -> #output_type {
+        #asyn fn #ident #generics(#receiver, #args_with_type) -> #output_type {
             #[cfg(test)]
             if self.mry.is_some() {
                 return mry::MOCK_DATA
                     .lock()
                     .get_mut_or_create::<#input_type_tuple, #output_type>(&self.mry, #name)
-                    ._inner_called(&#input_tuple);
+                    ._inner_called(&#derefed_input_tuple);
             }
+            #(#bindings)*
             #body
         }
 
@@ -86,6 +124,20 @@ pub fn transform(struct_name: &str, method: &ImplItemMethod) -> TokenStream {
                 _phantom: Default::default(),
             }
         }
+    }
+}
+
+fn is_str(ty: &Type) -> bool {
+    match ty {
+        Type::Reference(ty) => {
+            if let Type::Path(path) = &*ty.elem {
+                if let Some(ident) = path.path.get_ident() {
+                    return ident.to_string() == "str";
+                }
+            }
+            false
+        }
+        _ => false,
     }
 }
 
@@ -168,7 +220,7 @@ mod test {
         assert_eq!(
             transform("Cat", &input).to_string(),
             quote! {
-                fn meow(&self) -> String {
+                fn meow(&self, ) -> String {
                     #[cfg(test)]
                     if self.mry.is_some() {
                         return mry::MOCK_DATA
@@ -239,10 +291,10 @@ mod test {
     }
 
     #[test]
-    fn input_reference() {
+    fn input_reference_and_str() {
         let input: ImplItemMethod = parse2(quote! {
-            fn meow(&self, base: &mut String, count: &usize) {
-                *base = base.repeat(count);
+            fn meow(&self, out: &'static mut String, base: &str, count: &usize) {
+                *out = base.repeat(count);
             }
         })
         .unwrap();
@@ -250,21 +302,21 @@ mod test {
         assert_eq!(
             transform("Cat", &input).to_string(),
             quote! {
-                fn meow(&self, base: &mut String, count: &usize) -> () {
+                fn meow(&self, out: &'static mut String, base: &str, count: &usize) -> () {
                     #[cfg(test)]
                     if self.mry.is_some() {
                         return mry::MOCK_DATA
                             .lock()
-                            .get_mut_or_create::<(String, usize), ()>(&self.mry, "Cat::meow")
-                            ._inner_called(&(base.clone(), count.clone()));
+                            .get_mut_or_create::<(String, String, usize), ()>(&self.mry, "Cat::meow")
+                            ._inner_called(&(*out, base.to_string(), *count));
                     }
                     {
-                        *base = base.repeat(count);
+                        *out = base.repeat(count);
                     }
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (String, usize), (), mry::Behavior2<(String, usize), ()> > {
+                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -306,6 +358,49 @@ mod test {
 
                 #[cfg(test)]
                 fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), String, mry::Behavior1<(usize), String> > {
+                    if self.mry.is_none() {
+                        self.mry = mry::Mry::generate();
+                    }
+                    mry::MockLocator {
+                        id: &self.mry,
+                        name: "Cat::meow",
+                        _phantom: Default::default(),
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn support_pattern() {
+        let input: ImplItemMethod = parse2(quote! {
+            fn meow(&self, A { name }: A, count: usize, _: String) -> String {
+                name.repeat(count)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform("Cat", &input).to_string(),
+            quote! {
+				fn meow(&self, arg0: A, count: usize, arg2: String) -> String {
+                    #[cfg(test)]
+                    if self.mry.is_some() {
+                        return mry::MOCK_DATA
+                            .lock()
+                            .get_mut_or_create::<(A, usize, String), String>(&self.mry, "Cat::meow")
+                            ._inner_called(&(arg0, count, arg2));
+                    }
+					let A { name } = arg0;
+					let _ = arg2;
+                    {
+						name.repeat(count)
+                    }
+                }
+
+                #[cfg(test)]
+                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
