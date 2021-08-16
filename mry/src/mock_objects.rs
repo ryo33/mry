@@ -1,17 +1,17 @@
 use std::any::Any;
 use std::collections::HashMap;
 
-use crate::{InnerMryId, Mock, MryId};
+use crate::{InnerMry, Mock, Mry};
 
 type HashMapMocks = HashMap<&'static str, Box<dyn Any + Send>>;
 
 #[derive(Default)]
 pub struct MockObjects {
-    mock_objects: HashMap<InnerMryId, HashMapMocks>,
+    mock_objects: HashMap<InnerMry, HashMapMocks>,
 }
 
 impl MockObjects {
-    pub(crate) fn get<T: 'static>(&self, id: &MryId, name: &'static str) -> Option<&T> {
+    pub(crate) fn get<T: 'static>(&self, id: &Mry, name: &'static str) -> Option<&T> {
         id.0.and_then(move |id| {
             self.mock_objects
                 .get(&id)
@@ -22,7 +22,7 @@ impl MockObjects {
 
     pub fn get_mut_or_create<I: Send + 'static, O: 'static>(
         &mut self,
-        id: &MryId,
+        id: &Mry,
         name: &'static str,
     ) -> &mut Mock<I, O> {
         self.mock_objects
@@ -34,17 +34,12 @@ impl MockObjects {
             .unwrap()
     }
 
-    pub(crate) fn remove(&mut self, id: InnerMryId) {
+    pub(crate) fn remove(&mut self, id: InnerMry) {
         self.mock_objects.remove(&id);
     }
 
     #[cfg(test)]
-    pub(crate) fn insert<T: Send + 'static>(
-        &mut self,
-        id: InnerMryId,
-        name: &'static str,
-        item: T,
-    ) {
+    pub(crate) fn insert<T: Send + 'static>(&mut self, id: InnerMry, name: &'static str, item: T) {
         self.mock_objects
             .entry(id)
             .or_default()
@@ -52,7 +47,7 @@ impl MockObjects {
     }
 
     #[cfg(test)]
-    pub(crate) fn contains_key(&mut self, id: InnerMryId) -> bool {
+    pub(crate) fn contains_key(&mut self, id: InnerMry) -> bool {
         self.mock_objects.contains_key(&id)
     }
 }
@@ -63,53 +58,53 @@ mod test {
 
     #[test]
     fn get_returns_none() {
-        let mry_id = MryId::generate();
+        let mry = Mry::generate();
         let mock_data = MockObjects::default();
-        assert_eq!(mock_data.get::<u8>(&mry_id, "meow"), None);
+        assert_eq!(mock_data.get::<u8>(&mry, "meow"), None);
     }
 
     #[test]
-    fn get_returns_none_with_blank_mry_id() {
-        let mry_id = MryId(None);
+    fn get_returns_none_with_blank_mry() {
+        let mry = Mry::none();
         let mock_data = MockObjects::default();
-        assert_eq!(mock_data.get::<u8>(&mry_id, "meow"), None);
+        assert_eq!(mock_data.get::<u8>(&mry, "meow"), None);
     }
 
     #[test]
     fn get_returns_an_item() {
-        let mry_id = MryId::generate();
+        let mry = Mry::generate();
         let mut mock_data = MockObjects::default();
-        mock_data.insert(mry_id.0.unwrap(), "meow", 4u8);
-        assert_eq!(mock_data.get::<u8>(&mry_id, "meow"), Some(&4u8));
+        mock_data.insert(mry.0.unwrap(), "meow", 4u8);
+        assert_eq!(mock_data.get::<u8>(&mry, "meow"), Some(&4u8));
     }
 
     #[test]
     fn get_mut_or_create_returns_an_item() {
-        let mry_id = MryId::generate();
+        let mry = Mry::generate();
         let mut mock_data = MockObjects::default();
-        mock_data.insert(mry_id.0.unwrap(), "meow", Mock::<u8, u8>::new("a"));
+        mock_data.insert(mry.0.unwrap(), "meow", Mock::<u8, u8>::new("a"));
         assert_eq!(
-            mock_data.get_mut_or_create::<u8, u8>(&mry_id, "meow").name,
+            mock_data.get_mut_or_create::<u8, u8>(&mry, "meow").name,
             "a"
         );
     }
 
     #[test]
     fn get_mut_or_create_returns_default() {
-        let mry_id = MryId::generate();
+        let mry = Mry::generate();
         let mut mock_data = MockObjects::default();
         assert_eq!(
-            mock_data.get_mut_or_create::<u8, u8>(&mry_id, "meow").name,
+            mock_data.get_mut_or_create::<u8, u8>(&mry, "meow").name,
             "meow"
         );
     }
 
     #[test]
     fn remove() {
-        let mry_id = MryId::generate();
+        let mry = Mry::generate();
         let mut mock_data = MockObjects::default();
-        mock_data.insert(mry_id.0.unwrap(), "meow", 4u8);
-        mock_data.remove(mry_id.0.unwrap());
-        assert_eq!(mock_data.get::<u8>(&mry_id, "meow"), None);
+        mock_data.insert(mry.0.unwrap(), "meow", 4u8);
+        mock_data.remove(mry.0.unwrap());
+        assert_eq!(mock_data.get::<u8>(&mry, "meow"), None);
     }
 }

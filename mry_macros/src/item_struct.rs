@@ -30,7 +30,7 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
         struct #struct_name {
             #(#struct_fields),*,
             #[cfg(test)]
-            mry_id: mry::MryId,
+            mry: mry::Mry,
         }
 
         #(#attrs)*
@@ -43,7 +43,7 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
                 #struct_name {
                     #(#struct_field_names),*,
                     #[cfg(test)]
-                    mry_id: Default::default(),
+                    mry: Default::default(),
                 }
             }
         }
@@ -58,7 +58,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn adds_mry_id() {
+    fn adds_mry() {
         let input: ItemStruct = parse2(quote! {
             struct Cat {
                 name: String,
@@ -72,7 +72,7 @@ mod test {
                 struct Cat {
                     name: String,
                     #[cfg(test)]
-                    mry_id : mry::MryId,
+                    mry : mry::Mry,
                 }
 
                 struct MryCat {
@@ -83,7 +83,7 @@ mod test {
                     fn from (MryCat { name }: MryCat) -> Self {
                         Cat {
                             name,
-                            #[cfg(test)] mry_id: Default::default(),
+                            #[cfg(test)] mry: Default::default(),
                         }
                     }
                 }
@@ -111,7 +111,7 @@ mod test {
                     #[name]
                     name: String,
                     #[cfg(test)]
-                    mry_id : mry::MryId,
+                    mry : mry::Mry,
                 }
 
                 #[derive(Clone, Default)]
@@ -124,7 +124,7 @@ mod test {
                     fn from (MryCat { name }: MryCat) -> Self {
                         Cat {
                             name,
-                            #[cfg(test)] mry_id: Default::default(),
+                            #[cfg(test)] mry: Default::default(),
                         }
                     }
                 }

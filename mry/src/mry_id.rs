@@ -7,60 +7,68 @@ use once_cell::sync::Lazy;
 
 use crate::MOCK_DATA;
 
-pub type InnerMryId = u16;
-static ID: Lazy<Mutex<InnerMryId>> = Lazy::new(|| Mutex::new(0));
-static CLONE_COUNT: Lazy<Mutex<HashMap<InnerMryId, u8>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+pub type InnerMry = u16;
+static ID: Lazy<Mutex<InnerMry>> = Lazy::new(|| Mutex::new(0));
+static CLONE_COUNT: Lazy<Mutex<HashMap<InnerMry, u8>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Eq, Default)]
-pub struct MryId(pub(crate) Option<InnerMryId>);
+pub struct Mry(pub(crate) Option<InnerMry>);
 
-impl PartialOrd for MryId {
+impl PartialOrd for Mry {
     fn partial_cmp(&self, _: &Self) -> Option<std::cmp::Ordering> {
         Some(Ordering::Equal)
     }
 }
 
-impl Ord for MryId {
+impl Ord for Mry {
     fn cmp(&self, _: &Self) -> std::cmp::Ordering {
         Ordering::Equal
     }
 }
 
-impl Deref for MryId {
-    type Target = Option<InnerMryId>;
+impl Deref for Mry {
+    type Target = Option<InnerMry>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for MryId {
+impl DerefMut for Mry {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl std::hash::Hash for MryId {
+impl std::hash::Hash for Mry {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (None as Option<InnerMryId>).hash(state);
+        (None as Option<InnerMry>).hash(state);
     }
 }
 
-impl PartialEq for MryId {
+impl PartialEq for Mry {
     fn eq(&self, _: &Self) -> bool {
         true
     }
 }
 
-impl MryId {
+impl Mry {
     pub fn generate() -> Self {
         let mut id = ID.lock();
         *id = *id + 1;
         Self(Some(*id))
     }
+
+    pub fn none() -> Self {
+        Self(None)
+    }
+
+    pub fn id(&self) -> Option<InnerMry> {
+        self.0
+    }
 }
 
-impl Drop for MryId {
+impl Drop for Mry {
     fn drop(&mut self) {
         if let Some(inner_id) = self.0 {
             let mut lock = CLONE_COUNT.lock();
@@ -81,7 +89,7 @@ impl Drop for MryId {
     }
 }
 
-impl Clone for MryId {
+impl Clone for Mry {
     fn clone(&self) -> Self {
         if let Some(id) = self.0 {
             let mut lock = CLONE_COUNT.lock();
@@ -100,48 +108,48 @@ mod test {
     use super::*;
 
     #[test]
-    fn mry_id_unique() {
-        assert_ne!(MryId::generate().0, MryId::generate().0);
+    fn mry_unique() {
+        assert_ne!(Mry::generate().0, Mry::generate().0);
     }
 
     #[test]
-    fn mry_id_default_is_none() {
-        assert_eq!(MryId::default(), MryId(None));
+    fn mry_default_is_none() {
+        assert_eq!(Mry::default(), Mry::none());
     }
 
     #[test]
-    fn mry_id_always_equal() {
-        assert_eq!(MryId(Some(0)), MryId(Some(1)));
-        assert_eq!(MryId(Some(0)), MryId(None));
-        assert_eq!(MryId(None), MryId(None));
+    fn mry_always_equal() {
+        assert_eq!(Mry(Some(0)), Mry(Some(1)));
+        assert_eq!(Mry(Some(0)), Mry::none());
+        assert_eq!(Mry::none(), Mry::none());
     }
 
     #[test]
-    fn mry_id_always_equal_ord() {
-        assert_eq!(MryId(Some(0)).cmp(&MryId(Some(1))), Ordering::Equal);
-        assert_eq!(MryId(Some(0)).cmp(&MryId(None)), Ordering::Equal);
-        assert_eq!(MryId(None).cmp(&MryId(None)), Ordering::Equal);
+    fn mry_always_equal_ord() {
+        assert_eq!(Mry(Some(0)).cmp(&Mry(Some(1))), Ordering::Equal);
+        assert_eq!(Mry(Some(0)).cmp(&Mry::none()), Ordering::Equal);
+        assert_eq!(Mry::none().cmp(&Mry::none()), Ordering::Equal);
     }
 
     #[test]
-    fn mry_id_always_equal_partial_ord() {
+    fn mry_always_equal_partial_ord() {
         assert_eq!(
-            MryId(Some(0)).partial_cmp(&MryId(Some(1))),
+            Mry(Some(0)).partial_cmp(&Mry(Some(1))),
             Some(Ordering::Equal)
         );
         assert_eq!(
-            MryId(Some(0)).partial_cmp(&MryId(None)),
+            Mry(Some(0)).partial_cmp(&Mry::none()),
             Some(Ordering::Equal)
         );
-        assert_eq!(MryId(None).partial_cmp(&MryId(None)), Some(Ordering::Equal));
+        assert_eq!(Mry::none().partial_cmp(&Mry::none()), Some(Ordering::Equal));
     }
 
     #[test]
-    fn mry_id_hash_returns_consistent_value() {
+    fn mry_hash_returns_consistent_value() {
         let mut set = HashSet::new();
-        set.insert(MryId(Some(0)));
-        set.insert(MryId(Some(1)));
-        set.insert(MryId(None));
+        set.insert(Mry(Some(0)));
+        set.insert(Mry(Some(1)));
+        set.insert(Mry::none());
         assert_eq!(set.len(), 1);
     }
 
@@ -149,7 +157,7 @@ mod test {
     fn delete_mock_data_on_drop() {
         let inner_id;
         {
-            let id = MryId::generate();
+            let id = Mry::generate();
             inner_id = id.0.unwrap();
             MOCK_DATA.lock().insert(inner_id, "mock", 1);
         }
@@ -160,7 +168,7 @@ mod test {
     fn delete_clone_count_on_drop() {
         let inner_id;
         {
-            let id = MryId::generate().clone();
+            let id = Mry::generate().clone();
             inner_id = id.0.unwrap();
             assert!(CLONE_COUNT.lock().contains_key(&inner_id));
         }
@@ -169,14 +177,14 @@ mod test {
 
     #[test]
     fn do_not_panic_on_clone_and_dropn_with_none() {
-        let _ = MryId(None).clone();
+        let _ = Mry::none().clone();
     }
 
     #[test]
     fn delete_mock_data_on_drop_clone() {
         let inner_id;
         {
-            let id = MryId::generate();
+            let id = Mry::generate();
             inner_id = id.0.unwrap();
             {
                 let mut mock_data = MOCK_DATA.lock();

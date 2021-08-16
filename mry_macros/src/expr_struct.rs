@@ -21,7 +21,7 @@ pub(crate) fn transform(input: ExprStruct) -> TokenStream {
         .collect();
     fields.push(quote! {
         #[cfg(test)]
-        mry_id: Default::default(),
+        mry: Default::default(),
     });
     quote! {
         #ident {
@@ -38,7 +38,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn adds_mry_id() {
+    fn adds_mry() {
         let input: ExprStruct = parse2(quote! {
             Cat {
                 name: "aaa",
@@ -52,7 +52,29 @@ mod test {
                 Cat {
                     name: "aaa",
                     #[cfg(test)]
-                    mry_id: Default::default(),
+                    mry: Default::default(),
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn adds_mry_to_let() {
+        let input: ExprStruct = parse2(quote! {
+            Cat {
+                name: "aaa",
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+                Cat {
+                    name: "aaa",
+                    #[cfg(test)]
+                    mry: Default::default(),
                 }
             }
             .to_string()

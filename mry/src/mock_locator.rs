@@ -5,12 +5,12 @@ use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 
 use crate::Matcher;
-use crate::{Behavior, Mock, MockObjects, MryId};
+use crate::{Behavior, Mock, MockObjects, Mry};
 
 pub static MOCK_DATA: Lazy<Mutex<MockObjects>> = Lazy::new(|| Mutex::new(MockObjects::default()));
 
 pub struct MockLocator<'a, I, O> {
-    pub id: &'a MryId,
+    pub id: &'a Mry,
     pub name: &'static str,
     pub _phantom: PhantomData<fn() -> (I, O)>,
 }

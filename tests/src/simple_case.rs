@@ -1,5 +1,7 @@
+use mry::Mry;
+
 #[mry::mry]
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 struct Cat {
     name: String,
 }
@@ -7,8 +9,38 @@ struct Cat {
 #[mry::mry]
 impl Cat {
     fn meow(&self, count: usize) -> String {
-        "meow".repeat(count)
+        format!("{}: {}", self.name, "meow".repeat(count))
     }
+
+    fn new_by_mry_into() -> Self {
+        MryCat {
+            name: "Tama".into(),
+        }
+        .into()
+    }
+
+    fn new_by_mry_new() -> Self {
+        mry::new!(Cat {
+            name: "Tama".into(),
+        })
+    }
+}
+
+#[test]
+fn mry_cat() {
+    let cat: Cat = MryCat {
+        name: "Tama".into(),
+    }
+    .into();
+    assert_eq!(cat.mry.id(), None);
+}
+
+#[test]
+fn mry_new() {
+    let cat = mry::new!(Cat {
+        name: "Tama".into(),
+    });
+    assert_eq!(cat.mry.id(), None);
 }
 
 #[test]
