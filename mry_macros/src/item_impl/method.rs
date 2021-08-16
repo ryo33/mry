@@ -87,6 +87,7 @@ pub fn transform(method: &ImplItemMethod) -> TokenStream {
 #[cfg(test)]
 mod test {
     use super::*;
+    use similar_asserts::assert_eq;
     use syn::{parse2, ImplItemMethod};
 
     #[test]
@@ -103,6 +104,211 @@ mod test {
             quote! {
                 fn meow() -> String{
                     "meow"
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn adds_mock_function() {
+        let input: ImplItemMethod = parse2(quote! {
+            fn meow(&self, count: usize) -> String {
+                "meow".repeat(count)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&input).to_string(),
+            quote! {
+                fn meow(&self, count: usize) -> String {
+                    #[cfg(test)]
+                    if self.mry.is_some() {
+                        return mry::MOCK_DATA
+                            .lock()
+                            .get_mut_or_create::<(usize), String>(&self.mry, "meow")
+                            ._inner_called(&(count));
+                    }
+                    {
+                        "meow".repeat(count)
+                    }
+                }
+
+                #[cfg(test)]
+                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), String> {
+                    if self.mry.is_none() {
+                        self.mry = mry::Mry::generate();
+                    }
+                    mry::MockLocator {
+                        id: &self.mry,
+                        name: "meow",
+                        _phantom: Default::default(),
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn empty_args() {
+        let input: ImplItemMethod = parse2(quote! {
+            fn meow(&self) -> String {
+                "meow".into()
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&input).to_string(),
+            quote! {
+                fn meow(&self) -> String {
+                    #[cfg(test)]
+                    if self.mry.is_some() {
+                        return mry::MOCK_DATA
+                            .lock()
+                            .get_mut_or_create::<(), String>(&self.mry, "meow")
+                            ._inner_called(&());
+                    }
+                    {
+                        "meow".into()
+                    }
+                }
+
+                #[cfg(test)]
+                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (), String> {
+                    if self.mry.is_none() {
+                        self.mry = mry::Mry::generate();
+                    }
+                    mry::MockLocator {
+                        id: &self.mry,
+                        name: "meow",
+                        _phantom: Default::default(),
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn multiple_args() {
+        let input: ImplItemMethod = parse2(quote! {
+            fn meow(&self, base: String, count: usize) -> String {
+                base.repeat(count)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&input).to_string(),
+            quote! {
+                fn meow(&self, base: String, count: usize) -> String {
+                    #[cfg(test)]
+                    if self.mry.is_some() {
+                        return mry::MOCK_DATA
+                            .lock()
+                            .get_mut_or_create::<(String, usize), String>(&self.mry, "meow")
+                            ._inner_called(&(base, count));
+                    }
+                    {
+                        base.repeat(count)
+                    }
+                }
+
+                #[cfg(test)]
+                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (String, usize), String> {
+                    if self.mry.is_none() {
+                        self.mry = mry::Mry::generate();
+                    }
+                    mry::MockLocator {
+                        id: &self.mry,
+                        name: "meow",
+                        _phantom: Default::default(),
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn input_reference() {
+        let input: ImplItemMethod = parse2(quote! {
+            fn meow(&self, base: &mut String, count: &usize) {
+                *base = base.repeat(count);
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&input).to_string(),
+            quote! {
+                fn meow(&self, base: &mut String, count: &usize) -> () {
+                    #[cfg(test)]
+                    if self.mry.is_some() {
+                        return mry::MOCK_DATA
+                            .lock()
+                            .get_mut_or_create::<(String, usize), ()>(&self.mry, "meow")
+                            ._inner_called(&(base.clone(), count.clone()));
+                    }
+                    {
+                        *base = base.repeat(count);
+                    }
+                }
+
+                #[cfg(test)]
+                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (String, usize), ()> {
+                    if self.mry.is_none() {
+                        self.mry = mry::Mry::generate();
+                    }
+                    mry::MockLocator {
+                        id: &self.mry,
+                        name: "meow",
+                        _phantom: Default::default(),
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn supports_async() {
+        let input: ImplItemMethod = parse2(quote! {
+            async fn meow(&self, count: usize) -> String{
+                base().await.repeat(count);
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&input).to_string(),
+            quote! {
+                async fn meow(&self, count: usize) -> String{
+                    #[cfg(test)]
+                    if self.mry.is_some() {
+                        return mry::MOCK_DATA
+                            .lock()
+                            .get_mut_or_create::<(usize), String>(&self.mry, "meow")
+                            ._inner_called(&(count));
+                    }
+                    {
+                        base().await.repeat(count);
+                    }
+                }
+
+                #[cfg(test)]
+                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), String> {
+                    if self.mry.is_none() {
+                        self.mry = mry::Mry::generate();
+                    }
+                    mry::MockLocator {
+                        id: &self.mry,
+                        name: "meow",
+                        _phantom: Default::default(),
+                    }
                 }
             }
             .to_string()

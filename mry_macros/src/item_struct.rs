@@ -3,6 +3,7 @@ use quote::quote;
 use syn::{Ident, ItemStruct};
 
 pub(crate) fn transform(input: ItemStruct) -> TokenStream {
+    let vis = &input.vis;
     let struct_name = input.ident;
     let attrs = input.attrs;
     let struct_fields = input
@@ -12,9 +13,10 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
             let attrs = field.attrs.clone();
             let name = field.ident.as_ref().unwrap();
             let ty = &field.ty;
+            let vis = &field.vis;
             quote! {
                 #(#attrs)*
-                #name: #ty
+                #vis #name: #ty
             }
         })
         .collect::<Vec<_>>();
@@ -27,14 +29,14 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
 
     quote! {
         #(#attrs)*
-        struct #struct_name {
+        #vis struct #struct_name {
             #(#struct_fields),*,
             #[cfg(test)]
             mry: mry::Mry,
         }
 
         #(#attrs)*
-        struct #mry_struct_name {
+        #vis struct #mry_struct_name {
             #(#struct_fields),*,
         }
 
@@ -118,6 +120,41 @@ mod test {
                 struct MryCat {
                     #[name]
                     name: String,
+                }
+
+                impl From<MryCat> for Cat {
+                    fn from (MryCat { name }: MryCat) -> Self {
+                        Cat {
+                            name,
+                            #[cfg(test)] mry: Default::default(),
+                        }
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn keep_publicity() {
+        let input: ItemStruct = parse2(quote! {
+            pub struct Cat {
+                pub name: String,
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+                pub struct Cat {
+                    pub name: String,
+                    #[cfg(test)]
+                    mry : mry::Mry,
+                }
+
+                pub struct MryCat {
+                    pub name: String,
                 }
 
                 impl From<MryCat> for Cat {

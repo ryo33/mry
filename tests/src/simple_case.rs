@@ -12,6 +12,10 @@ impl Cat {
         format!("{}: {}", self.name, "meow".repeat(count))
     }
 
+    fn just_meow(&self) -> String {
+        format!("{}: meow", self.name)
+    }
+
     fn new_by_mry_into() -> Self {
         MryCat {
             name: "Tama".into(),
@@ -108,4 +112,15 @@ fn meow_behaves_when() {
         .behaves_when(3, |count| format!("Called with {}", count));
 
     assert_eq!(cat.meow(3), "Called with 3".to_string())
+}
+
+#[test]
+fn just_meow_behaves() {
+    let mut cat: Cat = Cat {
+        name: "Tama".into(),
+        ..Default::default()
+    };
+    cat.mock_just_meow().behaves(|()| "Called".into());
+
+    assert_eq!(cat.just_meow(), "Called".to_string());
 }
