@@ -58,26 +58,4 @@ mod test {
             .to_string()
         );
     }
-
-    #[test]
-    fn adds_mry_to_let() {
-        let input: ExprStruct = parse2(quote! {
-            Cat {
-                name: "aaa",
-            }
-        })
-        .unwrap();
-
-        assert_eq!(
-            transform(input).to_string(),
-            quote! {
-                Cat {
-                    name: "aaa",
-                    #[cfg(test)]
-                    mry: Default::default(),
-                }
-            }
-            .to_string()
-        );
-    }
 }

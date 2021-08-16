@@ -7,3 +7,4 @@ edition = "2018"
 
 [dependencies]
 mry = { path = "../mry" }
+async-std = { version = "1.9.0", features = ["attributes"] }

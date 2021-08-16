@@ -1,0 +1,24 @@
+#[mry::mry]
+#[derive(Default, PartialEq)]
+struct Cat {
+    name: String,
+}
+
+#[mry::mry]
+impl Cat {
+    async fn meow(&self, count: usize) -> String {
+        format!("{}: {}", self.name, "meow".repeat(count))
+    }
+}
+
+#[async_std::test]
+async fn meow_behaves() {
+    let mut cat: Cat = Cat {
+        name: "Tama".into(),
+        ..Default::default()
+    };
+    cat.mock_meow()
+        .behaves(|count| format!("Called with {}", count));
+
+    assert_eq!(cat.meow(2).await, "Called with 2".to_string());
+}

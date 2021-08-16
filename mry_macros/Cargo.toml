@@ -4,13 +4,12 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-mockall = "0.9.1"
-proc-macro2 = "1.0.28"
-quote = "1.0.9"
-syn = "1.0.72"
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = "1.0"
 
 [lib]
 proc-macro = true
 
 [dev-dependencies]
-similar-asserts = "1.1.0"
+similar-asserts = "1.1"
