@@ -2,11 +2,18 @@
 name = "mry_macros"
 version = "0.1.0"
 edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "Macro crate for mry, a super simple mocking library that supports structs and traits."
+homepage = "https://github.com/ryo33/mry"
+repository = "https://github.com/ryo33/mry"
+readme = "../README.md"
+keywords = ["mock", "mocking", "testing"]
+categories = ["development-tools"]
 
 [dependencies]
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "1.0", features = ["visit"] }
+syn = { version = "1.0", features = ["visit", "full"] }
 
 [lib]
 proc-macro = true
