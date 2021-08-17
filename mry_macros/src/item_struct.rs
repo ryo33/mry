@@ -33,12 +33,17 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
         #vis struct #struct_name #generics {
             #(#struct_fields),*,
             #[cfg(test)]
-            mry: mry::Mry,
+            pub mry: mry::Mry,
         }
 
         #(#attrs)*
         #vis struct #mry_struct_name #generics {
             #(#struct_fields),*,
+        }
+        impl #generics #mry_struct_name #generics {
+            pub fn mry(self) -> #struct_name #generics {
+                self.into()
+            }
         }
 
         impl #generics From<#mry_struct_name #generics> for #struct_name #generics {
@@ -75,11 +80,17 @@ mod test {
                 struct Cat {
                     name: String,
                     #[cfg(test)]
-                    mry : mry::Mry,
+                    pub mry : mry::Mry,
                 }
 
                 struct MryCat {
                     name: String,
+                }
+
+                impl MryCat {
+                    pub fn mry(self) -> Cat {
+                        self.into()
+                    }
                 }
 
                 impl From<MryCat> for Cat {
@@ -114,13 +125,19 @@ mod test {
                     #[name]
                     name: String,
                     #[cfg(test)]
-                    mry : mry::Mry,
+                    pub mry : mry::Mry,
                 }
 
                 #[derive(Clone, Default)]
                 struct MryCat {
                     #[name]
                     name: String,
+                }
+
+                impl MryCat {
+                    pub fn mry(self) -> Cat {
+                        self.into()
+                    }
                 }
 
                 impl From<MryCat> for Cat {
@@ -151,11 +168,17 @@ mod test {
                 pub struct Cat {
                     pub name: String,
                     #[cfg(test)]
-                    mry : mry::Mry,
+                    pub mry : mry::Mry,
                 }
 
                 pub struct MryCat {
                     pub name: String,
+                }
+
+                impl MryCat {
+                    pub fn mry(self) -> Cat {
+                        self.into()
+                    }
                 }
 
                 impl From<MryCat> for Cat {
@@ -186,11 +209,17 @@ mod test {
                 pub struct Cat<'a, A> {
                     pub name: &'a A,
                     #[cfg(test)]
-                    mry : mry::Mry,
+                    pub mry : mry::Mry,
                 }
 
                 pub struct MryCat<'a, A> {
                     pub name: &'a A,
+                }
+
+                impl<'a, A> MryCat<'a, A> {
+                    pub fn mry(self) -> Cat<'a, A> {
+                        self.into()
+                    }
                 }
 
                 impl<'a, A> From<MryCat<'a, A> > for Cat<'a, A> {
