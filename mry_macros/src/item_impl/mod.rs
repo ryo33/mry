@@ -2,28 +2,83 @@ mod method;
 mod type_name;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
+use syn::visit::Visit;
 use syn::{FnArg, Ident, ImplItem, ItemImpl, ReturnType, Type};
 use type_name::*;
 
+#[derive(Default)]
+struct TypeParameterVisitor(Vec<String>);
+
+// TODO does not work
+impl<'ast> Visit<'ast> for TypeParameterVisitor {
+    fn visit_path_segment(&mut self, path_seg: &'ast syn::PathSegment) {
+        self.visit_path_arguments(&path_seg.arguments);
+
+        self.0.push(path_seg.ident.to_string());
+    }
+    fn visit_lifetime(&mut self, lifetime: &'ast syn::Lifetime) {
+        self.0.push(lifetime.ident.to_string());
+    }
+}
+
 pub(crate) fn transform(input: ItemImpl) -> TokenStream {
-    let impl_generics = &input.generics;
+    let generics = &input.generics;
+    let mut type_params = TypeParameterVisitor::default();
+    type_params.visit_type(&input.self_ty);
+    let impl_generics: Vec<_> = input
+        .generics
+        .params
+        .iter()
+        .filter(|param| {
+            let ident = match param {
+                syn::GenericParam::Type(ty) => &ty.ident,
+                syn::GenericParam::Lifetime(lifetime) => &lifetime.lifetime.ident,
+                syn::GenericParam::Const(cons) => &cons.ident,
+            };
+            type_params.0.contains(&ident.to_string())
+        })
+        .collect();
     let struct_type = &input.self_ty;
+    let mut trait_name = None;
+    let trait_ = match &input.trait_ {
+        Some((bang, path, for_)) => {
+            trait_name = Some(path_name(path));
+            quote! {
+                #bang #path #for_
+            }
+        }
+        None => TokenStream::default(),
+    };
     let struct_name = type_name(&*input.self_ty);
-    let members: Vec<_> = input
+    let type_name = match trait_name {
+        Some(trait_name) => format!("<{} as {}>", struct_name, trait_name),
+        None => struct_name,
+    };
+    let (members, impl_members): (Vec<_>, Vec<_>) = input
         .items
         .iter()
         .map(|item| {
             if let ImplItem::Method(method) = item {
-                method::transform(&struct_name, method)
+                method::transform(&type_name, method)
             } else {
-                item.to_token_stream()
+                (item.to_token_stream(), TokenStream::default())
             }
         })
-        .collect();
+        .unzip();
+
+    let impl_generics = if impl_generics.is_empty() {
+        TokenStream::default()
+    } else {
+        quote!( <#(#impl_generics),*>)
+    };
 
     quote! {
-        impl #impl_generics #struct_type {
+        impl #generics #trait_ #struct_type {
             #(#members)*
+        }
+
+        impl #impl_generics #struct_type {
+            #(#impl_members)*
         }
     }
 }
@@ -66,7 +121,9 @@ mod test {
                             "meow".repeat(count)
                         }
                     }
+                }
 
+                impl Cat {
                     #[cfg(test)]
                     fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), String, mry::Behavior1<(usize), String> > {
                         if self.mry.is_none() {
@@ -87,7 +144,7 @@ mod test {
     #[test]
     fn support_generics() {
         let input: ItemImpl = parse2(quote! {
-            impl<A: Clone> Cat<A> {
+            impl<'a, A: Clone> Cat<'a, A> {
                 fn meow<'a, B>(&'a self, count: usize) -> B {
                     "meow".repeat(count)
                 }
@@ -98,20 +155,22 @@ mod test {
         assert_eq!(
             transform(input).to_string(),
             quote! {
-                impl<A: Clone> Cat<A> {
+                impl<'a, A: Clone> Cat<'a, A> {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
                         #[cfg(test)]
                         if self.mry.is_some() {
                             return mry::MOCK_DATA
                                 .lock()
-                                .get_mut_or_create::<(usize), B>(&self.mry, "Cat<A>::meow")
+                                .get_mut_or_create::<(usize), B>(&self.mry, "Cat<'a, A>::meow")
                                 ._inner_called(&(count));
                         }
                         {
                             "meow".repeat(count)
                         }
                     }
+                }
 
+                impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(test)]
                     fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), B, mry::Behavior1<(usize), B> > {
                         if self.mry.is_none() {
@@ -119,7 +178,54 @@ mod test {
                         }
                         mry::MockLocator {
                             id: &self.mry,
-                            name: "Cat<A>::meow",
+                            name: "Cat<'a, A>::meow",
+                            _phantom: Default::default(),
+                        }
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn support_trait() {
+        let input: ItemImpl = parse2(quote! {
+            impl<A: Clone> Animal<A> for Cat {
+                fn name(&self) -> String {
+                    self.name
+                }
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+                impl<A: Clone> Animal<A> for Cat {
+                    fn name(&self, ) -> String {
+                        #[cfg(test)]
+                        if self.mry.is_some() {
+                            return mry::MOCK_DATA
+                                .lock()
+                                .get_mut_or_create::<(), String>(&self.mry, "<Cat as Animal<A>>::name")
+                                ._inner_called(&());
+                        }
+                        {
+                            self.name
+                        }
+                    }
+                }
+
+                impl Cat {
+                    #[cfg(test)]
+                    fn mock_name<'a>(&'a mut self) -> mry::MockLocator<'a, (), String, mry::Behavior0<(), String> > {
+                        if self.mry.is_none() {
+                            self.mry = mry::Mry::generate();
+                        }
+                        mry::MockLocator {
+                            id: &self.mry,
+                            name: "<Cat as Animal<A>>::name",
                             _phantom: Default::default(),
                         }
                     }

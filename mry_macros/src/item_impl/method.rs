@@ -5,14 +5,14 @@ use syn::{
     TypeReference,
 };
 
-pub fn transform(struct_name: &str, method: &ImplItemMethod) -> TokenStream {
+pub fn transform(struct_name: &str, method: &ImplItemMethod) -> (TokenStream, TokenStream) {
     // Split into receiver and other inputs
     let receiver;
     let mut inputs = method.sig.inputs.iter();
     if let Some(FnArg::Receiver(rcv)) = inputs.next() {
         receiver = rcv;
     } else {
-        return method.to_token_stream();
+        return (method.to_token_stream(), TokenStream::default());
     }
     let inputs: Vec<_> = inputs
         .map(|input| {
@@ -99,32 +99,35 @@ pub fn transform(struct_name: &str, method: &ImplItemMethod) -> TokenStream {
     let behavior_type = quote! {
         mry::#behavior_name<#input_type_tuple, #output_type>
     };
-    quote! {
-        #(#attrs)*
-        #asyn fn #ident #generics(#receiver, #args_with_type) -> #output_type {
+    (
+        quote! {
+            #(#attrs)*
+            #asyn fn #ident #generics(#receiver, #args_with_type) -> #output_type {
+                #[cfg(test)]
+                if self.mry.is_some() {
+                    return mry::MOCK_DATA
+                        .lock()
+                        .get_mut_or_create::<#input_type_tuple, #output_type>(&self.mry, #name)
+                        ._inner_called(&#derefed_input_tuple);
+                }
+                #(#bindings)*
+                #body
+            }
+        },
+        quote! {
             #[cfg(test)]
-            if self.mry.is_some() {
-                return mry::MOCK_DATA
-                    .lock()
-                    .get_mut_or_create::<#input_type_tuple, #output_type>(&self.mry, #name)
-                    ._inner_called(&#derefed_input_tuple);
+            fn #mock_ident<'a>(&'a mut self) -> mry::MockLocator<'a, #input_type_tuple, #output_type, #behavior_type> {
+                if self.mry.is_none() {
+                    self.mry = mry::Mry::generate();
+                }
+                mry::MockLocator {
+                    id: &self.mry,
+                    name: #name,
+                    _phantom: Default::default(),
+                }
             }
-            #(#bindings)*
-            #body
-        }
-
-        #[cfg(test)]
-        fn #mock_ident<'a>(&'a mut self) -> mry::MockLocator<'a, #input_type_tuple, #output_type, #behavior_type> {
-            if self.mry.is_none() {
-                self.mry = mry::Mry::generate();
-            }
-            mry::MockLocator {
-                id: &self.mry,
-                name: #name,
-                _phantom: Default::default(),
-            }
-        }
-    }
+        },
+    )
 }
 
 fn is_str(ty: &Type) -> bool {
@@ -146,6 +149,19 @@ mod test {
     use super::*;
     use similar_asserts::assert_eq;
     use syn::{parse2, ImplItemMethod};
+
+    trait ToString {
+        fn to_string(&self) -> String;
+    }
+
+    impl ToString for (TokenStream, TokenStream) {
+        fn to_string(&self) -> String {
+            (self.0.to_string() + " " + &self.1.to_string())
+                .to_string()
+                .trim()
+                .to_string()
+        }
+    }
 
     #[test]
     fn support_associated_functions() {

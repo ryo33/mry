@@ -1,5 +1,5 @@
 mod create_behaviors;
-mod expr_struct;
+mod new;
 mod item_impl;
 mod item_struct;
 use syn::{parse, parse_macro_input, ExprStruct, ItemImpl, ItemStruct};
@@ -28,7 +28,7 @@ pub fn mry(_: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_m
 
 #[proc_macro]
 pub fn new(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    expr_struct::transform(parse_macro_input!(input as ExprStruct)).into()
+    new::transform(parse_macro_input!(input as ExprStruct)).into()
 }
 
 #[proc_macro]
