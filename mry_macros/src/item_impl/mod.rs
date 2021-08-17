@@ -125,7 +125,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(test)]
-                    fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                    pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         if self.mry.is_none() {
                             self.mry = mry::Mry::generate();
                         }
@@ -172,7 +172,7 @@ mod test {
 
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(test)]
-                    fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
+                    pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
                         if self.mry.is_none() {
                             self.mry = mry::Mry::generate();
                         }
@@ -219,7 +219,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(test)]
-                    fn mock_name<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
+                    pub fn mock_name<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
                         if self.mry.is_none() {
                             self.mry = mry::Mry::generate();
                         }

@@ -88,6 +88,7 @@ pub fn transform(struct_name: &str, method: &ImplItemMethod) -> (TokenStream, To
         ReturnType::Type(_, ty) => quote!(#ty),
     };
     let asyn = &method.sig.asyncness;
+    let vis = &method.vis;
     let args_with_type = quote!(#(#args_with_type),*);
     let input_type_tuple = quote!((#(#derefed_input_type_tuple),*));
     let derefed_input_tuple = quote!((#(#derefed_input),*));
@@ -99,7 +100,7 @@ pub fn transform(struct_name: &str, method: &ImplItemMethod) -> (TokenStream, To
     (
         quote! {
             #(#attrs)*
-            #asyn fn #ident #generics(#receiver, #args_with_type) -> #output_type {
+            #vis #asyn fn #ident #generics(#receiver, #args_with_type) -> #output_type {
                 #[cfg(test)]
                 if self.mry.is_some() {
                     return mry::MOCK_DATA
@@ -113,7 +114,7 @@ pub fn transform(struct_name: &str, method: &ImplItemMethod) -> (TokenStream, To
         },
         quote! {
             #[cfg(test)]
-            fn #mock_ident<'mry>(&'mry mut self) -> mry::MockLocator<'mry, #input_type_tuple, #output_type, #behavior_type> {
+            pub fn #mock_ident<'mry>(&'mry mut self) -> mry::MockLocator<'mry, #input_type_tuple, #output_type, #behavior_type> {
                 if self.mry.is_none() {
                     self.mry = mry::Mry::generate();
                 }
@@ -206,7 +207,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -247,7 +248,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -288,7 +289,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (String, usize), String, mry::Behavior2<(String, usize), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (String, usize), String, mry::Behavior2<(String, usize), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -329,7 +330,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
+                pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -370,7 +371,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -413,7 +414,48 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
+                    if self.mry.is_none() {
+                        self.mry = mry::Mry::generate();
+                    }
+                    mry::MockLocator {
+                        id: &self.mry,
+                        name: "Cat::meow",
+                        _phantom: Default::default(),
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn respect_visibility() {
+        let input: ImplItemMethod = parse2(quote! {
+            pub fn meow(&self, count: usize) -> String {
+                "meow".repeat(count)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform("Cat", &input).to_string(),
+            quote! {
+                pub fn meow(&self, count: usize) -> String {
+                    #[cfg(test)]
+                    if self.mry.is_some() {
+                        return mry::MOCK_DATA
+                            .lock()
+                            .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
+                            ._inner_called(&(count));
+                    }
+                    {
+                        "meow".repeat(count)
+                    }
+                }
+
+                #[cfg(test)]
+                pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
