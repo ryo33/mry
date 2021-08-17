@@ -1,6 +1,5 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::visit::Visit;
 use syn::{Ident, ItemTrait};
 
 use crate::method;
@@ -8,7 +7,7 @@ use crate::method;
 #[derive(Default)]
 struct TypeParameterVisitor(Vec<String>);
 
-pub(crate) fn transform(input: ItemTrait) -> TokenStream {
+pub(crate) fn transform(input: &ItemTrait) -> TokenStream {
     let generics = &input.generics;
     let trait_ident = &input.ident;
     let mry_ident = Ident::new(&format!("Mry{}", &input.ident), Span::call_site());
@@ -72,7 +71,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&input).to_string(),
             quote! {
 				trait Cat {
 					fn meow(&self, count: usize) -> String;
@@ -127,7 +126,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&input).to_string(),
             quote! {
 				pub trait Cat {
 					fn meow(&self, count: usize) -> String;

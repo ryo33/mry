@@ -2,10 +2,10 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{Ident, ItemStruct};
 
-pub(crate) fn transform(input: ItemStruct) -> TokenStream {
+pub(crate) fn transform(input: &ItemStruct) -> TokenStream {
     let vis = &input.vis;
-    let struct_name = input.ident;
-    let attrs = input.attrs;
+    let struct_name = &input.ident;
+    let attrs = &input.attrs;
     let struct_fields = input
         .fields
         .iter()
@@ -75,7 +75,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&input).to_string(),
             quote! {
                 struct Cat {
                     name: String,
@@ -118,7 +118,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&input).to_string(),
             quote! {
                 #[derive(Clone, Default)]
                 struct Cat {
@@ -163,7 +163,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&input).to_string(),
             quote! {
                 pub struct Cat {
                     pub name: String,
@@ -204,7 +204,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&input).to_string(),
             quote! {
                 pub struct Cat<'a, A> {
                     pub name: &'a A,

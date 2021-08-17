@@ -1,5 +1,3 @@
-use std::str::MatchIndices;
-
 #[derive(Debug, PartialEq)]
 pub enum Matcher<I> {
     Always,

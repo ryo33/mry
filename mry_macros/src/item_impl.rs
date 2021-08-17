@@ -1,10 +1,8 @@
-mod method;
-mod type_name;
+use crate::{method, type_name::*};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
 use syn::{ImplItem, ItemImpl};
-use type_name::*;
 
 #[derive(Default)]
 struct TypeParameterVisitor(Vec<String>);
@@ -20,7 +18,7 @@ impl<'mryst> Visit<'mryst> for TypeParameterVisitor {
     }
 }
 
-pub(crate) fn transform(input: ItemImpl) -> TokenStream {
+pub(crate) fn transform(input: &ItemImpl) -> TokenStream {
     let generics = &input.generics;
     let mut type_params = TypeParameterVisitor::default();
     type_params.visit_type(&input.self_ty);
@@ -58,7 +56,14 @@ pub(crate) fn transform(input: ItemImpl) -> TokenStream {
         .iter()
         .map(|item| {
             if let ImplItem::Method(method) = item {
-                method::transform(&type_name, method)
+                method::transform(
+                    &type_name,
+                    method.to_token_stream(),
+                    Some(&method.vis),
+                    &method.attrs,
+                    &method.sig,
+                    &method.block.to_token_stream(),
+                )
             } else {
                 (item.to_token_stream(), TokenStream::default())
             }
@@ -103,7 +108,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&input).to_string(),
             quote! {
                 impl Cat {
                     #[meow]
@@ -152,7 +157,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&input).to_string(),
             quote! {
                 impl<'a, A: Clone> Cat<'a, A> {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
@@ -199,7 +204,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&input).to_string(),
             quote! {
                 impl<A: Clone> Animal<A> for Cat {
                     fn name(&self, ) -> String {

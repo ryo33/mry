@@ -8,7 +8,7 @@ pub trait Cat {
 
 #[test]
 fn respects_default() {
-    let mut cat = MryCat::default();
+    let cat = MryCat::default();
 
     assert_eq!(cat.meow_default(2), "meowmeow".to_string());
 }
