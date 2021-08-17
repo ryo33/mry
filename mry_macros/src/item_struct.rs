@@ -42,7 +42,7 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
         }
 
         impl #generics From<#mry_struct_name #generics> for #struct_name #generics {
-            fn from(#mry_struct_name {#(#struct_field_names),*}: #mry_struct_name) -> Self {
+            fn from(#mry_struct_name {#(#struct_field_names),*}: #mry_struct_name #generics) -> Self {
                 #struct_name {
                     #(#struct_field_names),*,
                     #[cfg(test)]
@@ -174,8 +174,8 @@ mod test {
     #[test]
     fn support_generics() {
         let input: ItemStruct = parse2(quote! {
-            pub struct Cat<A> {
-                pub name: A,
+            pub struct Cat<'a, A> {
+                pub name: &'a A,
             }
         })
         .unwrap();
@@ -183,18 +183,18 @@ mod test {
         assert_eq!(
             transform(input).to_string(),
             quote! {
-                pub struct Cat<A> {
-                    pub name: A,
+                pub struct Cat<'a, A> {
+                    pub name: &'a A,
                     #[cfg(test)]
                     mry : mry::Mry,
                 }
 
-                pub struct MryCat<A> {
-                    pub name: A,
+                pub struct MryCat<'a, A> {
+                    pub name: &'a A,
                 }
 
-                impl<A> From<MryCat<A> > for Cat<A> {
-                    fn from (MryCat { name }: MryCat) -> Self {
+                impl<'a, A> From<MryCat<'a, A> > for Cat<'a, A> {
+                    fn from (MryCat { name }: MryCat<'a, A>) -> Self {
                         Cat {
                             name,
                             #[cfg(test)] mry: Default::default(),

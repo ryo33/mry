@@ -20,7 +20,7 @@ impl MockObjects {
         })
     }
 
-    pub fn get_mut_or_create<I: Send + 'static, O: 'static>(
+    pub fn get_mut_or_create<I: Send + 'static, O: Clone + Send + 'static>(
         &mut self,
         id: &Mry,
         name: &'static str,

@@ -1,9 +1,6 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{
-    parse2, FnArg, Ident, ImplItemMethod, Pat, PatIdent, PatType, PatWild, ReturnType, Type,
-    TypeReference,
-};
+use syn::{FnArg, Ident, ImplItemMethod, Pat, PatIdent, ReturnType, Type};
 
 pub fn transform(struct_name: &str, method: &ImplItemMethod) -> (TokenStream, TokenStream) {
     // Split into receiver and other inputs
@@ -116,7 +113,7 @@ pub fn transform(struct_name: &str, method: &ImplItemMethod) -> (TokenStream, To
         },
         quote! {
             #[cfg(test)]
-            fn #mock_ident<'a>(&'a mut self) -> mry::MockLocator<'a, #input_type_tuple, #output_type, #behavior_type> {
+            fn #mock_ident<'mry>(&'mry mut self) -> mry::MockLocator<'mry, #input_type_tuple, #output_type, #behavior_type> {
                 if self.mry.is_none() {
                     self.mry = mry::Mry::generate();
                 }
@@ -209,7 +206,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), String, mry::Behavior1<(usize), String> > {
+                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -250,7 +247,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (), String, mry::Behavior0<(), String> > {
+                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -291,7 +288,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (String, usize), String, mry::Behavior2<(String, usize), String> > {
+                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (String, usize), String, mry::Behavior2<(String, usize), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -332,7 +329,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
+                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -373,7 +370,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), String, mry::Behavior1<(usize), String> > {
+                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }
@@ -416,7 +413,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
+                fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
                     if self.mry.is_none() {
                         self.mry = mry::Mry::generate();
                     }

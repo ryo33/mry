@@ -1,22 +1,22 @@
 mod method;
 mod type_name;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
-use syn::{FnArg, Ident, ImplItem, ItemImpl, ReturnType, Type};
+use syn::{ImplItem, ItemImpl};
 use type_name::*;
 
 #[derive(Default)]
 struct TypeParameterVisitor(Vec<String>);
 
 // TODO does not work
-impl<'ast> Visit<'ast> for TypeParameterVisitor {
-    fn visit_path_segment(&mut self, path_seg: &'ast syn::PathSegment) {
+impl<'mryst> Visit<'mryst> for TypeParameterVisitor {
+    fn visit_path_segment(&mut self, path_seg: &'mryst syn::PathSegment) {
         self.visit_path_arguments(&path_seg.arguments);
 
         self.0.push(path_seg.ident.to_string());
     }
-    fn visit_lifetime(&mut self, lifetime: &'ast syn::Lifetime) {
+    fn visit_lifetime(&mut self, lifetime: &'mryst syn::Lifetime) {
         self.0.push(lifetime.ident.to_string());
     }
 }
@@ -125,7 +125,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(test)]
-                    fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), String, mry::Behavior1<(usize), String> > {
+                    fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         if self.mry.is_none() {
                             self.mry = mry::Mry::generate();
                         }
@@ -172,7 +172,7 @@ mod test {
 
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(test)]
-                    fn mock_meow<'a>(&'a mut self) -> mry::MockLocator<'a, (usize), B, mry::Behavior1<(usize), B> > {
+                    fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
                         if self.mry.is_none() {
                             self.mry = mry::Mry::generate();
                         }
@@ -219,7 +219,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(test)]
-                    fn mock_name<'a>(&'a mut self) -> mry::MockLocator<'a, (), String, mry::Behavior0<(), String> > {
+                    fn mock_name<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
                         if self.mry.is_none() {
                             self.mry = mry::Mry::generate();
                         }

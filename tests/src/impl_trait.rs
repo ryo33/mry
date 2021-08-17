@@ -1,17 +1,13 @@
-use std::time::Duration;
-
-use async_std::task::sleep;
-
 #[mry::mry]
 #[derive(Default, PartialEq)]
-struct Cat {
-    name: String,
+struct Cat<'a> {
+    name: &'a str,
 }
 
 #[mry::mry]
-impl<ToString: Into<String>> Into<ToString> for Cat {
+impl<'a> Into<String> for Cat<'a> {
     fn into(self) -> String {
-        todo!()
+        self.name.to_string()
     }
 }
 

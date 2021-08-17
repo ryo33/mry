@@ -3,7 +3,6 @@ use quote::quote;
 use syn::{ExprStruct, Member};
 
 pub(crate) fn transform(input: ExprStruct) -> TokenStream {
-    let attrs = input.attrs.clone();
     let ident = input.path.clone();
     let mut fields: Vec<_> = input
         .fields

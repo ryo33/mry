@@ -4,8 +4,7 @@ use std::marker::PhantomData;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 
-use crate::Matcher;
-use crate::{Behavior, Mock, MockObjects, Mry};
+use crate::{Behavior, Matcher, Mock, MockObjects, MockResult, Mry};
 
 pub static MOCK_DATA: Lazy<Mutex<MockObjects>> = Lazy::new(|| Mutex::new(MockObjects::default()));
 
@@ -18,7 +17,7 @@ pub struct MockLocator<'a, I, O, B> {
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
     I: Clone + PartialEq + Debug + Send + 'static,
-    O: Default + 'static,
+    O: Clone + Send + 'static,
     B: Into<Behavior<I, O>>,
 {
     pub fn behaves<T: Into<B>>(&self, behavior: T) {
@@ -32,12 +31,26 @@ where
             .behaves_when(matcher, behavior.into());
     }
 
-    pub fn assert_called_with<M: Into<Matcher<I>> + std::fmt::Debug>(&self, matcher: M) {
+    pub fn returns(&self, ret: O) {
+        let mut lock = MOCK_DATA.lock();
+        self.get_mut_or_default(&mut lock).returns(ret);
+    }
+
+    pub fn returns_when<M: Into<Matcher<I>>>(&self, matcher: M, ret: O) {
+        let mut lock = MOCK_DATA.lock();
+        self.get_mut_or_default(&mut lock)
+            .returns_when(matcher, ret);
+    }
+
+    pub fn assert_called_with<M: Into<Matcher<I>> + std::fmt::Debug>(
+        &self,
+        matcher: M,
+    ) -> MockResult<I> {
         let lock = MOCK_DATA.lock();
         self.get_or_error(&lock).assert_called_with(matcher)
     }
 
-    pub fn assert_called(&self) {
+    pub fn assert_called(&self) -> MockResult<I> {
         let lock = MOCK_DATA.lock();
         self.get_or_error(&lock).assert_called()
     }
