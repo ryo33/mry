@@ -9,7 +9,6 @@ use type_name::*;
 #[derive(Default)]
 struct TypeParameterVisitor(Vec<String>);
 
-// TODO does not work
 impl<'mryst> Visit<'mryst> for TypeParameterVisitor {
     fn visit_path_segment(&mut self, path_seg: &'mryst syn::PathSegment) {
         self.visit_path_arguments(&path_seg.arguments);
