@@ -1,15 +1,14 @@
 #[mry::mry]
 #[async_trait::async_trait]
 pub trait Cat {
-    async fn meow(&self, count: usize) -> String;
+    async fn meow(&self, count: usize) -> &'static str;
 }
 
 #[async_std::test]
-async fn with_mock() {
+async fn meow_called() {
     let mut cat = MockCat::default();
 
-    cat.mock_meow()
-        .behaves(|count| format!("Called with {}", count));
+    cat.mock_meow().returns("Called");
 
-    assert_eq!(cat.meow(2).await, "Called with 2".to_string());
+    assert_eq!(cat.meow(2).await, "Called");
 }
