@@ -98,20 +98,7 @@ cat.mock_meow().returns("meow".into());
 assert_eq!(cat.meow(2), "Called with 2".to_string());
 ```
 
-## async_trait
-
-Add `#[mry::mry]` with the async_trait attribute underneath.
-
-```rust
-#[mry::mry]
-#[async_trait::async_trait]
-pub trait Cat {
-    async fn meow(&self, count: usize) -> String;
-}
-```
-
 Or you can mock a trait by manually creating a mock struct.
-The only major limitation is that we cannot use `Option<Self::Item>` instead of `Option<u8>`, because the type is used to implement `mock_next` outside of this trait implementation.
 
 ```rust
 #[mry::mry]
@@ -126,6 +113,20 @@ impl Iterator for MockIterator {
     fn next(&mut self) -> Option<u8> {
         todo!()
     }
+}
+```
+
+***Needs pull request***: The only major limitation is that we cannot use `Option<Self::Item>` instead of `Option<u8>`, because the type is used to implement `mock_next` outside of this trait implementation (`Option<<Self as Iterator>::Item>` is allowed).
+
+## async_trait
+
+Add `#[mry::mry]` with the async_trait attribute underneath.
+
+```rust
+#[mry::mry]
+#[async_trait::async_trait]
+pub trait Cat {
+    async fn meow(&self, count: usize) -> String;
 }
 ```
 
