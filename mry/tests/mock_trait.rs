@@ -8,7 +8,7 @@ pub trait Cat {
 
 #[test]
 fn respects_default() {
-    let cat = MryCat::default();
+    let cat = MockCat::default();
 
     assert_eq!(cat.meow_default(2), "meowmeow".to_string());
 }
@@ -16,14 +16,14 @@ fn respects_default() {
 #[test]
 #[should_panic(expected = "mock not found for Cat")]
 fn no_mock() {
-    let cat = MryCat::default();
+    let cat = MockCat::default();
 
     cat.meow(2);
 }
 
 #[test]
 fn with_mock() {
-    let mut cat = MryCat::default();
+    let mut cat = MockCat::default();
 
     cat.mock_meow()
         .behaves(|count| format!("Called with {}", count));

@@ -25,6 +25,13 @@ impl Cat {
         format!("{}: {}", self.name, "meow".repeat(count))
     }
 }
+
+#[mry::mry] // Also mocking of impl trait is supported!
+impl Into<&'static str> for Cat {
+    fn into(self) -> &'static str {
+        self.name
+    }
+}
 ```
 
 `#[mry::mry]` adds a visible but ghostly field `mry` to your struct, so your struct must be constructed by the following ways.
@@ -79,16 +86,47 @@ pub trait Cat {
 }
 ```
 
-Now you can use `MryCat` as a mock object.
+Now you can use `MockCat` as a mock object.
 
 ```rust
 // You can construct it by Default trait
-let mut cat = MryCat::default();
+let mut cat = MockCat::default();
 
 // API's are the same as struct mock
 cat.mock_meow().returns("meow".into());
 
 assert_eq!(cat.meow(2), "Called with 2".to_string());
+```
+
+## async_trait
+
+Add `#[mry::mry]` with the async_trait attribute underneath.
+
+```rust
+#[mry::mry]
+#[async_trait::async_trait]
+pub trait Cat {
+    async fn meow(&self, count: usize) -> String;
+}
+```
+
+Or you can mock a trait by manually creating a mock struct.
+The only major limitation is that we cannot use `Option<Self::Item>` instead of `Option<u8>`, because the type is used to implement `mock_next` outside of this trait implementation.
+
+```rust
+#[mry::mry]
+#[derive(Default)]
+struct MockIterator {
+}
+
+#[mry::mry]
+impl Iterator for MockIterator {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<u8> {
+        todo!()
+    }
+}
 ```
 
 ## Rust Analyzer

@@ -27,18 +27,23 @@ pub(crate) fn transform(input: &ItemStruct) -> TokenStream {
         .collect::<Vec<_>>();
     let mry_struct_name = Ident::new(&format!("Mry{}", struct_name), Span::call_site());
     let generics = &input.generics;
+    let comma_for_fields = if struct_field_names.is_empty() {
+        None
+    } else {
+        Some(quote![,])
+    };
 
     quote! {
         #(#attrs)*
         #vis struct #struct_name #generics {
-            #(#struct_fields),*,
+            #(#struct_fields),*#comma_for_fields
             #[cfg(test)]
             pub mry: mry::Mry,
         }
 
         #(#attrs)*
         #vis struct #mry_struct_name #generics {
-            #(#struct_fields),*,
+            #(#struct_fields),*#comma_for_fields
         }
         impl #generics #mry_struct_name #generics {
             pub fn mry(self) -> #struct_name #generics {
@@ -49,7 +54,7 @@ pub(crate) fn transform(input: &ItemStruct) -> TokenStream {
         impl #generics From<#mry_struct_name #generics> for #struct_name #generics {
             fn from(#mry_struct_name {#(#struct_field_names),*}: #mry_struct_name #generics) -> Self {
                 #struct_name {
-                    #(#struct_field_names),*,
+                    #(#struct_field_names),*#comma_for_fields
                     #[cfg(test)]
                     mry: Default::default(),
                 }
@@ -226,6 +231,43 @@ mod test {
                     fn from (MryCat { name }: MryCat<'a, A>) -> Self {
                         Cat {
                             name,
+                            #[cfg(test)] mry: Default::default(),
+                        }
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn support_blank_struct() {
+        let input: ItemStruct = parse2(quote! {
+            struct Cat {
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&input).to_string(),
+            quote! {
+                struct Cat {
+                    #[cfg(test)]
+                    pub mry : mry::Mry,
+                }
+
+                struct MryCat {
+                }
+
+                impl MryCat {
+                    pub fn mry(self) -> Cat {
+                        self.into()
+                    }
+                }
+
+                impl From<MryCat> for Cat {
+                    fn from (MryCat { }: MryCat) -> Self {
+                        Cat {
                             #[cfg(test)] mry: Default::default(),
                         }
                     }
