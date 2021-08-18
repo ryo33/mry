@@ -34,7 +34,7 @@ impl Into<&'static str> for Cat {
 }
 ```
 
-`#[mry::mry]` adds a visible but ghostly field `mry` to your struct, so your struct must be constructed by the following ways.
+`#[mry::mry]` adds a visible but ghostly field `mry`  your struct, so your struct must be constructed by the following ways.
 
 ```rust
 // An easy way
