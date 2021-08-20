@@ -9,6 +9,12 @@ Super simple mocking library that supports **structs** and **traits**.
 
 Issues and pull requests are welcome!
 
+## Features
+
+* Completely no need of switching a mock object and a real object such as in a way using `#[cfg(test)]`.
+* Supports mocking for `impl for YourStruct`, `impl SomeTrait for YourStruct`, and `trait YourTrait`.
+* Supports partial mocking.
+
 ## Mocking a struct
 
 We need to add an attribute `#[mry::mry]` in the front of struct definition and impl block to mock them.
@@ -75,6 +81,38 @@ cat.mock_meow().assert_called_with().times(1); // exactly called 1 time
 cat.mock_meow().assert_called().times_within(0..100); // or within the range
 ```
 
+## Partial mocks
+
+You can do partial mocking with using `calls_real_impl()`.
+
+```rust
+#[mry::mry]
+impl Cat {
+    fn meow(&self, count: usize) -> String {
+        self.meow_single().repeat(count)
+    }
+
+    fn meow_single(&self) -> String {
+        "meow".into()
+    }
+}
+
+#[test]
+fn partial_mock() {
+    let mut cat: Cat = Cat {
+        name: "Tama".into(),
+        ..Default::default()
+    };
+
+    cat.mock_meow_single().returns("hello".to_string());
+
+    cat.mock_meow().calls_real_impl();
+
+    // not "meowmeow"
+    assert_eq!(cat.meow(2), "hellohello".to_string());
+}
+```
+
 ## Mocking a trait
 
 Just add `#[mry::mry]` as we did with mocking a struct,
@@ -115,8 +153,6 @@ impl Iterator for MockIterator {
     }
 }
 ```
-
-***Needs pull request***: The only major limitation is that we cannot use `Option<Self::Item>` instead of `Option<u8>`, because the type is used to implement `mock_next` outside of this trait implementation (`Option<<Self as Iterator>::Item>` is allowed).
 
 ## async_trait
 
