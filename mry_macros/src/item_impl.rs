@@ -2,23 +2,69 @@ use crate::{method, type_name::*};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
-use syn::{ImplItem, ItemImpl};
+use syn::visit_mut::VisitMut;
+use syn::{parse2, Ident, ImplItem, ItemImpl, Path};
 
 #[derive(Default)]
 struct TypeParameterVisitor(Vec<String>);
 
-impl<'mryst> Visit<'mryst> for TypeParameterVisitor {
-    fn visit_path_segment(&mut self, path_seg: &'mryst syn::PathSegment) {
+impl<'ast> Visit<'ast> for TypeParameterVisitor {
+    fn visit_path_segment(&mut self, path_seg: &'ast syn::PathSegment) {
         self.visit_path_arguments(&path_seg.arguments);
 
         self.0.push(path_seg.ident.to_string());
     }
-    fn visit_lifetime(&mut self, lifetime: &'mryst syn::Lifetime) {
+    fn visit_lifetime(&mut self, lifetime: &'ast syn::Lifetime) {
         self.0.push(lifetime.ident.to_string());
     }
 }
 
-pub(crate) fn transform(input: &ItemImpl) -> TokenStream {
+struct QualifiesAssociatedTypes(Path, Vec<Ident>);
+impl VisitMut for QualifiesAssociatedTypes {
+    fn visit_type_path_mut(&mut self, type_path: &mut syn::TypePath) {
+        type_path
+            .path
+            .segments
+            .iter_mut()
+            .for_each(|segment| self.visit_path_segment_mut(segment));
+        if let Some(ref mut qself) = &mut type_path.qself {
+            self.visit_qself_mut(qself);
+        } else {
+            let first_and_second: Vec<_> = type_path
+                .path
+                .segments
+                .clone()
+                .into_iter()
+                .take(2)
+                .collect();
+            if let (Some(first), Some(second)) = (first_and_second.get(0), first_and_second.get(1))
+            {
+                let trait_ = &self.0;
+                let trailing = type_path.path.segments.iter().skip(1);
+                if first.ident.to_string() == "Self" && self.1.contains(&second.ident) {
+                    *type_path = parse2(quote![<Self as #trait_>::#(#trailing)::*]).unwrap();
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn transform(input: &mut ItemImpl) -> TokenStream {
+    if let Some((_, path, _)) = input.trait_.clone() {
+        let ty = path.clone();
+        let associated_types: Vec<_> = input
+            .items
+            .iter()
+            .filter_map(|item| {
+                if let ImplItem::Type(associated_type) = item {
+                    Some(associated_type.ident.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        QualifiesAssociatedTypes(ty, associated_types).visit_item_impl_mut(input);
+    }
     let generics = &input.generics;
     let mut type_params = TypeParameterVisitor::default();
     type_params.visit_type(&input.self_ty);
@@ -51,6 +97,7 @@ pub(crate) fn transform(input: &ItemImpl) -> TokenStream {
         Some(trait_name) => format!("<{} as {}>", struct_name, trait_name),
         None => struct_name,
     };
+
     let (members, impl_members): (Vec<_>, Vec<_>) = input
         .items
         .iter()
@@ -96,7 +143,7 @@ mod test {
 
     #[test]
     fn keeps_attributes() {
-        let input: ItemImpl = parse2(quote! {
+        let mut input: ItemImpl = parse2(quote! {
             impl Cat {
                 #[meow]
                 #[meow]
@@ -108,7 +155,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform(&mut input).to_string(),
             quote! {
                 impl Cat {
                     #[meow]
@@ -149,7 +196,7 @@ mod test {
 
     #[test]
     fn support_generics() {
-        let input: ItemImpl = parse2(quote! {
+        let mut input: ItemImpl = parse2(quote! {
             impl<'a, A: Clone> Cat<'a, A> {
                 fn meow<'a, B>(&'a self, count: usize) -> B {
                     "meow".repeat(count)
@@ -159,7 +206,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform(&mut input).to_string(),
             quote! {
                 impl<'a, A: Clone> Cat<'a, A> {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
@@ -198,7 +245,7 @@ mod test {
 
     #[test]
     fn support_trait() {
-        let input: ItemImpl = parse2(quote! {
+        let mut input: ItemImpl = parse2(quote! {
             impl<A: Clone> Animal<A> for Cat {
                 fn name(&self) -> String {
                     self.name
@@ -208,7 +255,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform(&mut input).to_string(),
             quote! {
                 impl<A: Clone> Animal<A> for Cat {
                     fn name(&self, ) -> String {
@@ -236,6 +283,57 @@ mod test {
                         mry::MockLocator {
                             id: &self.mry,
                             name: "<Cat as Animal<A>>::name",
+                            _phantom: Default::default(),
+                        }
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn support_trait_with_associated_type() {
+        let mut input: ItemImpl = parse2(quote! {
+            impl Iterator for Cat {
+                type Item = String;
+                fn next(&self) -> Option<Self::Item> {
+                    Some(self.name)
+                }
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&mut input).to_string(),
+            quote! {
+                impl Iterator for Cat {
+                    type Item = String;
+                    fn next(&self, ) -> Option< <Self as Iterator>::Item> {
+                        #[cfg(test)]
+                        if self.mry.is_some() {
+                            if let Some(out) = mry::MOCK_DATA
+                                .lock()
+                                .get_mut_or_create::<(), Option< <Self as Iterator>::Item> >(&self.mry, "<Cat as Iterator>::next")
+                                ._inner_called(()) {
+                                return out;
+                            }
+                        }
+                        {
+                            Some(self.name)
+                        }
+                    }
+                }
+
+                impl Cat {
+                    #[cfg(test)]
+                    pub fn mock_next<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
+                        if self.mry.is_none() {
+                            self.mry = mry::Mry::generate();
+                        }
+                        mry::MockLocator {
+                            id: &self.mry,
+                            name: "<Cat as Iterator>::next",
                             _phantom: Default::default(),
                         }
                     }

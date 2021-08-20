@@ -7,7 +7,7 @@ mod new;
 mod type_name;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::visit::Visit;
+use syn::visit_mut::VisitMut;
 use syn::{parse, parse2, parse_macro_input, ExprStruct, ItemImpl, ItemStruct, ItemTrait};
 
 enum Target {
@@ -26,7 +26,7 @@ pub fn mry(_: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_m
         Ok(target) => {
             let token_stream = match target {
                 Target::ItemStruct(target) => item_struct::transform(&target),
-                Target::ItemImpl(target) => item_impl::transform(&target),
+                Target::ItemImpl(mut target) => item_impl::transform(&mut target),
                 Target::ItemTrait(target) => item_trait::transform(&target),
             };
             token_stream.into()
@@ -47,14 +47,14 @@ pub fn create_behaviors(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 struct M(TokenStream);
 
-impl<'ast> Visit<'ast> for M {
-    fn visit_item_trait(&mut self, i: &'ast ItemTrait) {
+impl VisitMut for M {
+    fn visit_item_trait_mut(&mut self, i: &mut ItemTrait) {
         item_trait::transform(i).to_tokens(&mut self.0)
     }
-    fn visit_item_struct(&mut self, i: &'ast ItemStruct) {
+    fn visit_item_struct_mut(&mut self, i: &mut ItemStruct) {
         item_struct::transform(i).to_tokens(&mut self.0)
     }
-    fn visit_item_impl(&mut self, i: &'ast ItemImpl) {
+    fn visit_item_impl_mut(&mut self, i: &mut ItemImpl) {
         item_impl::transform(i).to_tokens(&mut self.0)
     }
 }
@@ -62,6 +62,6 @@ impl<'ast> Visit<'ast> for M {
 #[proc_macro]
 pub fn m(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut m = M(TokenStream::default());
-    m.visit_file(&parse2(input.into()).unwrap());
+    m.visit_file_mut(&mut parse2(input.into()).unwrap());
     m.0.into()
 }

@@ -6,7 +6,7 @@ struct MyIterator {}
 impl Iterator for MyIterator {
     type Item = u8;
 
-    fn next(&mut self) -> Option<u8> {
+    fn next(&mut self) -> Option<Self::Item> {
         todo!()
     }
 }
