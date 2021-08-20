@@ -15,13 +15,13 @@ impl Cat {
 }
 
 #[test]
-fn meow_behaves() {
+fn meow_returns_with() {
     let mut cat: Cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
     cat.mock_meow()
-        .behaves(|base, count, string| format!("Called with {} {:?} {}", base, count, string));
+        .returns_with(|base, count, string| format!("Called with {} {:?} {}", base, count, string));
 
     assert_eq!(
         cat.meow("aaa", A(2), "bbb".into()),

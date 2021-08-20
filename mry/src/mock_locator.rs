@@ -20,15 +20,16 @@ where
     O: Clone + Send + 'static,
     B: Into<Behavior<I, O>>,
 {
-    pub fn behaves<T: Into<B>>(&self, behavior: T) {
-        let mut lock = MOCK_DATA.lock();
-        self.get_mut_or_default(&mut lock).behaves(behavior.into());
-    }
-
-    pub fn behaves_when<M: Into<Matcher<I>>, T: Into<B>>(&self, matcher: M, behavior: T) {
+    pub fn returns_with<T: Into<B>>(&self, behavior: T) {
         let mut lock = MOCK_DATA.lock();
         self.get_mut_or_default(&mut lock)
-            .behaves_when(matcher, behavior.into());
+            .returns_with(behavior.into());
+    }
+
+    pub fn returns_when_with<M: Into<Matcher<I>>, T: Into<B>>(&self, matcher: M, behavior: T) {
+        let mut lock = MOCK_DATA.lock();
+        self.get_mut_or_default(&mut lock)
+            .returns_when_with(matcher, behavior.into());
     }
 
     pub fn returns(&self, ret: O) {
@@ -47,17 +48,17 @@ where
         self.get_mut_or_default(&mut lock).calls_real_impl();
     }
 
-    pub fn assert_called_with<M: Into<Matcher<I>> + std::fmt::Debug>(
+    pub fn asserts_called_with<M: Into<Matcher<I>> + std::fmt::Debug>(
         &self,
         matcher: M,
     ) -> MockResult<I> {
         let lock = MOCK_DATA.lock();
-        self.get_or_error(&lock).assert_called_with(matcher)
+        self.get_or_error(&lock).asserts_called_with(matcher)
     }
 
-    pub fn assert_called(&self) -> MockResult<I> {
+    pub fn asserts_called(&self) -> MockResult<I> {
         let lock = MOCK_DATA.lock();
-        self.get_or_error(&lock).assert_called()
+        self.get_or_error(&lock).asserts_called()
     }
 
     fn get_mut_or_default(&self, lock: &'a mut MockObjects) -> &'a mut Mock<I, O> {

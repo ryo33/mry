@@ -47,79 +47,79 @@ fn mry_new() {
 }
 
 #[test]
-fn meow_behaves() {
+fn meow_returns_with() {
     let mut cat: Cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
     cat.mock_meow()
-        .behaves(|count| format!("Called with {}", count));
+        .returns_with(|count| format!("Called with {}", count));
 
     assert_eq!(cat.meow(2), "Called with 2".to_string());
 }
 
 #[test]
-fn assert_called_with() {
+fn asserts_called_with() {
     let mut cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
     cat.mock_meow()
-        .behaves(|count| format!("Called with {}", count));
+        .returns_with(|count| format!("Called with {}", count));
 
     cat.meow(2);
 
-    cat.mock_meow().assert_called_with(2);
+    cat.mock_meow().asserts_called_with(2);
 }
 
 #[test]
-fn assert_called() {
+fn asserts_called() {
     let mut cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
     cat.mock_meow()
-        .behaves(|count| format!("Called with {}", count));
+        .returns_with(|count| format!("Called with {}", count));
 
     cat.meow(2);
 
-    cat.mock_meow().assert_called();
+    cat.mock_meow().asserts_called();
 }
 
 #[test]
 #[should_panic]
-fn assert_called_with_fails() {
+fn asserts_called_with_fails() {
     let mut cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
     cat.mock_meow()
-        .behaves(|count| format!("Called with {}", count));
+        .returns_with(|count| format!("Called with {}", count));
 
     cat.meow(3);
 
-    cat.mock_meow().assert_called_with(2);
+    cat.mock_meow().asserts_called_with(2);
 }
 
 #[test]
-fn meow_behaves_when() {
+fn meow_returns_when_with() {
     let mut cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
     cat.mock_meow()
-        .behaves_when(3, |count| format!("Called with {}", count));
+        .returns_when_with(3, |count| format!("Called with {}", count));
 
     assert_eq!(cat.meow(3), "Called with 3".to_string())
 }
 
 #[test]
-fn just_meow_behaves() {
+fn just_meow_returns_with() {
     let mut cat: Cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_just_meow().behaves(|| "Called".into());
+    cat.mock_just_meow().returns_with(|| "Called".into());
 
     assert_eq!(cat.just_meow(), "Called".to_string());
 }
@@ -156,7 +156,7 @@ fn times() {
     cat.just_meow();
     cat.just_meow();
 
-    cat.mock_just_meow().assert_called().times(2);
+    cat.mock_just_meow().asserts_called().times(2);
 }
 
 #[test]
@@ -169,5 +169,5 @@ fn times_within() {
     cat.just_meow();
     cat.just_meow();
 
-    cat.mock_just_meow().assert_called().times_within(2..3);
+    cat.mock_just_meow().asserts_called().times_within(2..3);
 }

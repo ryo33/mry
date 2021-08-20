@@ -5,13 +5,11 @@
 [![Crates.io](https://img.shields.io/crates/v/mry)](https://crates.io/crates/mry)
 [![docs.rs](https://img.shields.io/docsrs/mry)](https://docs.rs/mry)
 
-Super simple mocking library that supports **structs** and **traits**.
-
-Issues and pull requests are welcome!
+A cfg-free mocking library for **structs** and **traits**, which supports **partial mocks**.
 
 ## Features
 
-* Completely no need of switching a mock object and a real object such as in a way using `#[cfg(test)]`.
+* No need of switching between mock objects and real objects such as the way using `#[cfg(test)]`.
 * Supports mocking for `impl for YourStruct`, `impl SomeTrait for YourStruct`, and `trait YourTrait`.
 * Supports partial mocking.
 
@@ -68,17 +66,17 @@ Now you can mock it.
 // mock it
 cat.mock_meow().returns("Called".into()); // the shortest
 cat.mock_meow().returns_when(3, format!("Called with 3")); // matches by value
-cat.mock_meow().behaves(|count| format!("Called with {}", count));
-cat.mock_meow().behaves_when(3, |count| format!("Called with {}", count)); // the longest
+cat.mock_meow().returns_with(|count| format!("Called with {}", count)); // return a dynamic value
+cat.mock_meow().returns_when_with(3, |count| format!("Called with {}", count)); // the longest
 
 // call it
 assert_eq!(cat.meow(2), "Called with 2".to_string());
 
 // assert it
-cat.mock_meow().assert_called(); // the shortest
-cat.mock_meow().assert_called_with(2); // matches by value
-cat.mock_meow().assert_called_with().times(1); // exactly called 1 time
-cat.mock_meow().assert_called().times_within(0..100); // or within the range
+cat.mock_meow().asserts_called(); // the shortest
+cat.mock_meow().asserts_called_with(2); // matches by value
+cat.mock_meow().asserts_called_with(2).times(1); // exactly called 1 time
+cat.mock_meow().asserts_called().times_within(0..100); // or within the range
 ```
 
 ## Partial mocks
@@ -124,7 +122,7 @@ pub trait Cat {
 }
 ```
 
-Now you can use `MockCat` as a mock object.
+Now we can use `MockCat` as a mock object.
 
 ```rust
 // You can construct it by Default trait
@@ -136,7 +134,8 @@ cat.mock_meow().returns("meow".into());
 assert_eq!(cat.meow(2), "Called with 2".to_string());
 ```
 
-Or you can mock a trait by manually creating a mock struct.
+Or we can mock a trait by manually creating a mock struct.
+If the trait has a generics or associated type, we need to use this way.
 
 ```rust
 #[mry::mry]
@@ -148,7 +147,7 @@ struct MockIterator {
 impl Iterator for MockIterator {
     type Item = u8;
 
-    fn next(&mut self) -> Option<u8> {
+    fn next(&mut self) -> Option<Self::Item> {
         todo!()
     }
 }

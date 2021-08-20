@@ -17,13 +17,13 @@ impl Cat {
 }
 
 #[async_std::test]
-async fn meow_behaves() {
+async fn meow_returns_with() {
     let mut cat: Cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
     cat.mock_meow()
-        .behaves(|count| format!("Called with {}", count));
+        .returns_with(|count| format!("Called with {}", count));
 
     assert_eq!(cat.meow(2).await, "Called with 2".to_string());
 }

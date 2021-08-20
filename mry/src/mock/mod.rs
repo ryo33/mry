@@ -34,14 +34,14 @@ impl<I, O> Mock<I, O> {
 }
 
 impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
-    pub(crate) fn behaves<B: Into<Behavior<I, O>>>(&mut self, behavior: B) {
+    pub(crate) fn returns_with<B: Into<Behavior<I, O>>>(&mut self, behavior: B) {
         self.rules.push(Rule {
             matcher: Matcher::Always,
             behavior: behavior.into(),
         });
     }
 
-    pub(crate) fn behaves_when<M: Into<Matcher<I>>, B: Into<Behavior<I, O>>>(
+    pub(crate) fn returns_when_with<M: Into<Matcher<I>>, B: Into<Behavior<I, O>>>(
         &mut self,
         matcher: M,
         behavior: B,
@@ -70,9 +70,9 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
         self.calls_real_impl = CallsRealImpl::Yes;
     }
 
-    pub(crate) fn assert_called_with<T: Into<Matcher<I>>>(&self, matcher: T) -> MockResult<I> {
+    pub(crate) fn asserts_called_with<T: Into<Matcher<I>>>(&self, matcher: T) -> MockResult<I> {
         let matcher = matcher.into();
-        let logs = self.handle_assert_called(&matcher, || {
+        let logs = self.handle_asserts_called(&matcher, || {
             panic!("{} was not called with {:?}", self.name, matcher)
         });
         MockResult {
@@ -80,16 +80,16 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
             logs,
         }
     }
-    pub(crate) fn assert_called(&self) -> MockResult<I> {
+    pub(crate) fn asserts_called(&self) -> MockResult<I> {
         let logs =
-            self.handle_assert_called(&Matcher::Always, || panic!("{} was not called", self.name));
+            self.handle_asserts_called(&Matcher::Always, || panic!("{} was not called", self.name));
         MockResult {
             name: self.name,
             logs,
         }
     }
 
-    fn handle_assert_called(&self, matcher: &Matcher<I>, f: impl FnOnce()) -> Logs<I> {
+    fn handle_asserts_called(&self, matcher: &Matcher<I>, f: impl FnOnce()) -> Logs<I> {
         let logs = self.logs.lock().filter_matches(matcher);
         if logs.is_empty() {
             f();
@@ -117,9 +117,9 @@ mod test {
     use crate::Behavior1;
 
     #[test]
-    fn behaves() {
+    fn returns_with() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves(Behavior1::from(|a| "a".repeat(a)));
+        mock.returns_with(Behavior1::from(|a| "a".repeat(a)));
 
         assert_eq!(mock._inner_called(3), "aaa".to_string().into());
     }
@@ -134,17 +134,17 @@ mod test {
 
     #[test]
     #[should_panic(expected = "mock not found for a")]
-    fn behaves_when_never() {
+    fn returns_when_with_never() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Never, Behavior1::from(|a| "a".repeat(a)));
+        mock.returns_when_with(Matcher::Never, Behavior1::from(|a| "a".repeat(a)));
 
         mock._inner_called(3);
     }
 
     #[test]
-    fn behaves_when_always() {
+    fn returns_when_with_always() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
+        mock.returns_when_with(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         assert_eq!(mock._inner_called(3), "aaa".to_string().into());
     }
@@ -175,54 +175,54 @@ mod test {
     }
 
     #[test]
-    fn assert_called_with() {
+    fn asserts_called_with() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
+        mock.returns_when_with(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         mock._inner_called(3);
 
-        mock.assert_called_with(3);
+        mock.asserts_called_with(3);
     }
 
     #[test]
     #[should_panic(expected = "a was not called")]
-    fn assert_called_with_panics() {
+    fn asserts_called_with_panics() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
+        mock.returns_when_with(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
-        mock.assert_called_with(3);
+        mock.asserts_called_with(3);
     }
 
     #[test]
-    fn assert_called() {
+    fn asserts_called() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
+        mock.returns_when_with(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         mock._inner_called(3);
 
-        mock.assert_called();
+        mock.asserts_called();
     }
 
     #[test]
     #[should_panic(expected = "a was not called")]
-    fn assert_called_panics() {
+    fn asserts_called_panics() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
+        mock.returns_when_with(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
-        mock.assert_called();
+        mock.asserts_called();
     }
 
     #[test]
-    fn assert_called_returns_logs() {
+    fn asserts_called_returns_logs() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
+        mock.returns_when_with(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         mock._inner_called(3);
         mock._inner_called(3);
         mock._inner_called(2);
 
         assert_eq!(
-            mock.assert_called(),
+            mock.asserts_called(),
             MockResult {
                 name: "a",
                 logs: Logs(vec![3, 3, 2]),
@@ -231,9 +231,9 @@ mod test {
     }
 
     #[test]
-    fn assert_called_with_returns_logs() {
+    fn asserts_called_with_returns_logs() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
+        mock.returns_when_with(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
         mock._inner_called(2);
         mock._inner_called(3);
@@ -241,7 +241,7 @@ mod test {
         mock._inner_called(2);
 
         assert_eq!(
-            mock.assert_called_with(2),
+            mock.asserts_called_with(2),
             MockResult {
                 name: "a",
                 logs: Logs(vec![2, 2]),
