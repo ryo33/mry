@@ -34,7 +34,7 @@ pub fn transform(
     let attrs = attrs.clone();
     let ident = sig.ident.clone();
     let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
-    let args_with_type: Vec<_> = inputs
+    let args: Vec<_> = inputs
         .iter()
         .enumerate()
         .map(|(i, input)| {
@@ -57,7 +57,7 @@ pub fn transform(
             }
         })
         .collect();
-    let derefed_input_type_tuple: Vec<_> = args_with_type
+    let derefed_input_type_tuple: Vec<_> = args
         .iter()
         .map(|input| {
             if is_str(&input.ty) {
@@ -73,20 +73,14 @@ pub fn transform(
             ty
         })
         .collect();
-    let derefed_input: Vec<_> = args_with_type
+    let cloned_input: Vec<_> = args
         .iter()
         .map(|input| {
             let pat = &input.pat;
             if is_str(&input.ty) {
                 return quote!(#pat.to_string());
             }
-            let input = match &*input.ty {
-                Type::Reference(_ty) => {
-                    quote!(*#pat)
-                }
-                _ => quote!(#pat),
-            };
-            input
+            quote!(#pat.clone())
         })
         .collect();
     let output_type = match &sig.output {
@@ -96,9 +90,9 @@ pub fn transform(
     let asyn = &sig.asyncness;
     let vis = &vis;
     let name = format!("{}::{}", struct_name, ident.to_string());
-    let args_with_type = quote!(#(#args_with_type),*);
+    let args = quote!(#(#args),*);
     let input_type_tuple = quote!((#(#derefed_input_type_tuple),*));
-    let derefed_input_tuple = quote!((#(#derefed_input),*));
+    let cloned_input_tuple = quote!((#(#cloned_input),*));
     let bindings = bindings.iter().map(|(pat, arg)| quote![let #pat = #arg;]);
     let behavior_name = Ident::new(&format!("Behavior{}", inputs.len()), Span::call_site());
     let behavior_type = quote! {
@@ -107,13 +101,15 @@ pub fn transform(
     (
         quote! {
             #(#attrs)*
-            #vis #asyn fn #ident #generics(#receiver, #args_with_type) -> #output_type {
+            #vis #asyn fn #ident #generics(#receiver, #args) -> #output_type {
                 #[cfg(test)]
                 if self.mry.is_some() {
-                    return mry::MOCK_DATA
+                    if let Some(out) = mry::MOCK_DATA
                         .lock()
                         .get_mut_or_create::<#input_type_tuple, #output_type>(&self.mry, #name)
-                        ._inner_called(&#derefed_input_tuple);
+                        ._inner_called(#cloned_input_tuple) {
+                        return out;
+                    }
                 }
                 #(#bindings)*
                 #body
@@ -216,10 +212,12 @@ mod test {
                 fn meow(&self, count: usize) -> String {
                     #[cfg(test)]
                     if self.mry.is_some() {
-                        return mry::MOCK_DATA
+                        if let Some(out) = mry::MOCK_DATA
                             .lock()
                             .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                            ._inner_called(&(count));
+                            ._inner_called((count.clone())) {
+                            return out;
+                        }
                     }
                     {
                         "meow".repeat(count)
@@ -257,10 +255,12 @@ mod test {
                 fn meow(&self, ) -> String {
                     #[cfg(test)]
                     if self.mry.is_some() {
-                        return mry::MOCK_DATA
+                        if let Some(out) = mry::MOCK_DATA
                             .lock()
                             .get_mut_or_create::<(), String>(&self.mry, "Cat::meow")
-                            ._inner_called(&());
+                            ._inner_called(()) {
+                            return out;
+                        }
                     }
                     {
                         "meow".into()
@@ -298,10 +298,12 @@ mod test {
                 fn meow(&self, base: String, count: usize) -> String {
                     #[cfg(test)]
                     if self.mry.is_some() {
-                        return mry::MOCK_DATA
+                        if let Some(out) = mry::MOCK_DATA
                             .lock()
                             .get_mut_or_create::<(String, usize), String>(&self.mry, "Cat::meow")
-                            ._inner_called(&(base, count));
+                            ._inner_called((base.clone(), count.clone())) {
+                            return out;
+                        }
                     }
                     {
                         base.repeat(count)
@@ -339,10 +341,12 @@ mod test {
                 fn meow(&self, out: &'static mut String, base: &str, count: &usize) -> () {
                     #[cfg(test)]
                     if self.mry.is_some() {
-                        return mry::MOCK_DATA
+                        if let Some(out) = mry::MOCK_DATA
                             .lock()
                             .get_mut_or_create::<(String, String, usize), ()>(&self.mry, "Cat::meow")
-                            ._inner_called(&(*out, base.to_string(), *count));
+                            ._inner_called((out.clone(), base.to_string(), count.clone())) {
+                            return out;
+                        }
                     }
                     {
                         *out = base.repeat(count);
@@ -380,10 +384,12 @@ mod test {
                 async fn meow(&self, count: usize) -> String{
                     #[cfg(test)]
                     if self.mry.is_some() {
-                        return mry::MOCK_DATA
+                        if let Some(out) = mry::MOCK_DATA
                             .lock()
                             .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                            ._inner_called(&(count));
+                            ._inner_called((count.clone())) {
+                            return out;
+                        }
                     }
                     {
                         base().await.repeat(count);
@@ -421,10 +427,12 @@ mod test {
 				fn meow(&self, arg0: A, count: usize, arg2: String) -> String {
                     #[cfg(test)]
                     if self.mry.is_some() {
-                        return mry::MOCK_DATA
+                        if let Some(out) = mry::MOCK_DATA
                             .lock()
                             .get_mut_or_create::<(A, usize, String), String>(&self.mry, "Cat::meow")
-                            ._inner_called(&(arg0, count, arg2));
+                            ._inner_called((arg0.clone(), count.clone(), arg2.clone())) {
+                            return out;
+                        }
                     }
 					let A { name } = arg0;
 					let _ = arg2;
@@ -464,10 +472,12 @@ mod test {
                 pub fn meow(&self, count: usize) -> String {
                     #[cfg(test)]
                     if self.mry.is_some() {
-                        return mry::MOCK_DATA
+                        if let Some(out) = mry::MOCK_DATA
                             .lock()
                             .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                            ._inner_called(&(count));
+                            ._inner_called((count.clone())) {
+                            return out;
+                        }
                     }
                     {
                         "meow".repeat(count)

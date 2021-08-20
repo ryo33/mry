@@ -1,5 +1,5 @@
 #[mry::mry]
-#[derive(Default, PartialEq)]
+#[derive(Default)]
 struct Cat<'a> {
     name: &'a str,
 }

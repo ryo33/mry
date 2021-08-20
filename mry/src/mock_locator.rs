@@ -42,6 +42,11 @@ where
             .returns_when(matcher, ret);
     }
 
+    pub fn calls_real_impl(&self) {
+        let mut lock = MOCK_DATA.lock();
+        self.get_mut_or_default(&mut lock).calls_real_impl();
+    }
+
     pub fn assert_called_with<M: Into<Matcher<I>> + std::fmt::Debug>(
         &self,
         matcher: M,

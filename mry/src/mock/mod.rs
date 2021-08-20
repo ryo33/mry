@@ -9,8 +9,15 @@ use parking_lot::Mutex;
 
 use crate::{Behavior, Matcher, Rule};
 
+#[derive(PartialEq)]
+pub enum CallsRealImpl {
+    Yes,
+    No,
+}
+
 pub struct Mock<I, O> {
     pub name: &'static str,
+    calls_real_impl: CallsRealImpl,
     logs: Mutex<Logs<I>>,
     rules: Vec<Rule<I, O>>,
 }
@@ -19,6 +26,7 @@ impl<I, O> Mock<I, O> {
     pub fn new(name: &'static str) -> Self {
         Self {
             name,
+            calls_real_impl: CallsRealImpl::No,
             logs: Default::default(),
             rules: Default::default(),
         }
@@ -57,6 +65,11 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
             behavior: Behavior::Const(ret),
         });
     }
+
+    pub(crate) fn calls_real_impl(&mut self) {
+        self.calls_real_impl = CallsRealImpl::Yes;
+    }
+
     pub(crate) fn assert_called_with<T: Into<Matcher<I>>>(&self, matcher: T) -> MockResult<I> {
         let matcher = matcher.into();
         let logs = self.handle_assert_called(&matcher, || {
@@ -84,12 +97,15 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
         logs
     }
 
-    pub fn _inner_called(&mut self, input: &I) -> O {
+    pub fn _inner_called(&mut self, input: I) -> Option<O> {
         self.logs.lock().push(input.clone());
         for rule in &mut self.rules {
-            if let Some(output) = rule.called(input) {
-                return output;
+            if let Some(output) = rule.called(&input) {
+                return Some(output);
             }
+        }
+        if self.calls_real_impl == CallsRealImpl::Yes {
+            return None;
         }
         panic!("mock not found for {}", self.name);
     }
@@ -105,7 +121,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.behaves(Behavior1::from(|a| "a".repeat(a)));
 
-        assert_eq!(mock._inner_called(&3), "aaa".to_string());
+        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
     }
 
     #[test]
@@ -113,7 +129,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns("a".repeat(3));
 
-        assert_eq!(mock._inner_called(&3), "aaa".to_string());
+        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
     }
 
     #[test]
@@ -122,7 +138,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.behaves_when(Matcher::Never, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(&3);
+        mock._inner_called(3);
     }
 
     #[test]
@@ -130,7 +146,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
-        assert_eq!(mock._inner_called(&3), "aaa".to_string());
+        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
     }
 
     #[test]
@@ -139,7 +155,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_when(Matcher::Never, "a".repeat(3));
 
-        assert_eq!(mock._inner_called(&3), "aaa".to_string());
+        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
     }
 
     #[test]
@@ -147,7 +163,15 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_when(Matcher::Always, "a".repeat(3));
 
-        assert_eq!(mock._inner_called(&3), "aaa".to_string());
+        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
+    }
+
+    #[test]
+    fn calls_real_impl() {
+        let mut mock = Mock::<usize, String>::new("a");
+        mock.calls_real_impl();
+
+        assert_eq!(mock._inner_called(3), None);
     }
 
     #[test]
@@ -155,7 +179,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(&3);
+        mock._inner_called(3);
 
         mock.assert_called_with(3);
     }
@@ -174,7 +198,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(&3);
+        mock._inner_called(3);
 
         mock.assert_called();
     }
@@ -193,9 +217,9 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(&3);
-        mock._inner_called(&3);
-        mock._inner_called(&2);
+        mock._inner_called(3);
+        mock._inner_called(3);
+        mock._inner_called(2);
 
         assert_eq!(
             mock.assert_called(),
@@ -211,10 +235,10 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.behaves_when(Matcher::Always, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(&2);
-        mock._inner_called(&3);
-        mock._inner_called(&3);
-        mock._inner_called(&2);
+        mock._inner_called(2);
+        mock._inner_called(3);
+        mock._inner_called(3);
+        mock._inner_called(2);
 
         assert_eq!(
             mock.assert_called_with(2),

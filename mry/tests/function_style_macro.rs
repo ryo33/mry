@@ -1,5 +1,5 @@
 mry::m! {
-    #[derive(Default, PartialEq)]
+    #[derive(Default)]
     struct Cat {
         name: String,
     }

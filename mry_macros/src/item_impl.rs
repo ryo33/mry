@@ -116,10 +116,12 @@ mod test {
                     fn meow(#[a] &self, #[b] count: usize) -> String {
                         #[cfg(test)]
                         if self.mry.is_some() {
-                            return mry::MOCK_DATA
+                            if let Some(out) = mry::MOCK_DATA
                                 .lock()
                                 .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                                ._inner_called(&(count));
+                                ._inner_called((count.clone())) {
+                                return out;
+                            }
                         }
                         {
                             "meow".repeat(count)
@@ -163,10 +165,12 @@ mod test {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
                         #[cfg(test)]
                         if self.mry.is_some() {
-                            return mry::MOCK_DATA
+                            if let Some(out) = mry::MOCK_DATA
                                 .lock()
                                 .get_mut_or_create::<(usize), B>(&self.mry, "Cat<'a, A>::meow")
-                                ._inner_called(&(count));
+                                ._inner_called((count.clone())) {
+                                return out;
+                            }
                         }
                         {
                             "meow".repeat(count)
@@ -210,10 +214,12 @@ mod test {
                     fn name(&self, ) -> String {
                         #[cfg(test)]
                         if self.mry.is_some() {
-                            return mry::MOCK_DATA
+                            if let Some(out) = mry::MOCK_DATA
                                 .lock()
                                 .get_mut_or_create::<(), String>(&self.mry, "<Cat as Animal<A>>::name")
-                                ._inner_called(&());
+                                ._inner_called(()) {
+                                return out;
+                            }
                         }
                         {
                             self.name

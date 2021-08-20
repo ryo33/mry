@@ -106,10 +106,12 @@ mod test {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(test)]
                         if self.mry.is_some() {
-                            return mry::MOCK_DATA
+                            if let Some(out) = mry::MOCK_DATA
                                 .lock()
                                 .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                                ._inner_called(&(count));
+                                ._inner_called((count.clone())) {
+                                return out;
+                            }
                         }
                         panic!("mock not found for Cat")
                     }
@@ -161,10 +163,12 @@ mod test {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(test)]
                         if self.mry.is_some() {
-                            return mry::MOCK_DATA
+                            if let Some(out) = mry::MOCK_DATA
                                 .lock()
                                 .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                                ._inner_called(&(count));
+                                ._inner_called((count.clone())) {
+                                return out;
+                            }
                         }
                         panic!("mock not found for Cat")
                     }
@@ -219,10 +223,12 @@ mod test {
                     async fn meow(&self, count: usize) -> String {
                         #[cfg(test)]
                         if self.mry.is_some() {
-                            return mry::MOCK_DATA
+                            if let Some(out) = mry::MOCK_DATA
                                 .lock()
                                 .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                                ._inner_called(&(count));
+                                ._inner_called((count.clone())) {
+                                return out;
+                            }
                         }
                         panic!("mock not found for Cat")
                     }

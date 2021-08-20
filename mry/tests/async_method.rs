@@ -3,7 +3,7 @@ use std::time::Duration;
 use async_std::task::sleep;
 
 #[mry::mry]
-#[derive(Default, PartialEq)]
+#[derive(Default)]
 struct Cat {
     name: String,
 }
