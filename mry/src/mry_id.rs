@@ -1,108 +1,89 @@
-use parking_lot::Mutex;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
-
-use once_cell::sync::Lazy;
+use std::sync::atomic::AtomicU16;
+use std::sync::Arc;
 
 use crate::MOCK_DATA;
 
-pub type InnerMry = u16;
-static ID: Lazy<Mutex<InnerMry>> = Lazy::new(|| Mutex::new(0));
-static CLONE_COUNT: Lazy<Mutex<HashMap<InnerMry, u8>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+#[derive(Debug, PartialEq, Eq, Default, Clone, Hash, PartialOrd, Ord)]
+pub struct Mry(Arc<InnerMry>);
 
-#[derive(Debug, Eq, Default)]
-pub struct Mry(pub(crate) Option<InnerMry>);
-
-impl PartialOrd for Mry {
-    fn partial_cmp(&self, _: &Self) -> Option<std::cmp::Ordering> {
-        Some(Ordering::Equal)
+impl Mry {
+    pub fn generate() -> Self {
+        let id = ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Self(Arc::new(InnerMry(Some(id))))
     }
-}
 
-impl Ord for Mry {
-    fn cmp(&self, _: &Self) -> std::cmp::Ordering {
-        Ordering::Equal
+    pub fn none() -> Self {
+        Self(Arc::new(InnerMry(None)))
+    }
+
+    pub(crate) fn some(value: u16) -> Self {
+        Self(Arc::new(InnerMry(Some(value))))
+    }
+
+    pub fn id(&self) -> Option<MryId> {
+        self.0 .0
     }
 }
 
 impl Deref for Mry {
-    type Target = Option<InnerMry>;
+    type Target = InnerMry;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for Mry {
+pub type MryId = u16;
+static ID: AtomicU16 = AtomicU16::new(0);
+
+#[derive(Debug, Eq, Default)]
+pub struct InnerMry(pub(crate) Option<MryId>);
+
+impl PartialOrd for InnerMry {
+    fn partial_cmp(&self, _: &Self) -> Option<std::cmp::Ordering> {
+        Some(Ordering::Equal)
+    }
+}
+
+impl Ord for InnerMry {
+    fn cmp(&self, _: &Self) -> std::cmp::Ordering {
+        Ordering::Equal
+    }
+}
+
+impl Deref for InnerMry {
+    type Target = Option<MryId>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for InnerMry {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl std::hash::Hash for Mry {
+impl std::hash::Hash for InnerMry {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (None as Option<InnerMry>).hash(state);
+        (None as Option<MryId>).hash(state);
     }
 }
 
-impl PartialEq for Mry {
+impl PartialEq for InnerMry {
     fn eq(&self, _: &Self) -> bool {
         true
     }
 }
 
-impl Mry {
-    pub fn generate() -> Self {
-        let mut id = ID.lock();
-        *id = *id + 1;
-        Self(Some(*id))
-    }
-
-    pub fn none() -> Self {
-        Self(None)
-    }
-
-    pub fn id(&self) -> Option<InnerMry> {
-        self.0
-    }
-}
-
-impl Drop for Mry {
+impl Drop for InnerMry {
     fn drop(&mut self) {
         if let Some(inner_id) = self.0 {
-            let clone_count;
-            // This block is needed to free CLONE_COUNT.lock()
-            {
-                let mut lock = CLONE_COUNT.lock();
-                let count = lock.get_mut(&inner_id);
-                clone_count = match count {
-                    Some(count) => {
-                        assert_ne!(*count, 0);
-                        *count = *count - 1;
-                        *count
-                    }
-                    None => 0,
-                };
-            }
-            if clone_count == 0 {
-                CLONE_COUNT.lock().remove(&inner_id);
-            }
-            if clone_count == 0 {
-                MOCK_DATA.lock().remove(inner_id);
-            }
+            MOCK_DATA.lock().remove(inner_id);
         }
-    }
-}
-
-impl Clone for Mry {
-    fn clone(&self) -> Self {
-        if let Some(id) = self.0 {
-            let mut lock = CLONE_COUNT.lock();
-            let count = lock.entry(id).or_insert(1);
-            *count = *count + 1;
-        }
-        Self(self.0.clone())
     }
 }
 
@@ -115,7 +96,7 @@ mod test {
 
     #[test]
     fn mry_unique() {
-        assert_ne!(Mry::generate().0, Mry::generate().0);
+        assert_ne!(Mry::generate().id(), Mry::generate().id());
     }
 
     #[test]
@@ -125,26 +106,26 @@ mod test {
 
     #[test]
     fn mry_always_equal() {
-        assert_eq!(Mry(Some(0)), Mry(Some(1)));
-        assert_eq!(Mry(Some(0)), Mry::none());
+        assert_eq!(Mry::some(0), Mry::some(1));
+        assert_eq!(Mry::some(0), Mry::none());
         assert_eq!(Mry::none(), Mry::none());
     }
 
     #[test]
     fn mry_always_equal_ord() {
-        assert_eq!(Mry(Some(0)).cmp(&Mry(Some(1))), Ordering::Equal);
-        assert_eq!(Mry(Some(0)).cmp(&Mry::none()), Ordering::Equal);
+        assert_eq!(Mry::some(0).cmp(&Mry::some(1)), Ordering::Equal);
+        assert_eq!(Mry::some(0).cmp(&Mry::none()), Ordering::Equal);
         assert_eq!(Mry::none().cmp(&Mry::none()), Ordering::Equal);
     }
 
     #[test]
     fn mry_always_equal_partial_ord() {
         assert_eq!(
-            Mry(Some(0)).partial_cmp(&Mry(Some(1))),
+            Mry::some(0).partial_cmp(&Mry::some(1)),
             Some(Ordering::Equal)
         );
         assert_eq!(
-            Mry(Some(0)).partial_cmp(&Mry::none()),
+            Mry::some(0).partial_cmp(&Mry::none()),
             Some(Ordering::Equal)
         );
         assert_eq!(Mry::none().partial_cmp(&Mry::none()), Some(Ordering::Equal));
@@ -153,8 +134,8 @@ mod test {
     #[test]
     fn mry_hash_returns_consistent_value() {
         let mut set = HashSet::new();
-        set.insert(Mry(Some(0)));
-        set.insert(Mry(Some(1)));
+        set.insert(Mry::some(0));
+        set.insert(Mry::some(1));
         set.insert(Mry::none());
         assert_eq!(set.len(), 1);
     }
@@ -168,17 +149,6 @@ mod test {
             MOCK_DATA.lock().insert(inner_id, "mock", 1);
         }
         assert!(!MOCK_DATA.lock().contains_key(inner_id));
-    }
-
-    #[test]
-    fn delete_clone_count_on_drop() {
-        let inner_id;
-        {
-            let id = Mry::generate().clone();
-            inner_id = id.0.unwrap();
-            assert!(CLONE_COUNT.lock().contains_key(&inner_id));
-        }
-        assert!(!CLONE_COUNT.lock().contains_key(&inner_id));
     }
 
     #[test]

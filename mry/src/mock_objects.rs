@@ -1,13 +1,13 @@
 use std::any::Any;
 use std::collections::HashMap;
 
-use crate::{InnerMry, Mock, Mry};
+use crate::{Mock, Mry, MryId};
 
 type HashMapMocks = HashMap<&'static str, Box<dyn Any + Send>>;
 
 #[derive(Default)]
 pub struct MockObjects {
-    mock_objects: HashMap<InnerMry, HashMapMocks>,
+    mock_objects: HashMap<MryId, HashMapMocks>,
 }
 
 impl MockObjects {
@@ -34,12 +34,12 @@ impl MockObjects {
             .unwrap()
     }
 
-    pub(crate) fn remove(&mut self, id: InnerMry) {
+    pub(crate) fn remove(&mut self, id: MryId) {
         self.mock_objects.remove(&id);
     }
 
     #[cfg(test)]
-    pub(crate) fn insert<T: Send + 'static>(&mut self, id: InnerMry, name: &'static str, item: T) {
+    pub(crate) fn insert<T: Send + 'static>(&mut self, id: MryId, name: &'static str, item: T) {
         self.mock_objects
             .entry(id)
             .or_default()
@@ -47,7 +47,7 @@ impl MockObjects {
     }
 
     #[cfg(test)]
-    pub(crate) fn contains_key(&mut self, id: InnerMry) -> bool {
+    pub(crate) fn contains_key(&mut self, id: MryId) -> bool {
         self.mock_objects.contains_key(&id)
     }
 }
