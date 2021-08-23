@@ -71,18 +71,24 @@ impl Mry {
 impl Drop for Mry {
     fn drop(&mut self) {
         if let Some(inner_id) = self.0 {
-            let mut lock = CLONE_COUNT.lock();
-            let count = lock.get_mut(&inner_id);
-            let count = match count {
-                Some(count) => {
-                    assert_ne!(*count, 0);
-                    *count = *count - 1;
-                    *count
-                }
-                None => 0,
-            };
-            if count == 0 {
-                lock.remove(&inner_id);
+            let clone_count;
+            // This block is needed to free CLONE_COUNT.lock()
+            {
+                let mut lock = CLONE_COUNT.lock();
+                let count = lock.get_mut(&inner_id);
+                clone_count = match count {
+                    Some(count) => {
+                        assert_ne!(*count, 0);
+                        *count = *count - 1;
+                        *count
+                    }
+                    None => 0,
+                };
+            }
+            if clone_count == 0 {
+                CLONE_COUNT.lock().remove(&inner_id);
+            }
+            if clone_count == 0 {
                 MOCK_DATA.lock().remove(inner_id);
             }
         }
