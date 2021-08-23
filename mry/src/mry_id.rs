@@ -82,7 +82,7 @@ impl PartialEq for InnerMry {
 impl Drop for InnerMry {
     fn drop(&mut self) {
         if let Some(inner_id) = self.0 {
-            MOCK_DATA.lock().remove(inner_id);
+            MOCK_DATA.remove(inner_id);
         }
     }
 }
@@ -146,9 +146,9 @@ mod test {
         {
             let id = Mry::generate();
             inner_id = id.0.unwrap();
-            MOCK_DATA.lock().insert(inner_id, "mock", 1);
+            MOCK_DATA.insert(inner_id, "mock", 1);
         }
-        assert!(!MOCK_DATA.lock().contains_key(inner_id));
+        assert!(!MOCK_DATA.contains_key(inner_id));
     }
 
     #[test]
@@ -163,8 +163,7 @@ mod test {
             let id = Mry::generate();
             inner_id = id.0.unwrap();
             {
-                let mut mock_data = MOCK_DATA.lock();
-                mock_data.insert(inner_id, "mock", "some");
+                MOCK_DATA.insert(inner_id, "mock", "some");
             }
             {
                 let cloned = id.clone();
@@ -173,10 +172,10 @@ mod test {
                     let b = id.clone();
                     println!("{:?}, {:?}", a.0, b.0);
                 }
-                assert!(MOCK_DATA.lock().contains_key(inner_id));
+                assert!(MOCK_DATA.contains_key(inner_id));
             }
-            assert!(MOCK_DATA.lock().contains_key(inner_id));
+            assert!(MOCK_DATA.contains_key(inner_id));
         }
-        assert!(!MOCK_DATA.lock().contains_key(inner_id));
+        assert!(!MOCK_DATA.contains_key(inner_id));
     }
 }
