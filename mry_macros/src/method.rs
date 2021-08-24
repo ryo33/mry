@@ -105,7 +105,9 @@ pub fn transform(
                 #[cfg(test)]
                 if self.mry.is_some() {
                     if let Some(out) = mry::MOCK_DATA
-                        .get_mut_or_create(&self.mry, #name, |mock: &mut mry::Mock<#input_type_tuple, #output_type>| mock._inner_called(#cloned_input_tuple)) {
+                        .lock()
+                        .get_mut_or_create::<#input_type_tuple, #output_type>(&self.mry, #name)
+                        ._inner_called(#cloned_input_tuple) {
                         return out;
                     }
                 }
