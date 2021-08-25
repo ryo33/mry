@@ -2,11 +2,11 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 
 use crate::{Behavior, Matcher, Mock, MockObjects, MockResult, Mry};
 
-pub static MOCK_DATA: Lazy<Mutex<MockObjects>> = Lazy::new(|| Mutex::new(MockObjects::default()));
+pub static MOCK_DATA: Lazy<RwLock<MockObjects>> = Lazy::new(|| RwLock::new(MockObjects::default()));
 
 pub struct MockLocator<'a, I, O, B> {
     pub id: &'a Mry,
@@ -16,35 +16,35 @@ pub struct MockLocator<'a, I, O, B> {
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Clone + PartialEq + Debug + Send + 'static,
-    O: Clone + Send + 'static,
+    I: Clone + PartialEq + Debug + Send + Sync + 'static,
+    O: Clone + Send + Sync + 'static,
     B: Into<Behavior<I, O>>,
 {
     pub fn returns_with<T: Into<B>>(&self, behavior: T) {
-        let mut lock = MOCK_DATA.lock();
+        let mut lock = MOCK_DATA.write();
         self.get_mut_or_default(&mut lock)
             .returns_with(behavior.into());
     }
 
     pub fn returns_when_with<M: Into<Matcher<I>>, T: Into<B>>(&self, matcher: M, behavior: T) {
-        let mut lock = MOCK_DATA.lock();
+        let mut lock = MOCK_DATA.write();
         self.get_mut_or_default(&mut lock)
             .returns_when_with(matcher, behavior.into());
     }
 
     pub fn returns(&self, ret: O) {
-        let mut lock = MOCK_DATA.lock();
+        let mut lock = MOCK_DATA.write();
         self.get_mut_or_default(&mut lock).returns(ret);
     }
 
     pub fn returns_when<M: Into<Matcher<I>>>(&self, matcher: M, ret: O) {
-        let mut lock = MOCK_DATA.lock();
+        let mut lock = MOCK_DATA.write();
         self.get_mut_or_default(&mut lock)
             .returns_when(matcher, ret);
     }
 
     pub fn calls_real_impl(&self) {
-        let mut lock = MOCK_DATA.lock();
+        let mut lock = MOCK_DATA.write();
         self.get_mut_or_default(&mut lock).calls_real_impl();
     }
 
@@ -52,12 +52,12 @@ where
         &self,
         matcher: M,
     ) -> MockResult<I> {
-        let lock = MOCK_DATA.lock();
+        let lock = MOCK_DATA.read();
         self.get_or_error(&lock).asserts_called_with(matcher)
     }
 
     pub fn asserts_called(&self) -> MockResult<I> {
-        let lock = MOCK_DATA.lock();
+        let lock = MOCK_DATA.read();
         self.get_or_error(&lock).asserts_called()
     }
 

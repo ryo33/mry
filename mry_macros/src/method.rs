@@ -103,9 +103,9 @@ pub fn transform(
             #(#attrs)*
             #vis #asyn fn #ident #generics(#receiver, #args) -> #output_type {
                 #[cfg(test)]
-                if self.mry.is_some() {
+                if self.mry.id().is_some() {
                     if let Some(out) = mry::MOCK_DATA
-                        .lock()
+                        .write()
                         .get_mut_or_create::<#input_type_tuple, #output_type>(&self.mry, #name)
                         ._inner_called(#cloned_input_tuple) {
                         return out;
@@ -118,7 +118,7 @@ pub fn transform(
         quote! {
             #[cfg(test)]
             pub fn #mock_ident<'mry>(&'mry mut self) -> mry::MockLocator<'mry, #input_type_tuple, #output_type, #behavior_type> {
-                if self.mry.is_none() {
+                if self.mry.id().is_none() {
                     self.mry = mry::Mry::generate();
                 }
                 mry::MockLocator {
@@ -211,9 +211,9 @@ mod test {
             quote! {
                 fn meow(&self, count: usize) -> String {
                     #[cfg(test)]
-                    if self.mry.is_some() {
+                    if self.mry.id().is_some() {
                         if let Some(out) = mry::MOCK_DATA
-                            .lock()
+                            .write()
                             .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
                             ._inner_called((count.clone())) {
                             return out;
@@ -226,7 +226,7 @@ mod test {
 
                 #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                    if self.mry.is_none() {
+                    if self.mry.id().is_none() {
                         self.mry = mry::Mry::generate();
                     }
                     mry::MockLocator {
@@ -254,9 +254,9 @@ mod test {
             quote! {
                 fn meow(&self, ) -> String {
                     #[cfg(test)]
-                    if self.mry.is_some() {
+                    if self.mry.id().is_some() {
                         if let Some(out) = mry::MOCK_DATA
-                            .lock()
+                            .write()
                             .get_mut_or_create::<(), String>(&self.mry, "Cat::meow")
                             ._inner_called(()) {
                             return out;
@@ -269,7 +269,7 @@ mod test {
 
                 #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
-                    if self.mry.is_none() {
+                    if self.mry.id().is_none() {
                         self.mry = mry::Mry::generate();
                     }
                     mry::MockLocator {
@@ -297,9 +297,9 @@ mod test {
             quote! {
                 fn meow(&self, base: String, count: usize) -> String {
                     #[cfg(test)]
-                    if self.mry.is_some() {
+                    if self.mry.id().is_some() {
                         if let Some(out) = mry::MOCK_DATA
-                            .lock()
+                            .write()
                             .get_mut_or_create::<(String, usize), String>(&self.mry, "Cat::meow")
                             ._inner_called((base.clone(), count.clone())) {
                             return out;
@@ -312,7 +312,7 @@ mod test {
 
                 #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (String, usize), String, mry::Behavior2<(String, usize), String> > {
-                    if self.mry.is_none() {
+                    if self.mry.id().is_none() {
                         self.mry = mry::Mry::generate();
                     }
                     mry::MockLocator {
@@ -340,9 +340,9 @@ mod test {
             quote! {
                 fn meow(&self, out: &'static mut String, base: &str, count: &usize) -> () {
                     #[cfg(test)]
-                    if self.mry.is_some() {
+                    if self.mry.id().is_some() {
                         if let Some(out) = mry::MOCK_DATA
-                            .lock()
+                            .write()
                             .get_mut_or_create::<(String, String, usize), ()>(&self.mry, "Cat::meow")
                             ._inner_called((out.clone(), base.to_string(), count.clone())) {
                             return out;
@@ -355,7 +355,7 @@ mod test {
 
                 #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
-                    if self.mry.is_none() {
+                    if self.mry.id().is_none() {
                         self.mry = mry::Mry::generate();
                     }
                     mry::MockLocator {
@@ -383,9 +383,9 @@ mod test {
             quote! {
                 async fn meow(&self, count: usize) -> String{
                     #[cfg(test)]
-                    if self.mry.is_some() {
+                    if self.mry.id().is_some() {
                         if let Some(out) = mry::MOCK_DATA
-                            .lock()
+                            .write()
                             .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
                             ._inner_called((count.clone())) {
                             return out;
@@ -398,7 +398,7 @@ mod test {
 
                 #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                    if self.mry.is_none() {
+                    if self.mry.id().is_none() {
                         self.mry = mry::Mry::generate();
                     }
                     mry::MockLocator {
@@ -426,9 +426,9 @@ mod test {
             quote! {
 				fn meow(&self, arg0: A, count: usize, arg2: String) -> String {
                     #[cfg(test)]
-                    if self.mry.is_some() {
+                    if self.mry.id().is_some() {
                         if let Some(out) = mry::MOCK_DATA
-                            .lock()
+                            .write()
                             .get_mut_or_create::<(A, usize, String), String>(&self.mry, "Cat::meow")
                             ._inner_called((arg0.clone(), count.clone(), arg2.clone())) {
                             return out;
@@ -443,7 +443,7 @@ mod test {
 
                 #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
-                    if self.mry.is_none() {
+                    if self.mry.id().is_none() {
                         self.mry = mry::Mry::generate();
                     }
                     mry::MockLocator {
@@ -471,9 +471,9 @@ mod test {
             quote! {
                 pub fn meow(&self, count: usize) -> String {
                     #[cfg(test)]
-                    if self.mry.is_some() {
+                    if self.mry.id().is_some() {
                         if let Some(out) = mry::MOCK_DATA
-                            .lock()
+                            .write()
                             .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
                             ._inner_called((count.clone())) {
                             return out;
@@ -486,7 +486,7 @@ mod test {
 
                 #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                    if self.mry.is_none() {
+                    if self.mry.id().is_none() {
                         self.mry = mry::Mry::generate();
                     }
                     mry::MockLocator {

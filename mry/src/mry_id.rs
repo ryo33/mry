@@ -5,33 +5,31 @@ use std::sync::Arc;
 
 use crate::MOCK_DATA;
 
-#[derive(Debug, PartialEq, Eq, Default, Clone, Hash, PartialOrd, Ord)]
-pub struct Mry(Arc<InnerMry>);
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord)]
+pub struct Mry(Option<Arc<InnerMry>>);
 
 impl Mry {
     pub fn generate() -> Self {
         let id = ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        Self(Arc::new(InnerMry(Some(id))))
+        Self(Some(Arc::new(InnerMry(Some(id)))))
     }
 
     pub fn none() -> Self {
-        Self(Arc::new(InnerMry(None)))
+        Self(Some(Arc::new(InnerMry(None))))
     }
 
     pub(crate) fn some(value: u16) -> Self {
-        Self(Arc::new(InnerMry(Some(value))))
+        Self(Some(Arc::new(InnerMry(Some(value)))))
     }
 
     pub fn id(&self) -> Option<MryId> {
-        self.0 .0
+        self.0.as_deref().and_then(|inner_mry| inner_mry.0)
     }
 }
 
-impl Deref for Mry {
-    type Target = InnerMry;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl Default for Mry {
+    fn default() -> Self {
+        Mry::none()
     }
 }
 
@@ -79,11 +77,19 @@ impl PartialEq for InnerMry {
     }
 }
 
-impl Drop for InnerMry {
+impl Drop for Mry {
     fn drop(&mut self) {
-        if let Some(inner_id) = self.0 {
-            MOCK_DATA.lock().remove(inner_id);
+        println!("drop");
+        if let Ok(InnerMry(Some(inner_id))) = Arc::try_unwrap(self.0.take().unwrap()) {
+            if let Some(mut lock) = MOCK_DATA.try_write() {
+                println!("start lock {}", inner_id);
+                lock.remove(inner_id);
+                println!("end lock {}", inner_id);
+            } else {
+                println!("leaked {}", inner_id);
+            }
         }
+        println!("droped");
     }
 }
 
@@ -101,7 +107,7 @@ mod test {
 
     #[test]
     fn mry_default_is_none() {
-        assert_eq!(Mry::default(), Mry::none());
+        assert_eq!(Mry::default().id(), Mry::none().id());
     }
 
     #[test]
@@ -145,10 +151,10 @@ mod test {
         let inner_id;
         {
             let id = Mry::generate();
-            inner_id = id.0.unwrap();
-            MOCK_DATA.lock().insert(inner_id, "mock", 1);
+            inner_id = id.id().unwrap();
+            MOCK_DATA.write().insert(inner_id, "mock", 1);
         }
-        assert!(!MOCK_DATA.lock().contains_key(inner_id));
+        assert!(!MOCK_DATA.read().contains_key(inner_id));
     }
 
     #[test]
@@ -161,9 +167,9 @@ mod test {
         let inner_id;
         {
             let id = Mry::generate();
-            inner_id = id.0.unwrap();
+            inner_id = id.id().unwrap();
             {
-                let mut mock_data = MOCK_DATA.lock();
+                let mut mock_data = MOCK_DATA.write();
                 mock_data.insert(inner_id, "mock", "some");
             }
             {
@@ -173,10 +179,22 @@ mod test {
                     let b = id.clone();
                     println!("{:?}, {:?}", a.0, b.0);
                 }
-                assert!(MOCK_DATA.lock().contains_key(inner_id));
+                assert!(MOCK_DATA.read().contains_key(inner_id));
             }
-            assert!(MOCK_DATA.lock().contains_key(inner_id));
+            assert!(MOCK_DATA.read().contains_key(inner_id));
         }
-        assert!(!MOCK_DATA.lock().contains_key(inner_id));
+        assert!(!MOCK_DATA.read().contains_key(inner_id));
+    }
+
+    #[test]
+    fn no_deadlock() {
+        let mry = Mry::generate();
+        println!("a");
+        MOCK_DATA.write().insert(mry.id().unwrap(), "mock", 1);
+        println!("b");
+        MOCK_DATA
+            .write()
+            .insert(Mry::generate().id().unwrap(), "mock", mry.clone());
+        println!("c");
     }
 }
