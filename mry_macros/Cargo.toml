@@ -19,4 +19,5 @@ syn = { version = "1.0", features = ["visit", "visit-mut", "full"] }
 proc-macro = true
 
 [dev-dependencies]
+pretty_assertions = "0.7.2"
 similar-asserts = "1.1"

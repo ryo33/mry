@@ -136,7 +136,7 @@ pub(crate) fn transform(input: &mut ItemImpl) -> TokenStream {
 
 #[cfg(test)]
 mod test {
-    use similar_asserts::assert_eq;
+    use pretty_assertions::assert_eq;
     use syn::parse2;
 
     use super::*;

@@ -65,11 +65,4 @@ mod test {
         let mut mock_data = Mocks::default();
         assert_eq!(mock_data.get_mut_or_create::<u8, u8>("meow").name, "meow");
     }
-
-    #[test]
-    fn remove() {
-        let mut mock_data = Mocks::default();
-        mock_data.insert("meow", 4u8);
-        assert_eq!(mock_data.get::<u8>("meow"), None);
-    }
 }

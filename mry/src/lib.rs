@@ -11,3 +11,4 @@ pub use mry::*;
 pub use mry_macros::*;
 pub use parking_lot::RwLockWriteGuard;
 pub use rule::*;
+pub use Matcher::Any;

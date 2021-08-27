@@ -40,14 +40,14 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
         behavior: B,
     ) {
         self.rules.push(Rule {
-            matcher: matcher,
+            matcher,
             behavior: behavior.into(),
         });
     }
 
     pub(crate) fn returns(&mut self, matcher: Matcher<I>, ret: O) {
         self.rules.push(Rule {
-            matcher: Matcher::Any,
+            matcher,
             behavior: Behavior::Const(ret),
         });
     }
@@ -130,7 +130,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns(Matcher::Never, "a".repeat(3));
 
-        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
+        mock._inner_called(3);
     }
 
     #[test]

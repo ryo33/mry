@@ -93,11 +93,6 @@ pub fn transform(
             (mock_arg, mock_arg_into)
         })
         .unzip();
-    let mock_args_trailing_comma = if mock_args.is_empty() {
-        Default::default()
-    } else {
-        quote!(,)
-    };
     (
         quote! {
             #(#attrs)*
@@ -119,7 +114,7 @@ pub fn transform(
                 mry::MockLocator {
                     mocks: self.mry.generate()._mocks.as_ref().unwrap().write(),
                     name: #name,
-                    matcher: Some((#(#mock_args_into),*#mock_args_trailing_comma).into()),
+                    matcher: Some((#(#mock_args_into,)*).into()),
                     _phantom: Default::default(),
                 }
             }
@@ -157,8 +152,8 @@ pub fn is_str(ty: &Type) -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
+    use pretty_assertions::assert_eq;
     use quote::{quote, ToTokens};
-    use similar_asserts::assert_eq;
     use syn::{parse2, ImplItemMethod};
 
     trait ToString {

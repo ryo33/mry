@@ -2,19 +2,26 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::Ident;
 
-pub fn create() -> TokenStream {
+pub fn for_each_alphabet(function: impl Fn(Vec<&str>) -> TokenStream) -> TokenStream {
     let alphabet = vec!["A", "B", "C", "D", "E", "F"];
-    let items = (0..=alphabet.len()).into_iter().map(|index| {
-        let type_names: Vec<_> = alphabet[0..index].iter().cloned().collect();
-        let types: Vec<_> = type_names
+    let item = (0..=alphabet.len())
+        .into_iter()
+        .map(|index| function(alphabet[0..index].iter().cloned().collect()));
+    quote![#(#item)*]
+}
+
+pub fn create() -> TokenStream {
+    for_each_alphabet(|args| {
+        let (args, types): (Vec<_>, Vec<_>) = args
             .iter()
-            .map(|name| Ident::new(name, Span::call_site()))
-            .collect();
-        let args: Vec<_> = type_names
-            .iter()
-            .map(|name| Ident::new(&name.to_lowercase(), Span::call_site()))
-            .collect();
-        let behavior_name = Ident::new(&format!("Behavior{}", index), Span::call_site());
+            .map(|name| {
+                (
+                    Ident::new(&name.to_lowercase(), Span::call_site()),
+                    Ident::new(name, Span::call_site()),
+                )
+            })
+            .unzip();
+        let behavior_name = Ident::new(&format!("Behavior{}", args.len()), Span::call_site());
         quote! {
             pub struct #behavior_name<I, O>(Box<dyn FnMut(I) -> O + Send + Sync + 'static>);
 
@@ -33,8 +40,5 @@ pub fn create() -> TokenStream {
                 }
             }
         }
-    });
-    quote! {
-        #(#items)*
-    }
+    })
 }

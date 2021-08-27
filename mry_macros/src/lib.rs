@@ -1,4 +1,5 @@
 mod create_behaviors;
+mod create_matchers;
 mod item_impl;
 mod item_struct;
 mod item_trait;
@@ -42,7 +43,12 @@ pub fn new(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 #[proc_macro]
 pub fn create_behaviors(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    proc_macro::TokenStream::from(create_behaviors::create())
+    create_behaviors::create().into()
+}
+
+#[proc_macro]
+pub fn create_matchers(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    create_matchers::create().into()
 }
 
 struct M(TokenStream);

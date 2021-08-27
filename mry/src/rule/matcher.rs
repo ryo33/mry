@@ -1,8 +1,8 @@
-#[derive(Debug, PartialEq)]
 pub enum Matcher<I> {
     Any,
     Never,
     Eq(I),
+    Fn(Box<dyn Fn(&I) -> bool + Send + Sync>),
 }
 
 impl<I: PartialEq> Matcher<I> {
@@ -34,71 +34,18 @@ impl<T: ToOwned> From<&T> for Matcher<T> {
     }
 }
 
-pub struct Matcher0();
-
-impl<I> Into<Matcher<I>> for Matcher0 {
-    fn into(self) -> Matcher<I> {
-        todo!()
-    }
-}
-
-impl<A> Into<Matcher<(A)>> for (Matcher<A>,) {
-    fn into(self) -> Matcher<(A)> {
-        todo!()
-    }
-}
-
-impl<A, B> Into<Matcher<(A, B)>> for (Matcher<A>, Matcher<B>) {
-    fn into(self) -> Matcher<(A, B)> {
-        todo!()
-    }
-}
-
-impl<A, B, C> Into<Matcher<(A, B, C)>> for (Matcher<A>, Matcher<B>, Matcher<C>) {
-    fn into(self) -> Matcher<(A, B, C)> {
-        todo!()
-    }
-}
-
-pub struct Any;
-
-impl<T> From<Any> for Matcher<T> {
-    fn from(_: Any) -> Self {
-        todo!()
-    }
-}
+mry_macros::create_matchers!();
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
-    fn into_matcher() {
-        let matcher: Matcher<u8> = 1.into();
-        assert_eq!(matcher, Matcher::Eq(1));
-    }
-
-    #[test]
-    fn always_returns_true() {
-        let matcher = Matcher::<u8>::Any;
-        assert!(matcher.matches(&3));
-    }
-
-    #[test]
-    fn never_returns_false() {
-        let matcher = Matcher::<u8>::Never;
-        assert!(!matcher.matches(&3));
-    }
-
-    #[test]
-    fn eq_returns_false() {
-        let matcher = Matcher::<u8>::Eq(2);
-        assert!(!matcher.matches(&3));
-    }
-
-    #[test]
-    fn eq_returns_true() {
-        let matcher = Matcher::<u8>::Eq(3);
-        assert!(matcher.matches(&3));
+    fn matcher_two_values() {
+        let matcher: Matcher<(u8, u16)> = (Matcher::Eq(3u8), Matcher::Eq(2u16)).into();
+        assert!(matcher.matches(&(3, 2)));
+        assert!(!matcher.matches(&(3, 1)));
+        assert!(!matcher.matches(&(1, 2)));
+        assert!(!matcher.matches(&(1, 1)));
     }
 }
