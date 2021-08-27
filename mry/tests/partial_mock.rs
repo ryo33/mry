@@ -24,7 +24,7 @@ fn partial_mock() {
 
     cat.mock_meow_single().returns("hello".to_string());
 
-    cat.mock_meow().calls_real_impl();
+    cat.mock_meow(2).calls_real_impl();
 
     assert_eq!(cat.meow(2), "hellohello".to_string());
 }

@@ -36,7 +36,7 @@ mod test {
     #[test]
     fn called_returns_some() {
         let mut rule: Rule<u8, u8> = Rule {
-            matcher: Matcher::Always,
+            matcher: Matcher::Any,
             behavior: Behavior1::from(|u| u + 1).into(),
         };
 

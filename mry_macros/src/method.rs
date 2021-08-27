@@ -29,11 +29,6 @@ pub fn transform(
         .collect();
     let mut bindings = Vec::new();
 
-    let generics = &sig.generics;
-    let body = &block;
-    let attrs = attrs.clone();
-    let ident = sig.ident.clone();
-    let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
     let args: Vec<_> = inputs
         .iter()
         .enumerate()
@@ -57,22 +52,8 @@ pub fn transform(
             }
         })
         .collect();
-    let derefed_input_type_tuple: Vec<_> = args
-        .iter()
-        .map(|input| {
-            if is_str(&input.ty) {
-                return quote!(String);
-            }
-            let ty = match &*input.ty {
-                Type::Reference(ty) => {
-                    let ty = &ty.elem;
-                    quote!(#ty)
-                }
-                ty => quote!(#ty),
-            };
-            ty
-        })
-        .collect();
+    let derefed_input_type_tuple: Vec<_> =
+        args.iter().map(|input| deref_type(&*input.ty)).collect();
     let cloned_input: Vec<_> = args
         .iter()
         .map(|input| {
@@ -87,6 +68,11 @@ pub fn transform(
         ReturnType::Default => quote!(()),
         ReturnType::Type(_, ty) => quote!(#ty),
     };
+    let generics = &sig.generics;
+    let body = &block;
+    let attrs = attrs.clone();
+    let ident = sig.ident.clone();
+    let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
     let asyn = &sig.asyncness;
     let vis = &vis;
     let name = format!("{}::{}", struct_name, ident.to_string());
@@ -95,18 +81,30 @@ pub fn transform(
     let cloned_input_tuple = quote!((#(#cloned_input),*));
     let bindings = bindings.iter().map(|(pat, arg)| quote![let #pat = #arg;]);
     let behavior_name = Ident::new(&format!("Behavior{}", inputs.len()), Span::call_site());
-    let behavior_type = quote! {
-        mry::#behavior_name<#input_type_tuple, #output_type>
+    let behavior_type = quote![mry::#behavior_name<#input_type_tuple, #output_type>];
+    let (mock_args, mock_args_into): (Vec<_>, Vec<_>) = inputs
+        .iter()
+        .enumerate()
+        .map(|(index, input)| {
+            let name = Ident::new(&format!("arg{}", index), Span::call_site());
+            let ty = deref_type(&*input.ty);
+            let mock_arg = quote![#name: impl Into<mry::Matcher<#ty>>];
+            let mock_arg_into = quote![#name.into()];
+            (mock_arg, mock_arg_into)
+        })
+        .unzip();
+    let mock_args_trailing_comma = if mock_args.is_empty() {
+        Default::default()
+    } else {
+        quote!(,)
     };
     (
         quote! {
             #(#attrs)*
             #vis #asyn fn #ident #generics(#receiver, #args) -> #output_type {
                 #[cfg(test)]
-                if self.mry.id().is_some() {
-                    if let Some(out) = mry::MOCK_DATA
-                        .write()
-                        .get_mut_or_create::<#input_type_tuple, #output_type>(&self.mry, #name)
+                if let Some(ref mocks) = self.mry._mocks {
+                    if let Some(out) = mocks.write().get_mut_or_create::<#input_type_tuple, #output_type>(#name)
                         ._inner_called(#cloned_input_tuple) {
                         return out;
                     }
@@ -117,18 +115,29 @@ pub fn transform(
         },
         quote! {
             #[cfg(test)]
-            pub fn #mock_ident<'mry>(&'mry mut self) -> mry::MockLocator<'mry, #input_type_tuple, #output_type, #behavior_type> {
-                if self.mry.id().is_none() {
-                    self.mry = mry::Mry::generate();
-                }
+            pub fn #mock_ident<'mry>(&'mry mut self, #(#mock_args),*) -> mry::MockLocator<impl std::ops::DerefMut<Target=mry::Mocks> + 'mry, #input_type_tuple, #output_type, #behavior_type> {
                 mry::MockLocator {
-                    id: &self.mry,
+                    mocks: self.mry.generate()._mocks.as_ref().unwrap().write(),
                     name: #name,
+                    matcher: Some((#(#mock_args_into),*#mock_args_trailing_comma).into()),
                     _phantom: Default::default(),
                 }
             }
         },
     )
+}
+
+pub fn deref_type(ty: &Type) -> TokenStream {
+    if is_str(&ty) {
+        return quote!(String);
+    }
+    match &ty {
+        Type::Reference(ty) => {
+            let ty = &ty.elem;
+            quote!(#ty)
+        }
+        ty => quote!(#ty),
+    }
 }
 
 pub fn is_str(ty: &Type) -> bool {

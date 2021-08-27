@@ -20,7 +20,7 @@ fn meow_returns_with() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_meow()
+    cat.mock_meow("aaa", A(2), "bbb")
         .returns_with(|base, count, string| format!("Called with {} {:?} {}", base, count, string));
 
     assert_eq!(

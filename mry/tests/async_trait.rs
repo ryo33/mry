@@ -8,7 +8,7 @@ pub trait Cat {
 async fn meow_called() {
     let mut cat = MockCat::default();
 
-    cat.mock_meow().returns("Called");
+    cat.mock_meow(2).returns("Called");
 
     assert_eq!(cat.meow(2).await, "Called");
 }

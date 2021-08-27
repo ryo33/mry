@@ -17,22 +17,22 @@ fn meow_returns_with() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_meow()
+    cat.mock_meow(2)
         .returns_with(|count| format!("Called with {}", count));
 
     assert_eq!(cat.meow(2), "Called with 2".to_string());
 }
 
 #[test]
-fn asserts_called() {
+fn assert_called() {
     let mut cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_meow()
+    cat.mock_meow(2)
         .returns_with(|count| format!("Called with {}", count));
 
     cat.meow(2);
 
-    cat.mock_meow().asserts_called();
+    cat.mock_meow(2).assert_called();
 }

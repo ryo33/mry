@@ -22,7 +22,7 @@ async fn meow_returns_with() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_meow()
+    cat.mock_meow(2)
         .returns_with(|count| format!("Called with {}", count));
 
     assert_eq!(cat.meow(2).await, "Called with 2".to_string());

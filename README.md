@@ -73,10 +73,10 @@ cat.mock_meow().returns_when_with(3, |count| format!("Called with {}", count)); 
 assert_eq!(cat.meow(2), "Called with 2".to_string());
 
 // assert it
-cat.mock_meow().asserts_called(); // the shortest
-cat.mock_meow().asserts_called_with(2); // matches by value
-cat.mock_meow().asserts_called_with(2).times(1); // exactly called 1 time
-cat.mock_meow().asserts_called().times_within(0..100); // or within the range
+cat.mock_meow().assert_called(); // the shortest
+cat.mock_meow().assert_called_with(2); // matches by value
+cat.mock_meow().assert_called_with(2).times(1); // exactly called 1 time
+cat.mock_meow().assert_called().times_within(0..100); // or within the range
 ```
 
 ## Partial mocks

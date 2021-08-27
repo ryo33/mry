@@ -1,13 +1,13 @@
 mod mock;
 mod mock_locator;
-mod mock_objects;
-mod mry_id;
+mod mocks;
+mod mry;
 mod rule;
 
 pub use mock::*;
 pub use mock_locator::*;
-pub use mock_objects::*;
-pub use mry_id::*;
+pub use mocks::*;
+pub use mry::*;
 pub use mry_macros::*;
-pub use parking_lot::MutexGuard;
+pub use parking_lot::RwLockWriteGuard;
 pub use rule::*;
