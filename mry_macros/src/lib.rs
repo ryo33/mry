@@ -9,6 +9,7 @@ mod type_name;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::visit_mut::VisitMut;
+mod alphabets;
 use syn::{parse, parse2, parse_macro_input, ExprStruct, ItemImpl, ItemStruct, ItemTrait};
 
 enum Target {

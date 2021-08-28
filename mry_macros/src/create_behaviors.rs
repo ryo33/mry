@@ -2,16 +2,10 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::Ident;
 
-pub fn for_each_alphabet(function: impl Fn(Vec<&str>) -> TokenStream) -> TokenStream {
-    let alphabet = vec!["A", "B", "C", "D", "E", "F"];
-    let item = (0..=alphabet.len())
-        .into_iter()
-        .map(|index| function(alphabet[0..index].iter().cloned().collect()));
-    quote![#(#item)*]
-}
+use crate::alphabets::alphabets;
 
 pub fn create() -> TokenStream {
-    for_each_alphabet(|args| {
+    let items = alphabets(0..6).map(|args| {
         let (args, types): (Vec<_>, Vec<_>) = args
             .iter()
             .map(|name| {
@@ -40,5 +34,6 @@ pub fn create() -> TokenStream {
                 }
             }
         }
-    })
+    });
+    quote![#(#items)*]
 }
