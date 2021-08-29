@@ -9,12 +9,14 @@ pub struct MockResult<I> {
 }
 
 impl<I: Clone> MockResult<I> {
+    /// Assert that the mock is called exact times.
     pub fn times(&self, times: usize) {
         if self.logs.0.len() != times {
             panic!("{} was not called {} time(s)", self.name, times);
         }
     }
 
+    /// Assert that the mock is called times within the range
     pub fn times_within<T: RangeBounds<usize>>(&self, range: T) {
         let len = self.logs.0.len();
         if !range.contains(&len) {

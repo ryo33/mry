@@ -51,9 +51,9 @@ Cat { name: "Tama", ..Default::default() };
 
 Now you can mock it by using following functions:
 
-- `returns(...)`: Makes a mock to returns a constant value.
-- `ruturns_with(|arg| ...)`: Makes a mock to returns a value with closure (This allows returning `!Clone` unlike `returns`.
-- `assert_called()`: Assert that a mock was called with correct arguments and times.
+- `returns(...)`: Makes a mock to return a constant value.
+- `ruturns_with(|arg| ...)`: Makes a mock to return a value with a closure (This is allowed to return `!Clone` unlike `returns` cannot).
+- `assert_called()`: Assert that a mock was called with correct arguments (and times).
 
 ### Examples
 
@@ -117,7 +117,7 @@ fn partial_mock() {
 
 ## Mocking a trait
 
-Just add `#[mry::mry]` as we did with mocking a struct,
+Just add `#[mry::mry]` as before;
 
 ```rust
 #[mry::mry]
@@ -132,7 +132,7 @@ Now we can use `MockCat` as a mock object.
 // You can construct it by Default trait
 let mut cat = MockCat::default();
 
-// API's are the same as struct mock
+// API's are the same as the struct mocks.
 cat.mock_meow(2).returns("Called with 2".into());
 
 assert_eq!(cat.meow(2), "Called with 2".to_string());

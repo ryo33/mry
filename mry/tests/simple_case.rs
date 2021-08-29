@@ -24,10 +24,10 @@ impl Cat {
 
 #[test]
 fn keeps_original_function() {
-    let cat: Cat = Cat {
+    let cat: Cat = mry::new!(Cat {
         name: "Tama".into(),
         ..Default::default()
-    };
+    });
     assert_eq!(cat.meow(2), "Tama: meowmeow".to_string());
 }
 
