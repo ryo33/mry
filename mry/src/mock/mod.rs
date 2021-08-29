@@ -1,6 +1,6 @@
 mod logs;
 mod mock_result;
-use std::fmt::Debug;
+use std::iter::repeat;
 
 pub use logs::*;
 pub use mock_result::*;
@@ -25,7 +25,7 @@ impl<I, O> Mock<I, O> {
     }
 }
 
-impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
+impl<I: Clone + PartialEq, O> Mock<I, O> {
     pub(crate) fn returns_with<B: Into<Behavior<I, O>>>(
         &mut self,
         matcher: Matcher<I>,
@@ -37,15 +37,11 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
         });
     }
 
-    pub(crate) fn returns(&mut self, matcher: Matcher<I>, ret: O) {
+    pub(crate) fn calls_real_impl(&mut self, matcher: Matcher<I>) {
         self.rules.push(Rule {
             matcher,
-            behavior: Behavior::Const(ret),
-        });
-    }
-
-    pub(crate) fn calls_real_impl(&mut self, matcher: Matcher<I>) {
-        self.rules.push(Rule { matcher, behavior: Behavior::CallsRealImpl })
+            behavior: Behavior::CallsRealImpl,
+        })
     }
 
     pub(crate) fn assert_called(&self, matcher: Matcher<I>) -> MockResult<I> {
@@ -76,6 +72,14 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
         panic!("mock not found for {}", self.name)
     }
 }
+impl<I, O: Clone + Send + Sync + 'static> Mock<I, O> {
+    pub(crate) fn returns(&mut self, matcher: Matcher<I>, ret: O) {
+        self.rules.push(Rule {
+            matcher,
+            behavior: Behavior::Const(Box::new(repeat(ret))),
+        });
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -98,6 +102,12 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns(Matcher::Any, "a".repeat(3));
 
+        assert_eq!(
+            mock.record_call_and_find_mock_output(3),
+            "aaa".to_string().into()
+        );
+
+        // allows called multiple times
         assert_eq!(
             mock.record_call_and_find_mock_output(3),
             "aaa".to_string().into()

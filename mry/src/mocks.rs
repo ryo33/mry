@@ -17,7 +17,7 @@ impl Mocks {
             .map(|mock| mock.downcast_ref::<T>().unwrap())
     }
 
-    pub fn get_mut_or_create<I: Send + Sync + 'static, O: Clone + Send + Sync + 'static>(
+    pub fn get_mut_or_create<I: Send + Sync + 'static, O: Send + Sync + 'static>(
         &mut self,
         name: &'static str,
     ) -> &mut Mock<I, O> {

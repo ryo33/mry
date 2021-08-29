@@ -9,7 +9,7 @@ pub(crate) struct Rule<I, O> {
     pub behavior: Behavior<I, O>,
 }
 
-impl<I: PartialEq + Clone, O: Clone> Rule<I, O> {
+impl<I: PartialEq + Clone, O> Rule<I, O> {
     pub fn called(&mut self, input: &I) -> Output<O> {
         if self.matcher.matches(input) {
             return self.behavior.called(input);
