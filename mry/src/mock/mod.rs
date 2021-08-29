@@ -7,17 +7,10 @@ pub use mock_result::*;
 
 use parking_lot::Mutex;
 
-use crate::{Behavior, Matcher, Rule};
-
-#[derive(PartialEq)]
-pub enum CallsRealImpl {
-    Yes,
-    No,
-}
+use crate::{Behavior, Matcher, Output, Rule};
 
 pub struct Mock<I, O> {
     pub name: &'static str,
-    calls_real_impl: CallsRealImpl,
     logs: Mutex<Logs<I>>,
     rules: Vec<Rule<I, O>>,
 }
@@ -26,7 +19,6 @@ impl<I, O> Mock<I, O> {
     pub fn new(name: &'static str) -> Self {
         Self {
             name,
-            calls_real_impl: CallsRealImpl::No,
             logs: Default::default(),
             rules: Default::default(),
         }
@@ -52,8 +44,8 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
         });
     }
 
-    pub(crate) fn calls_real_impl(&mut self) {
-        self.calls_real_impl = CallsRealImpl::Yes;
+    pub(crate) fn calls_real_impl(&mut self, matcher: Matcher<I>) {
+        self.rules.push(Rule { matcher, behavior: Behavior::CallsRealImpl })
     }
 
     pub(crate) fn assert_called(&self, matcher: Matcher<I>) -> MockResult<I> {
@@ -75,14 +67,13 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
     pub fn record_call_and_find_mock_output(&mut self, input: I) -> Option<O> {
         self.logs.lock().push(input.clone());
         for rule in &mut self.rules {
-            if let Some(output) = rule.called(&input) {
-                return Some(output);
-            }
+            match rule.called(&input) {
+                Output::Found(output) => return Some(output),
+                Output::NotMatches => {}
+                Output::CallsRealImpl => return None,
+            };
         }
-        if self.calls_real_impl == CallsRealImpl::Yes {
-            return None;
-        }
-        panic!("mock not found for {}", self.name);
+        panic!("mock not found for {}", self.name)
     }
 }
 
@@ -156,9 +147,18 @@ mod test {
     #[test]
     fn calls_real_impl() {
         let mut mock = Mock::<usize, String>::new("a");
-        mock.calls_real_impl();
+        mock.calls_real_impl(Matcher::Eq(3));
 
         assert_eq!(mock.record_call_and_find_mock_output(3), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "mock not found for a")]
+    fn calls_real_impl_never() {
+        let mut mock = Mock::<usize, String>::new("a");
+        mock.calls_real_impl(Matcher::Eq(3));
+
+        mock.record_call_and_find_mock_output(2);
     }
 
     #[test]

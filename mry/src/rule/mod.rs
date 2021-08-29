@@ -10,11 +10,11 @@ pub(crate) struct Rule<I, O> {
 }
 
 impl<I: PartialEq + Clone, O: Clone> Rule<I, O> {
-    pub fn called(&mut self, input: &I) -> Option<O> {
+    pub fn called(&mut self, input: &I) -> Output<O> {
         if self.matcher.matches(input) {
-            return Some(self.behavior.called(input));
+            return self.behavior.called(input);
         }
-        None
+        Output::NotMatches
     }
 }
 
@@ -30,7 +30,7 @@ mod test {
             behavior: Behavior1::from(|_| panic!("should not be called!")).into(),
         };
 
-        assert_eq!(rule.called(&1), None);
+        assert_eq!(rule.called(&1), Output::NotMatches);
     }
 
     #[test]
@@ -40,6 +40,6 @@ mod test {
             behavior: Behavior1::from(|u| u + 1).into(),
         };
 
-        assert_eq!(rule.called(&2), Some(3))
+        assert_eq!(rule.called(&2), Output::Found(3))
     }
 }

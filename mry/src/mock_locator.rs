@@ -19,18 +19,19 @@ where
     B: Into<Behavior<I, O>>,
 {
     pub fn returns_with<T: Into<B>>(&mut self, behavior: T) {
-        let matcher = self.matcher.take().unwrap();
+        let matcher = self.matcher();
         self.get_mut_or_default()
             .returns_with(matcher, behavior.into());
     }
 
     pub fn returns(&mut self, ret: O) {
-        let matcher = self.matcher.take().unwrap();
+        let matcher = self.matcher();
         self.get_mut_or_default().returns(matcher, ret);
     }
 
     pub fn calls_real_impl(&mut self) {
-        self.get_mut_or_default().calls_real_impl();
+        let matcher = self.matcher();
+        self.get_mut_or_default().calls_real_impl(matcher);
     }
 
     pub fn assert_called(&mut self) -> MockResult<I> {
@@ -46,5 +47,9 @@ where
         self.mocks
             .get::<Mock<I, O>>(self.name)
             .expect(&format!("no mock is found for {}", self.name))
+    }
+
+    fn matcher(&mut self) -> Matcher<I> {
+        self.matcher.take().unwrap()
     }
 }
