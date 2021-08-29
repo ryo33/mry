@@ -15,7 +15,7 @@ impl<M, I, O, B> MockLocator<M, I, O, B>
 where
     M: DerefMut<Target = Mocks>,
     I: Clone + PartialEq + Debug + Send + Sync + 'static,
-    O: Send + Sync + 'static,
+    O: Debug + Send + Sync + 'static,
     B: Into<Behavior<I, O>>,
 {
     /// Returns value with using a clojure.

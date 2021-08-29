@@ -4,6 +4,7 @@ mod matcher;
 pub use behavior::*;
 pub use matcher::*;
 
+#[derive(Debug)]
 pub(crate) struct Rule<I, O> {
     pub matcher: Matcher<I>,
     pub behavior: Behavior<I, O>,

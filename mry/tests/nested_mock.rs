@@ -4,7 +4,7 @@ struct Cat {
 }
 
 #[mry::mry]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Name {
     name: String,
 }

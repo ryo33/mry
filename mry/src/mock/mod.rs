@@ -6,7 +6,7 @@ use std::iter::repeat;
 pub use logs::*;
 pub use mock_result::*;
 
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 
 use crate::{Behavior, Matcher, Output, Rule};
 
@@ -26,7 +26,7 @@ impl<I, O> Mock<I, O> {
     }
 }
 
-impl<I: Clone + PartialEq + Debug, O> Mock<I, O> {
+impl<I: Clone + PartialEq + Debug, O: Debug> Mock<I, O> {
     pub(crate) fn returns_with<B: Into<Behavior<I, O>>>(
         &mut self,
         matcher: Matcher<I>,
@@ -72,14 +72,14 @@ impl<I: Clone + PartialEq + Debug, O> Mock<I, O> {
                 Output::CallsRealImpl => return None,
             };
         }
-        panic!("mock not found for {}", self.name)
+        panic!("mock not found for {}\n{:?}", self.name, self.rules)
     }
 }
 impl<I, O: Clone + Send + Sync + 'static> Mock<I, O> {
     pub(crate) fn returns(&mut self, matcher: Matcher<I>, ret: O) {
         self.rules.push(Rule {
             matcher,
-            behavior: Behavior::Const(Box::new(repeat(ret))),
+            behavior: Behavior::Const(RwLock::new(Box::new(repeat(ret)))),
         });
     }
 }
@@ -251,5 +251,17 @@ mod test {
                 logs: Logs(vec![2, 2]),
             }
         );
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "[Rule { matcher: Eq(3), behavior: Const(\"42\") }, Rule { matcher: Eq(3), behavior: CallsRealImpl }]"
+    )]
+    fn mock_not_found_with_rules() {
+        let mut mock = Mock::<usize, String>::new("a");
+        mock.returns(Matcher::Eq(3), "42".into());
+        mock.calls_real_impl(Matcher::Eq(3));
+
+        mock.record_call_and_find_mock_output(2);
     }
 }

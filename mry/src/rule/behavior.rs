@@ -1,3 +1,7 @@
+use std::fmt::Debug;
+
+use parking_lot::RwLock;
+
 #[derive(Debug, PartialEq)]
 pub enum Output<O> {
     NotMatches,
@@ -7,15 +11,28 @@ pub enum Output<O> {
 
 pub enum Behavior<I, O> {
     Function(Box<dyn FnMut(I) -> O + Send + Sync + 'static>),
-    Const(Box<dyn Iterator<Item = O> + Send + Sync + 'static>),
+    Const(RwLock<Box<dyn Iterator<Item = O> + Send + Sync + 'static>>),
     CallsRealImpl,
+}
+
+impl<I: Debug, O: Debug> std::fmt::Debug for Behavior<I, O> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Function(_) => f.debug_tuple("Function(_)").finish(),
+            Self::Const(cons) => f
+                .debug_tuple("Const")
+                .field(&cons.write().next().unwrap())
+                .finish(),
+            Self::CallsRealImpl => write!(f, "CallsRealImpl"),
+        }
+    }
 }
 
 impl<I: Clone, O> Behavior<I, O> {
     pub fn called(&mut self, input: &I) -> Output<O> {
         match self {
             Behavior::Function(function) => Output::Found(function(input.clone())),
-            Behavior::Const(cons) => Output::Found(cons.next().unwrap()),
+            Behavior::Const(cons) => Output::Found(cons.get_mut().next().unwrap()),
             Behavior::CallsRealImpl => Output::CallsRealImpl,
         }
     }
@@ -40,7 +57,7 @@ mod tests {
     #[test]
     fn const_value() {
         assert_eq!(
-            Behavior::Const(Box::new(repeat("aaa"))).called(&()),
+            Behavior::Const(RwLock::new(Box::new(repeat("aaa")))).called(&()),
             Output::Found("aaa")
         );
     }
@@ -51,5 +68,32 @@ mod tests {
             Behavior::<_, ()>::CallsRealImpl.called(&()),
             Output::CallsRealImpl
         );
+    }
+
+    #[test]
+    fn debug_calls_real_impl() {
+        assert_eq!(
+            format!("{:?}", Behavior::<u8, u8>::CallsRealImpl),
+            "CallsRealImpl".to_string()
+        )
+    }
+
+    #[test]
+    fn debug_const() {
+        assert_eq!(
+            format!(
+                "{:?}",
+                Behavior::<u8, u8>::Const(RwLock::new(Box::new(repeat(3))))
+            ),
+            "Const(3)".to_string()
+        )
+    }
+
+    #[test]
+    fn debug_function() {
+        assert_eq!(
+            format!("{:?}", Behavior::<u8, u8>::Function(Box::new(|_| 42))),
+            "Function(_)".to_string()
+        )
     }
 }

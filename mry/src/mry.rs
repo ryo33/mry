@@ -32,7 +32,7 @@ impl Mry {
 
     pub fn record_call_and_find_mock_output<
         I: PartialEq + Debug + Clone + Send + Sync + 'static,
-        O: Send + Sync + 'static,
+        O: Debug + Send + Sync + 'static,
     >(
         &self,
         name: &'static str,
