@@ -1,5 +1,6 @@
 mod logs;
 mod mock_result;
+use std::fmt::Debug;
 use std::iter::repeat;
 
 pub use logs::*;
@@ -25,7 +26,7 @@ impl<I, O> Mock<I, O> {
     }
 }
 
-impl<I: Clone + PartialEq, O> Mock<I, O> {
+impl<I: Clone + PartialEq + Debug, O> Mock<I, O> {
     pub(crate) fn returns_with<B: Into<Behavior<I, O>>>(
         &mut self,
         matcher: Matcher<I>,
@@ -45,7 +46,9 @@ impl<I: Clone + PartialEq, O> Mock<I, O> {
     }
 
     pub(crate) fn assert_called(&self, matcher: Matcher<I>) -> MockResult<I> {
-        let logs = self.handle_assert_called(&matcher, || panic!("{} was not called", self.name));
+        let logs = self.handle_assert_called(&matcher, || {
+            panic!("{} was not called\n{:?}", self.name, *self.logs.lock())
+        });
         MockResult {
             name: self.name,
             logs,
@@ -197,6 +200,18 @@ mod test {
     fn assert_called_with_panics() {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)));
+
+        mock.assert_called(Matcher::Eq(3));
+    }
+
+    #[test]
+    #[should_panic(expected = "[1, 2, 2]")]
+    fn assert_called_with_log() {
+        let mut mock = Mock::<usize, String>::new("a");
+        mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)));
+        mock.record_call_and_find_mock_output(1);
+        mock.record_call_and_find_mock_output(2);
+        mock.record_call_and_find_mock_output(2);
 
         mock.assert_called(Matcher::Eq(3));
     }
