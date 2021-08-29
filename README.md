@@ -10,7 +10,7 @@ A cfg-free mocking library for **structs** and **traits**, which supports **part
 ## Features
 
 * No need of switching between mock objects and real objects such as the way using `#[cfg(test)]`.
-* Supports mocking for `impl for YourStruct`, `impl SomeTrait for YourStruct`, and `trait YourTrait`.
+* Supports mocking for `impl Struct`, `impl Trait for Struct`, and `trait Trait`.
 * Supports partial mocking.
 
 ## Mocking a struct
@@ -29,13 +29,6 @@ impl Cat {
         format!("{}: {}", self.name, "meow".repeat(count))
     }
 }
-
-#[mry::mry] // Also mocking of impl trait is supported!
-impl Into<&'static str> for Cat {
-    fn into(self) -> &'static str {
-        self.name
-    }
-}
 ```
 
 `#[mry::mry]` adds a visible but ghostly field `mry`  your struct, so your struct must be constructed by the following ways.
@@ -51,32 +44,43 @@ Cat {
     mry: Default::default(),
 };
 
-// Also a helper struct MryCat is generated
-Cat::from(MryCat { name: "Tama" }); // From/Into trait
-MryCat { name: "Tama" }.mry(); // or mry(self) -> Cat
-
 // If you derive or impl Default trait.
 Cat::default();
 Cat { name: "Tama", ..Default::default() };
 ```
 
-Now you can mock it.
+Now you can mock it by using following functions:
+
+- `returns(...)`: Makes a mock to returns a constant value.
+- `ruturns_with(|arg| ...)`: Makes a mock to returns a value with closure (This allows returning `!Clone` unlike `returns`.
+- `assert_called()`: Assert that a mock was called with correct arguments and times.
+
+### Examples
 
 ```rust
-// mock it
-cat.mock_meow().returns("Called".into()); // the shortest
-cat.mock_meow().returns_when(3, format!("Called with 3")); // matches by value
-cat.mock_meow().returns_with(|count| format!("Called with {}", count)); // return a dynamic value
-cat.mock_meow().returns_when_with(3, |count| format!("Called with {}", count)); // the longest
+cat.mock_meow(3).returns("Returns this string when called with 3".into());
+cat.mock_meow(mry::Any).returns("This string is returned for any value".into());
+cat.mock_meow(mry::Any).returns_with(|count| format!("Called with {}", count)); // return a dynamic value
+```
 
-// call it
-assert_eq!(cat.meow(2), "Called with 2".to_string());
+```rust
+cat.mock_meow(3).assert_called(); // Assert called with 3
+cat.mock_meow(mry::Any).assert_called(); // Assert called with any value
+cat.mock_meow(3).assert_called().times(1); // exactly called 1 time with 3
+cat.mock_meow(3).assert_called().times_within(0..100); // or within the range
+```
 
-// assert it
-cat.mock_meow().assert_called(); // the shortest
-cat.mock_meow().assert_called_with(2); // matches by value
-cat.mock_meow().assert_called_with(2).times(1); // exactly called 1 time
-cat.mock_meow().assert_called().times_within(0..100); // or within the range
+## impl Trait for Struct
+
+Also, mocking of impl trait is supported in the same API.
+
+```rust
+#[mry::mry]
+impl Into<&'static str> for Cat {
+    fn into(self) -> &'static str {
+        self.name
+    }
+}
 ```
 
 ## Partial mocks
@@ -104,7 +108,7 @@ fn partial_mock() {
 
     cat.mock_meow_single().returns("hello".to_string());
 
-    cat.mock_meow().calls_real_impl();
+    cat.mock_meow(mry::Any).calls_real_impl();
 
     // not "meowmeow"
     assert_eq!(cat.meow(2), "hellohello".to_string());
@@ -129,12 +133,12 @@ Now we can use `MockCat` as a mock object.
 let mut cat = MockCat::default();
 
 // API's are the same as struct mock
-cat.mock_meow().returns("meow".into());
+cat.mock_meow(2).returns("Called with 2".into());
 
 assert_eq!(cat.meow(2), "Called with 2".to_string());
 ```
 
-Or we can mock a trait by manually creating a mock struct.
+We can also mock a trait by manually creating a mock struct.
 If the trait has a generics or associated type, we need to use this way.
 
 ```rust
