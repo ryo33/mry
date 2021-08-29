@@ -17,11 +17,6 @@ impl Cat {
     }
 
     #[allow(dead_code)]
-    fn new_by_mry_into(name: &str) -> Self {
-        MryCat { name: name.into() }.into()
-    }
-
-    #[allow(dead_code)]
     fn new_by_mry_new(name: &str) -> Self {
         mry::new!(Cat { name: name.into() })
     }
