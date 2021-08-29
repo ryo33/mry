@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
-use std::ops::{Deref, DerefMut};
+use std::fmt::Debug;
+use std::ops::DerefMut;
 use std::sync::atomic::AtomicU16;
 use std::sync::Arc;
 
@@ -27,6 +28,28 @@ impl Mry {
         self._mocks
             .get_or_insert(Arc::new(RwLock::new(Default::default())));
         self
+    }
+
+    pub fn record_call_and_find_mock_output<
+        I: PartialEq + Debug + Clone + Send + Sync + 'static,
+        O: Clone + Send + Sync + 'static,
+    >(
+        &self,
+        name: &'static str,
+        input: I,
+    ) -> Option<O> {
+        if let Some(ref mocks) = self._mocks {
+            mocks
+                .write()
+                .get_mut_or_create::<I, O>(name)
+                .record_call_and_find_mock_output(input)
+        } else {
+            None
+        }
+    }
+
+    pub fn mocks_write<'a>(&'a mut self) -> impl DerefMut<Target = Mocks> + 'a {
+        self.generate()._mocks.as_ref().unwrap().write()
     }
 
     pub fn id(&self) -> MryId {
@@ -75,6 +98,8 @@ impl PartialEq for Mry {
 mod test {
     use std::cmp::Ordering;
     use std::collections::HashSet;
+
+    use crate::Matcher;
 
     use super::*;
 
@@ -143,5 +168,29 @@ mod test {
         mry._mocks.as_ref().unwrap().write().insert("a", 4u8);
 
         assert_eq!(mry.clone()._mocks.unwrap().read().mock_objects.len(), 1);
+    }
+
+    #[test]
+    fn inner_called_returns_none_when_no_mocks() {
+        let mry = Mry::default();
+
+        assert_eq!(
+            mry.record_call_and_find_mock_output::<u8, u16>("name", 1u8),
+            None
+        );
+    }
+
+    #[test]
+    fn inner_called_forwards_to_mock() {
+        let mut mry = Mry::default();
+
+        mry.mocks_write()
+            .get_mut_or_create::<u8, u16>("name")
+            .returns(Matcher::Any, 1);
+
+        assert_eq!(
+            mry.record_call_and_find_mock_output::<u8, u16>("name", 1u8),
+            Some(1)
+        );
     }
 }

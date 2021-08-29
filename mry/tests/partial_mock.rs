@@ -1,7 +1,7 @@
 #[mry::mry]
 #[derive(Default)]
 struct Cat {
-    name: String,
+    _name: String,
 }
 
 #[mry::mry]
@@ -18,7 +18,7 @@ impl Cat {
 #[test]
 fn partial_mock() {
     let mut cat: Cat = Cat {
-        name: "Tama".into(),
+        _name: "Tama".into(),
         ..Default::default()
     };
 

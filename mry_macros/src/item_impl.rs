@@ -109,7 +109,14 @@ pub(crate) fn transform(input: &mut ItemImpl) -> TokenStream {
                     Some(&method.vis),
                     &method.attrs,
                     &method.sig,
-                    &method.block.to_token_stream(),
+                    &method
+                        .block
+                        .stmts
+                        .iter()
+                        .fold(TokenStream::default(), |mut stream, item| {
+                            item.to_tokens(&mut stream);
+                            stream
+                        }),
                 )
             } else {
                 (item.to_token_stream(), TokenStream::default())
@@ -162,29 +169,20 @@ mod test {
                     #[meow]
                     fn meow(#[a] &self, #[b] count: usize) -> String {
                         #[cfg(test)]
-                        if self.mry.id().is_some() {
-                            if let Some(out) = mry::MOCK_DATA
-                                .write()
-                                .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                                ._inner_called((count.clone())) {
-                                return out;
-                            }
+                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                            return out;
                         }
-                        {
-                            "meow".repeat(count)
-                        }
+                        "meow".repeat(count)
                     }
                 }
 
                 impl Cat {
                     #[cfg(test)]
-                    pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                        if self.mry.id().is_none() {
-                            self.mry = mry::Mry::generate();
-                        }
+                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
-                            id: &self.mry,
+                            mocks: self.mry.mocks_write(),
                             name: "Cat::meow",
+                            matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
                         }
                     }
@@ -211,29 +209,20 @@ mod test {
                 impl<'a, A: Clone> Cat<'a, A> {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
                         #[cfg(test)]
-                        if self.mry.id().is_some() {
-                            if let Some(out) = mry::MOCK_DATA
-                                .write()
-                                .get_mut_or_create::<(usize), B>(&self.mry, "Cat<'a, A>::meow")
-                                ._inner_called((count.clone())) {
-                                return out;
-                            }
+                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat<'a, A>::meow", (count.clone())) {
+                            return out;
                         }
-                        {
-                            "meow".repeat(count)
-                        }
+                        "meow".repeat(count)
                     }
                 }
 
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(test)]
-                    pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
-                        if self.mry.id().is_none() {
-                            self.mry = mry::Mry::generate();
-                        }
+                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), B, mry::Behavior1<(usize), B> > {
                         mry::MockLocator {
-                            id: &self.mry,
+                            mocks: self.mry.mocks_write(),
                             name: "Cat<'a, A>::meow",
+                            matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
                         }
                     }
@@ -260,29 +249,20 @@ mod test {
                 impl<A: Clone> Animal<A> for Cat {
                     fn name(&self, ) -> String {
                         #[cfg(test)]
-                        if self.mry.id().is_some() {
-                            if let Some(out) = mry::MOCK_DATA
-                                .write()
-                                .get_mut_or_create::<(), String>(&self.mry, "<Cat as Animal<A>>::name")
-                                ._inner_called(()) {
-                                return out;
-                            }
+                        if let Some(out) = self.mry.record_call_and_find_mock_output("<Cat as Animal<A>>::name", ()) {
+                            return out;
                         }
-                        {
-                            self.name
-                        }
+                        self.name
                     }
                 }
 
                 impl Cat {
                     #[cfg(test)]
-                    pub fn mock_name<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
-                        if self.mry.id().is_none() {
-                            self.mry = mry::Mry::generate();
-                        }
+                    pub fn mock_name<'mry>(&'mry mut self,) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (), String, mry::Behavior0<(), String> > {
                         mry::MockLocator {
-                            id: &self.mry,
+                            mocks: self.mry.mocks_write(),
                             name: "<Cat as Animal<A>>::name",
+                            matcher: Some(().into()),
                             _phantom: Default::default(),
                         }
                     }
@@ -311,29 +291,20 @@ mod test {
                     type Item = String;
                     fn next(&self, ) -> Option< <Self as Iterator>::Item> {
                         #[cfg(test)]
-                        if self.mry.id().is_some() {
-                            if let Some(out) = mry::MOCK_DATA
-                                .write()
-                                .get_mut_or_create::<(), Option< <Self as Iterator>::Item> >(&self.mry, "<Cat as Iterator>::next")
-                                ._inner_called(()) {
-                                return out;
-                            }
+                        if let Some(out) = self.mry.record_call_and_find_mock_output("<Cat as Iterator>::next", ()) {
+                            return out;
                         }
-                        {
-                            Some(self.name)
-                        }
+                        Some(self.name)
                     }
                 }
 
                 impl Cat {
                     #[cfg(test)]
-                    pub fn mock_next<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
-                        if self.mry.id().is_none() {
-                            self.mry = mry::Mry::generate();
-                        }
+                    pub fn mock_next<'mry>(&'mry mut self,) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
                         mry::MockLocator {
-                            id: &self.mry,
+                            mocks: self.mry.mocks_write(),
                             name: "<Cat as Iterator>::next",
+                            matcher: Some(().into()),
                             _phantom: Default::default(),
                         }
                     }

@@ -36,8 +36,6 @@ impl Mocks {
 
 #[cfg(test)]
 mod test {
-    use crate::Mry;
-
     use super::*;
 
     #[test]

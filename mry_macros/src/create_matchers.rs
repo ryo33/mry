@@ -28,7 +28,7 @@ pub(crate) fn create() -> TokenStream {
             quote![self.#index.matches(#arg)]
         });
         let args = quote![#(#args),*];
-        let a = quote! {
+        quote! {
             #[derive(Debug)]
             struct #matcher_name<#(#trait_bounds),*>(#matchers);
 
@@ -43,9 +43,7 @@ pub(crate) fn create() -> TokenStream {
                     Matcher::Composite(Box::new(#matcher_name(#args)))
                 }
             }
-        };
-        println!("{}", a.to_string());
-        a
+        }
     });
     quote![#(#items)*]
 }

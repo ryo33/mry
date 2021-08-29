@@ -72,7 +72,7 @@ impl<I: Clone + PartialEq + Debug, O: Clone> Mock<I, O> {
         logs
     }
 
-    pub fn _inner_called(&mut self, input: I) -> Option<O> {
+    pub fn record_call_and_find_mock_output(&mut self, input: I) -> Option<O> {
         self.logs.lock().push(input.clone());
         for rule in &mut self.rules {
             if let Some(output) = rule.called(&input) {
@@ -96,7 +96,10 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)));
 
-        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
+        assert_eq!(
+            mock.record_call_and_find_mock_output(3),
+            "aaa".to_string().into()
+        );
     }
 
     #[test]
@@ -104,7 +107,10 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns(Matcher::Any, "a".repeat(3));
 
-        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
+        assert_eq!(
+            mock.record_call_and_find_mock_output(3),
+            "aaa".to_string().into()
+        );
     }
 
     #[test]
@@ -113,7 +119,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Never, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(3);
+        mock.record_call_and_find_mock_output(3);
     }
 
     #[test]
@@ -121,7 +127,10 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)));
 
-        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
+        assert_eq!(
+            mock.record_call_and_find_mock_output(3),
+            "aaa".to_string().into()
+        );
     }
 
     #[test]
@@ -130,7 +139,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns(Matcher::Never, "a".repeat(3));
 
-        mock._inner_called(3);
+        mock.record_call_and_find_mock_output(3);
     }
 
     #[test]
@@ -138,7 +147,10 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns(Matcher::Any, "a".repeat(3));
 
-        assert_eq!(mock._inner_called(3), "aaa".to_string().into());
+        assert_eq!(
+            mock.record_call_and_find_mock_output(3),
+            "aaa".to_string().into()
+        );
     }
 
     #[test]
@@ -146,7 +158,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.calls_real_impl();
 
-        assert_eq!(mock._inner_called(3), None);
+        assert_eq!(mock.record_call_and_find_mock_output(3), None);
     }
 
     #[test]
@@ -154,7 +166,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(3);
+        mock.record_call_and_find_mock_output(3);
 
         mock.assert_called(Matcher::Eq(3));
     }
@@ -165,7 +177,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(3);
+        mock.record_call_and_find_mock_output(3);
 
         mock.assert_called(Matcher::Eq(2));
     }
@@ -184,9 +196,9 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(3);
-        mock._inner_called(3);
-        mock._inner_called(2);
+        mock.record_call_and_find_mock_output(3);
+        mock.record_call_and_find_mock_output(3);
+        mock.record_call_and_find_mock_output(2);
 
         assert_eq!(
             mock.assert_called(Matcher::Any),
@@ -202,10 +214,10 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)));
 
-        mock._inner_called(2);
-        mock._inner_called(3);
-        mock._inner_called(3);
-        mock._inner_called(2);
+        mock.record_call_and_find_mock_output(2);
+        mock.record_call_and_find_mock_output(3);
+        mock.record_call_and_find_mock_output(3);
+        mock.record_call_and_find_mock_output(2);
 
         assert_eq!(
             mock.assert_called(Matcher::Eq(2)),

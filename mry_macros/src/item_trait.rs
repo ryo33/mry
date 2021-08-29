@@ -105,13 +105,8 @@ mod test {
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(test)]
-                        if self.mry.id().is_some() {
-                            if let Some(out) = mry::MOCK_DATA
-                                .write()
-                                .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                                ._inner_called((count.clone())) {
-                                return out;
-                            }
+                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                            return out;
                         }
                         panic!("mock not found for Cat")
                     }
@@ -120,13 +115,11 @@ mod test {
 				#[cfg(test)]
                 impl MockCat {
                     #[cfg(test)]
-                    pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                        if self.mry.id().is_none() {
-                            self.mry = mry::Mry::generate();
-                        }
+                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
-                            id: &self.mry,
+                            mocks: self.mry.mocks_write(),
                             name: "Cat::meow",
+                            matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
                         }
                     }
@@ -162,13 +155,8 @@ mod test {
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(test)]
-                        if self.mry.id().is_some() {
-                            if let Some(out) = mry::MOCK_DATA
-                                .write()
-                                .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                                ._inner_called((count.clone())) {
-                                return out;
-                            }
+                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                            return out;
                         }
                         panic!("mock not found for Cat")
                     }
@@ -177,13 +165,11 @@ mod test {
 				#[cfg(test)]
                 impl MockCat {
                     #[cfg(test)]
-                    pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                        if self.mry.id().is_none() {
-                            self.mry = mry::Mry::generate();
-                        }
+                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
-                            id: &self.mry,
+                            mocks: self.mry.mocks_write(),
                             name: "Cat::meow",
+                            matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
                         }
                     }
@@ -222,13 +208,8 @@ mod test {
                 impl Cat for MockCat {
                     async fn meow(&self, count: usize) -> String {
                         #[cfg(test)]
-                        if self.mry.id().is_some() {
-                            if let Some(out) = mry::MOCK_DATA
-                                .write()
-                                .get_mut_or_create::<(usize), String>(&self.mry, "Cat::meow")
-                                ._inner_called((count.clone())) {
-                                return out;
-                            }
+                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                            return out;
                         }
                         panic!("mock not found for Cat")
                     }
@@ -237,13 +218,11 @@ mod test {
 				#[cfg(test)]
                 impl MockCat {
                     #[cfg(test)]
-                    pub fn mock_meow<'mry>(&'mry mut self) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                        if self.mry.id().is_none() {
-                            self.mry = mry::Mry::generate();
-                        }
+                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
-                            id: &self.mry,
+                            mocks: self.mry.mocks_write(),
                             name: "Cat::meow",
+                            matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
                         }
                     }
