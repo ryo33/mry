@@ -31,7 +31,7 @@ impl Cat {
 }
 ```
 
-`#[mry::mry]` adds a visible but ghostly field `mry`  your struct, so your struct must be constructed by the following ways.
+`#[mry::mry]` adds a visible but ghostly field `mry` to your struct, so your struct must be constructed by the following ways.
 
 ```rust
 // An easy way
@@ -51,9 +51,9 @@ Cat { name: "Tama", ..Default::default() };
 
 Now you can mock it by using following functions:
 
-- `returns(...)`: Makes a mock to return a constant value.
-- `ruturns_with(|arg| ...)`: Makes a mock to return a value with a closure (This is allowed to return `!Clone` unlike `returns` cannot).
-- `assert_called()`: Assert that a mock was called with correct arguments (and times).
+- `mock_*(...).returns(...)`: Makes a mock to return a constant value.
+- `mock_*(...).ruturns_with(|arg| ...)`: Makes a mock to return a value with a closure (This is allowed to return `!Clone` unlike `returns` cannot).
+- `mock_*(...).assert_called()`: Assert that a mock was called with correct arguments (and times).
 
 ### Examples
 

@@ -1,4 +1,4 @@
-use std::ops::RangeBounds;
+use std::{fmt::Debug, ops::RangeBounds};
 
 use crate::Logs;
 
@@ -12,15 +12,23 @@ impl<I: Clone> MockResult<I> {
     /// Assert that the mock is called exact times.
     pub fn times(&self, times: usize) {
         if self.logs.0.len() != times {
-            panic!("{} was not called {} time(s)", self.name, times);
+            panic!(
+                "{} was called {} times not {} times",
+                self.name,
+                self.logs.0.len(),
+                times
+            );
         }
     }
 
     /// Assert that the mock is called times within the range
-    pub fn times_within<T: RangeBounds<usize>>(&self, range: T) {
+    pub fn times_within<T: RangeBounds<usize> + Debug>(&self, range: T) {
         let len = self.logs.0.len();
         if !range.contains(&len) {
-            panic!("{} was called {} time(s)", self.name, len);
+            panic!(
+                "{} was called {} times and is out of {:?}",
+                self.name, len, range
+            );
         }
     }
 
@@ -43,7 +51,7 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "Cat was not called 3 time(s)")]
+    #[should_panic(expected = "Cat was called 2 times not 3 times")]
     fn times_panics() {
         let result = MockResult {
             name: "Cat",
@@ -63,7 +71,7 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "Cat was called 2 time(s)")]
+    #[should_panic(expected = "Cat was called 2 times and is out of 3..5")]
     fn times_within_panics() {
         let result = MockResult {
             name: "Cat",
