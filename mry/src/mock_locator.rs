@@ -4,10 +4,15 @@ use std::ops::DerefMut;
 
 use crate::{Behavior, Matcher, Mock, MockResult, Mocks};
 
+/// Mock locator returned by mock_* methods
 pub struct MockLocator<M, I, O, B> {
+    #[doc(hidden)]
     pub mocks: M,
+    #[doc(hidden)]
     pub name: &'static str,
+    #[doc(hidden)]
     pub matcher: Option<Matcher<I>>,
+    #[doc(hidden)]
     pub _phantom: PhantomData<fn() -> (I, O, B)>,
 }
 

@@ -1,19 +1,25 @@
 use std::fmt::Debug;
 
 #[derive(Debug)]
+/// An enum shows what arguments are expected
 pub enum Matcher<I> {
+    /// Any value
     Any,
+    #[doc(hidden)]
     Never,
+    /// Equal to the value
     Eq(I),
+    /// Composite matcher
     Composite(Box<dyn CompositeMatcher<I> + Send + Sync>),
 }
 
+#[doc(hidden)]
 pub trait CompositeMatcher<I>: Debug {
     fn matches(&self, input: &I) -> bool;
 }
 
 impl<I: PartialEq> Matcher<I> {
-    pub fn matches(&self, input: &I) -> bool {
+    pub(crate) fn matches(&self, input: &I) -> bool {
         match self {
             Matcher::Any => true,
             Matcher::Never => false,

@@ -6,6 +6,7 @@ use crate::Mock;
 type BoxAnySend = Box<dyn Any + Send + Sync>;
 
 #[derive(Default)]
+#[doc(hidden)]
 pub struct Mocks {
     pub(crate) mock_objects: HashMap<&'static str, BoxAnySend>,
 }
@@ -17,7 +18,7 @@ impl Mocks {
             .map(|mock| mock.downcast_ref::<T>().unwrap())
     }
 
-    pub fn get_mut_or_create<I: Send + Sync + 'static, O: Send + Sync + 'static>(
+    pub(crate) fn get_mut_or_create<I: Send + Sync + 'static, O: Send + Sync + 'static>(
         &mut self,
         name: &'static str,
     ) -> &mut Mock<I, O> {

@@ -3,15 +3,19 @@ use std::fmt::Debug;
 use parking_lot::RwLock;
 
 #[derive(Debug, PartialEq)]
-pub enum Output<O> {
+pub(crate) enum Output<O> {
     NotMatches,
     CallsRealImpl,
     Found(O),
 }
 
+/// Behavior of mock
 pub enum Behavior<I, O> {
+    /// Behaves with a function
     Function(Box<dyn FnMut(I) -> O + Send + Sync + 'static>),
+    /// Returns a constant value
     Const(RwLock<Box<dyn Iterator<Item = O> + Send + Sync + 'static>>),
+    /// Calls real implementation instead of mock
     CallsRealImpl,
 }
 
@@ -29,7 +33,7 @@ impl<I: Debug, O: Debug> std::fmt::Debug for Behavior<I, O> {
 }
 
 impl<I: Clone, O> Behavior<I, O> {
-    pub fn called(&mut self, input: &I) -> Output<O> {
+    pub(crate) fn called(&mut self, input: &I) -> Output<O> {
         match self {
             Behavior::Function(function) => Output::Found(function(input.clone())),
             Behavior::Const(cons) => Output::Found(cons.get_mut().next().unwrap()),

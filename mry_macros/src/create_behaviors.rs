@@ -17,6 +17,7 @@ pub fn create() -> TokenStream {
             .unzip();
         let behavior_name = Ident::new(&format!("Behavior{}", args.len()), Span::call_site());
         quote! {
+            #[doc(hidden)]
             pub struct #behavior_name<I, O>(Box<dyn FnMut(I) -> O + Send + Sync + 'static>);
 
             impl<Fn, O, #(#types),*> From<Fn> for #behavior_name<(#(#types),*), O>

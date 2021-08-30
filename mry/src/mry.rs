@@ -8,13 +8,15 @@ use parking_lot::RwLock;
 
 use crate::Mocks;
 
+/// A unique id for an object
 pub type MryId = u16;
 static ID: AtomicU16 = AtomicU16::new(0);
 
 #[derive(Clone)]
+/// Mock container that has blank and harmless trait implementation for major traits such as `Eq` and `Ord`
 pub struct Mry {
     id: MryId,
-    pub _mocks: Option<Arc<RwLock<Mocks>>>,
+    _mocks: Option<Arc<RwLock<Mocks>>>,
 }
 
 impl std::fmt::Debug for Mry {
@@ -24,12 +26,13 @@ impl std::fmt::Debug for Mry {
 }
 
 impl Mry {
-    pub fn generate(&mut self) -> &mut Self {
+    pub(crate) fn generate(&mut self) -> &mut Self {
         self._mocks
             .get_or_insert(Arc::new(RwLock::new(Default::default())));
         self
     }
 
+    #[doc(hidden)]
     pub fn record_call_and_find_mock_output<
         I: PartialEq + Debug + Clone + Send + Sync + 'static,
         O: Debug + Send + Sync + 'static,
@@ -48,10 +51,12 @@ impl Mry {
         }
     }
 
+    #[doc(hidden)]
     pub fn mocks_write<'a>(&'a mut self) -> impl DerefMut<Target = Mocks> + 'a {
         self.generate()._mocks.as_ref().unwrap().write()
     }
 
+    /// Returns a unique object ID
     pub fn id(&self) -> MryId {
         self.id
     }
