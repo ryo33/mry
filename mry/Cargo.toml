@@ -1,6 +1,6 @@
 [package]
 name = "mry"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "A cfg-free mocking library for structs and traits, which supports partial mocks."
@@ -11,7 +11,7 @@ keywords = ["mock", "mocking", "testing"]
 categories = ["development-tools"]
 
 [dependencies]
-mry_macros = { package = "mry_macros", path = "../mry_macros", version = "0.1.4" }
+mry_macros = { package = "mry_macros", path = "../mry_macros", version = "0.1.5" }
 once_cell = "1.8"
 parking_lot = "0.11"
 
