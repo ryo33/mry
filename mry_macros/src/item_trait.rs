@@ -54,7 +54,7 @@ pub(crate) fn transform(input: &ItemTrait) -> TokenStream {
         #input
 
         #[cfg(test)]
-        #[derive(Default)]
+        #[derive(Default, Clone)]
         #vis struct #mry_ident {
             pub mry: mry::Mry,
         }
@@ -96,7 +96,7 @@ mod test {
 				}
 
 				#[cfg(test)]
-				#[derive(Default)]
+				#[derive(Default, Clone)]
 				struct MockCat {
 					pub mry : mry::Mry,
 				}
@@ -146,7 +146,7 @@ mod test {
 				}
 
 				#[cfg(test)]
-				#[derive(Default)]
+				#[derive(Default, Clone)]
 				pub struct MockCat {
 					pub mry : mry::Mry,
 				}
@@ -198,7 +198,7 @@ mod test {
 				}
 
 				#[cfg(test)]
-				#[derive(Default)]
+				#[derive(Default, Clone)]
 				struct MockCat {
 					pub mry : mry::Mry,
 				}
