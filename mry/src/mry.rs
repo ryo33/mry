@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
-use crate::Mocks;
+use crate::{mock_key::BoxMockKey, Mocks};
 
 /// A unique id for an object
 pub type MryId = u16;
@@ -38,17 +38,16 @@ impl Mry {
         O: Debug + Send + Sync + 'static,
     >(
         &self,
+        key: BoxMockKey,
         name: &'static str,
         input: I,
     ) -> Option<O> {
-        if let Some(ref mocks) = self._mocks {
+        self._mocks.as_ref().and_then(|mocks| {
             mocks
                 .write()
-                .get_mut_or_create::<I, O>(name)
+                .get_mut_or_create::<I, O>(key, name)
                 .record_call_and_find_mock_output(input)
-        } else {
-            None
-        }
+        })
     }
 
     #[doc(hidden)]
@@ -89,7 +88,7 @@ impl Ord for Mry {
 
 impl std::hash::Hash for Mry {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (None as Option<MryId>).hash(state);
+        std::hash::Hash::hash(&None as &Option<MryId>, state);
     }
 }
 
@@ -104,6 +103,7 @@ mod test {
     use std::cmp::Ordering;
     use std::collections::HashSet;
 
+    use crate::mock_key::key_a;
     use crate::Matcher;
 
     use super::*;
@@ -161,7 +161,7 @@ mod test {
     fn generate_does_not_overwrite() {
         let mut mry = Mry::default();
         mry.generate();
-        mry._mocks.as_ref().unwrap().write().insert("a", 4u8);
+        mry._mocks.as_ref().unwrap().write().insert(key_a(), 4u8);
         mry.generate();
         assert_eq!(mry._mocks.unwrap().read().mock_objects.len(), 1);
     }
@@ -170,7 +170,7 @@ mod test {
     fn clone() {
         let mut mry = Mry::default();
         mry.generate();
-        mry._mocks.as_ref().unwrap().write().insert("a", 4u8);
+        mry._mocks.as_ref().unwrap().write().insert(key_a(), 4u8);
 
         assert_eq!(mry.clone()._mocks.unwrap().read().mock_objects.len(), 1);
     }
@@ -180,7 +180,7 @@ mod test {
         let mry = Mry::default();
 
         assert_eq!(
-            mry.record_call_and_find_mock_output::<u8, u16>("name", 1u8),
+            mry.record_call_and_find_mock_output::<u8, u16>(key_a(), "name", 1u8),
             None
         );
     }
@@ -190,11 +190,11 @@ mod test {
         let mut mry = Mry::default();
 
         mry.mocks_write()
-            .get_mut_or_create::<u8, u16>("name")
+            .get_mut_or_create::<u8, u16>(key_a(), "name")
             .returns(Matcher::Any, 1);
 
         assert_eq!(
-            mry.record_call_and_find_mock_output::<u8, u16>("name", 1u8),
+            mry.record_call_and_find_mock_output::<u8, u16>(key_a(), "name", 1u8),
             Some(1)
         );
     }

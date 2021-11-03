@@ -1,9 +1,9 @@
-use crate::{method, type_name::*};
+use crate::method;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
 use syn::visit_mut::VisitMut;
-use syn::{parse2, Ident, ImplItem, ItemImpl, Path};
+use syn::{parse2, FnArg, Ident, ImplItem, ItemImpl, Path};
 
 #[derive(Default)]
 struct TypeParameterVisitor(Vec<String>);
@@ -49,7 +49,7 @@ impl VisitMut for QualifiesAssociatedTypes {
     }
 }
 
-pub(crate) fn transform(input: &mut ItemImpl) -> TokenStream {
+pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
     if let Some((_, path, _)) = input.trait_.clone() {
         let ty = path.clone();
         let associated_types: Vec<_> = input
@@ -63,7 +63,7 @@ pub(crate) fn transform(input: &mut ItemImpl) -> TokenStream {
                 }
             })
             .collect();
-        QualifiesAssociatedTypes(ty, associated_types).visit_item_impl_mut(input);
+        QualifiesAssociatedTypes(ty, associated_types).visit_item_impl_mut(&mut input);
     }
     let generics = &input.generics;
     let mut type_params = TypeParameterVisitor::default();
@@ -85,39 +85,66 @@ pub(crate) fn transform(input: &mut ItemImpl) -> TokenStream {
     let mut trait_name = None;
     let trait_ = match &input.trait_ {
         Some((bang, path, for_)) => {
-            trait_name = Some(path_name(path));
+            trait_name = Some(path);
             quote! {
                 #bang #path #for_
             }
         }
         None => TokenStream::default(),
     };
-    let struct_name = type_name(&*input.self_ty);
-    let type_name = match trait_name {
-        Some(trait_name) => format!("<{} as {}>", struct_name, trait_name),
-        None => struct_name,
+
+    let qualified_type = match trait_name {
+        Some(trait_name) => quote![<#struct_type as #trait_name>],
+        None => input.self_ty.to_token_stream(),
     };
+    // Pretty print type name
+    let type_name = qualified_type
+        .to_string()
+        .replace(" ,", ",")
+        .replace(" >", ">")
+        .replace(" <", "<")
+        .replace("< ", "<");
 
     let (members, impl_members): (Vec<_>, Vec<_>) = input
         .items
         .iter()
         .map(|item| {
             if let ImplItem::Method(method) = item {
-                method::transform(
-                    &type_name,
-                    method.to_token_stream(),
-                    Some(&method.vis),
-                    &method.attrs,
-                    &method.sig,
-                    &method
-                        .block
-                        .stmts
-                        .iter()
-                        .fold(TokenStream::default(), |mut stream, item| {
-                            item.to_tokens(&mut stream);
-                            stream
-                        }),
-                )
+                if let Some(FnArg::Receiver(_)) = method.sig.inputs.first() {
+                    method::transform(
+                        quote![self.mry.mocks_write()],
+                        quote![#qualified_type::],
+                        &(type_name.clone() + "::"),
+                        quote![self.mry.record_call_and_find_mock_output],
+                        Some(&method.vis),
+                        &method.attrs,
+                        &method.sig,
+                        &method.block.stmts.iter().fold(
+                            TokenStream::default(),
+                            |mut stream, item| {
+                                item.to_tokens(&mut stream);
+                                stream
+                            },
+                        ),
+                    )
+                } else {
+                    method::transform(
+                        quote![mry::STATIC_MOCKS.write()],
+                        quote![#qualified_type::],
+                        &(type_name.clone() + "::"),
+                        quote![mry::STATIC_MOCKS.write().record_call_and_find_mock_output],
+                        Some(&method.vis),
+                        &method.attrs,
+                        &method.sig,
+                        &method.block.stmts.iter().fold(
+                            TokenStream::default(),
+                            |mut stream, item| {
+                                item.to_tokens(&mut stream);
+                                stream
+                            },
+                        ),
+                    )
+                }
             } else {
                 (item.to_token_stream(), TokenStream::default())
             }
@@ -150,7 +177,7 @@ mod test {
 
     #[test]
     fn keeps_attributes() {
-        let mut input: ItemImpl = parse2(quote! {
+        let input: ItemImpl = parse2(quote! {
             impl Cat {
                 #[meow]
                 #[meow]
@@ -162,14 +189,14 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&mut input).to_string(),
+            transform(input).to_string(),
             quote! {
                 impl Cat {
                     #[meow]
                     #[meow]
                     fn meow(#[a] &self, #[b] count: usize) -> String {
                         #[cfg(test)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(Cat::meow as fn(_, _,) -> _), "Cat::meow", (count.clone())) {
                             return out;
                         }
                         "meow".repeat(count)
@@ -181,6 +208,7 @@ mod test {
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
+                            key: Box::new(Cat::meow as fn(_, _,) -> _),
                             name: "Cat::meow",
                             matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
@@ -194,7 +222,7 @@ mod test {
 
     #[test]
     fn support_generics() {
-        let mut input: ItemImpl = parse2(quote! {
+        let input: ItemImpl = parse2(quote! {
             impl<'a, A: Clone> Cat<'a, A> {
                 fn meow<'a, B>(&'a self, count: usize) -> B {
                     "meow".repeat(count)
@@ -204,12 +232,12 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&mut input).to_string(),
+            transform(input).to_string(),
             quote! {
                 impl<'a, A: Clone> Cat<'a, A> {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
                         #[cfg(test)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat<'a, A>::meow", (count.clone())) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(Cat<'a, A>::meow as fn(_, _,) -> _), "Cat<'a, A>::meow", (count.clone())) {
                             return out;
                         }
                         "meow".repeat(count)
@@ -221,6 +249,7 @@ mod test {
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), B, mry::Behavior1<(usize), B> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
+                            key: Box::new(Cat<'a, A>::meow as fn(_, _,) -> _),
                             name: "Cat<'a, A>::meow",
                             matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
@@ -234,7 +263,7 @@ mod test {
 
     #[test]
     fn support_trait() {
-        let mut input: ItemImpl = parse2(quote! {
+        let input: ItemImpl = parse2(quote! {
             impl<A: Clone> Animal<A> for Cat {
                 fn name(&self) -> String {
                     self.name
@@ -244,12 +273,12 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&mut input).to_string(),
+            transform(input).to_string(),
             quote! {
                 impl<A: Clone> Animal<A> for Cat {
                     fn name(&self, ) -> String {
                         #[cfg(test)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output("<Cat as Animal<A>>::name", ()) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(< Cat as Animal < A > >::name as fn(_,) -> _), "<Cat as Animal<A>>::name", ()) {
                             return out;
                         }
                         self.name
@@ -261,6 +290,7 @@ mod test {
                     pub fn mock_name<'mry>(&'mry mut self,) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (), String, mry::Behavior0<(), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
+                            key: Box::new(< Cat as Animal < A > >::name as fn(_,) -> _),
                             name: "<Cat as Animal<A>>::name",
                             matcher: Some(().into()),
                             _phantom: Default::default(),
@@ -274,7 +304,7 @@ mod test {
 
     #[test]
     fn support_trait_with_associated_type() {
-        let mut input: ItemImpl = parse2(quote! {
+        let input: ItemImpl = parse2(quote! {
             impl Iterator for Cat {
                 type Item = String;
                 fn next(&self) -> Option<Self::Item> {
@@ -285,13 +315,13 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&mut input).to_string(),
+            transform(input).to_string(),
             quote! {
                 impl Iterator for Cat {
                     type Item = String;
                     fn next(&self, ) -> Option< <Self as Iterator>::Item> {
                         #[cfg(test)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output("<Cat as Iterator>::next", ()) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(<Cat as Iterator>::next as fn(_,) -> _), "<Cat as Iterator>::next", ()) {
                             return out;
                         }
                         Some(self.name)
@@ -303,8 +333,50 @@ mod test {
                     pub fn mock_next<'mry>(&'mry mut self,) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
+                            key: Box::new(<Cat as Iterator>::next as fn(_,) -> _),
                             name: "<Cat as Iterator>::next",
                             matcher: Some(().into()),
+                            _phantom: Default::default(),
+                        }
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn support_associated_functions() {
+        let input: ItemImpl = parse2(quote! {
+            impl Cat {
+                fn meow(count: usize) -> String {
+                    "meow".repeat(count)
+                }
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+                impl Cat {
+                    fn meow(count: usize) -> String {
+                        #[cfg(test)]
+                        if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(Box::new(Cat::meow as fn(_,) -> _), "Cat::meow", (count.clone())) {
+                            return out;
+                        }
+                        "meow".repeat(count)
+                    }
+                }
+
+                impl Cat {
+                    #[cfg(test)]
+                    pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                        mry::MockLocator {
+                            mocks: mry::STATIC_MOCKS.write(),
+                            key: Box::new(Cat::meow as fn (_,) -> _),
+                            name: "Cat::meow",
+                            matcher: Some((arg0.into(), ).into()),
                             _phantom: Default::default(),
                         }
                     }

@@ -15,11 +15,6 @@ impl Cat {
     fn just_meow(&self) -> String {
         format!("{}: meow", self.name)
     }
-
-    #[allow(dead_code)]
-    fn new_by_mry_new(name: &str) -> Self {
-        mry::new!(Cat { name: name.into() })
-    }
 }
 
 #[test]

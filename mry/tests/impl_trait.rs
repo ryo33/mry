@@ -11,8 +11,8 @@ impl<'a> Into<String> for Cat<'a> {
     }
 }
 
-#[async_std::test]
-async fn meow_returns_with() {
+#[test]
+fn meow_returns_with() {
     let mut cat: Cat = Cat {
         name: "Tama".into(),
         ..Default::default()

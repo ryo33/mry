@@ -2,12 +2,14 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::DerefMut;
 
-use crate::{Behavior, Matcher, Mock, MockResult, Mocks};
+use crate::{mock_key::BoxMockKey, Behavior, Matcher, Mock, MockResult, Mocks};
 
 /// Mock locator returned by mock_* methods
 pub struct MockLocator<M, I, O, B> {
     #[doc(hidden)]
     pub mocks: M,
+    #[doc(hidden)]
+    pub key: BoxMockKey,
     #[doc(hidden)]
     pub name: &'static str,
     #[doc(hidden)]
@@ -67,12 +69,13 @@ where
     O: Send + Sync + 'static,
 {
     fn get_mut_or_default(&mut self) -> &mut Mock<I, O> {
-        self.mocks.get_mut_or_create::<I, O>(self.name)
+        self.mocks
+            .get_mut_or_create::<I, O>(self.key.clone(), &self.name)
     }
 
     fn get_or_error(&self) -> &Mock<I, O> {
         self.mocks
-            .get::<Mock<I, O>>(self.name)
+            .get::<Mock<I, O>>(&self.key)
             .expect(&format!("no mock is found for {}", self.name))
     }
 

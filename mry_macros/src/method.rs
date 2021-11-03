@@ -3,22 +3,27 @@ use quote::quote;
 use syn::{Attribute, FnArg, Ident, Pat, PatIdent, ReturnType, Signature, Type, Visibility};
 
 pub fn transform(
-    struct_name: &str,
-    tokens: TokenStream,
+    mocks_write_lock: TokenStream, // `MOCKS.write()`
+    method_prefix: TokenStream,    // `Self::`
+    method_debug_prefix: &str,     // "Cat::"
+    record_call_and_find_mock_output: TokenStream,
     vis: Option<&Visibility>,
     attrs: &Vec<Attribute>,
     sig: &Signature,
     body: &TokenStream,
 ) -> (TokenStream, TokenStream) {
     // Split into receiver and other inputs
-    let receiver;
-    let mut inputs = sig.inputs.iter();
-    if let Some(FnArg::Receiver(rcv)) = inputs.next() {
-        receiver = rcv;
-    } else {
-        return (tokens.clone(), TokenStream::default());
+    let mut receiver = TokenStream::default();
+    let mut mock_receiver = TokenStream::default();
+    let mut inputs = sig.inputs.iter().peekable();
+    // If receiver exists
+    if let Some(FnArg::Receiver(rcv)) = inputs.peek() {
+        receiver = quote![#rcv,];
+        mock_receiver = quote![&'mry mut self,];
+        // Skip the receiver
+        inputs.next();
     }
-    let inputs: Vec<_> = inputs
+    let inputs_without_receiver: Vec<_> = inputs
         .map(|input| {
             if let FnArg::Typed(typed_arg) = input {
                 typed_arg.clone()
@@ -29,7 +34,7 @@ pub fn transform(
         .collect();
     let mut bindings = Vec::new();
 
-    let args: Vec<_> = inputs
+    let args_without_receiver: Vec<_> = inputs_without_receiver
         .iter()
         .enumerate()
         .map(|(i, input)| {
@@ -52,9 +57,11 @@ pub fn transform(
             }
         })
         .collect();
-    let derefed_input_type_tuple: Vec<_> =
-        args.iter().map(|input| deref_type(&*input.ty)).collect();
-    let cloned_input: Vec<_> = args
+    let derefed_input_type_tuple: Vec<_> = args_without_receiver
+        .iter()
+        .map(|input| deref_type(&*input.ty))
+        .collect();
+    let cloned_input: Vec<_> = args_without_receiver
         .iter()
         .map(|input| {
             let pat = &input.pat;
@@ -74,14 +81,17 @@ pub fn transform(
     let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
     let asyn = &sig.asyncness;
     let vis = &vis;
-    let name = format!("{}::{}", struct_name, ident.to_string());
-    let args = quote!(#(#args),*);
+    let name = format!("{}{}", method_debug_prefix, ident.to_string());
+    let args = quote!(#receiver#(#args_without_receiver),*);
     let input_type_tuple = quote!((#(#derefed_input_type_tuple),*));
     let cloned_input_tuple = quote!((#(#cloned_input),*));
     let bindings = bindings.iter().map(|(pat, arg)| quote![let #pat = #arg;]);
-    let behavior_name = Ident::new(&format!("Behavior{}", inputs.len()), Span::call_site());
+    let behavior_name = Ident::new(
+        &format!("Behavior{}", inputs_without_receiver.len()),
+        Span::call_site(),
+    );
     let behavior_type = quote![mry::#behavior_name<#input_type_tuple, #output_type>];
-    let (mock_args, mock_args_into): (Vec<_>, Vec<_>) = inputs
+    let (mock_args, mock_args_into): (Vec<_>, Vec<_>) = inputs_without_receiver
         .iter()
         .enumerate()
         .map(|(index, input)| {
@@ -92,12 +102,14 @@ pub fn transform(
             (mock_arg, mock_arg_into)
         })
         .unzip();
+    let input_types_but_ = sig.inputs.iter().map(|_| quote![_]);
+    let key = quote![Box::new(#method_prefix#ident as fn(#(#input_types_but_,)*) -> _)];
     (
         quote! {
             #(#attrs)*
-            #vis #asyn fn #ident #generics(#receiver, #args) -> #output_type {
+            #vis #asyn fn #ident #generics(#args) -> #output_type {
                 #[cfg(test)]
-                if let Some(out) = self.mry.record_call_and_find_mock_output(#name, #cloned_input_tuple) {
+                if let Some(out) = #record_call_and_find_mock_output(#key, #name, #cloned_input_tuple) {
                     return out;
                 }
                 #(#bindings)*
@@ -106,9 +118,10 @@ pub fn transform(
         },
         quote! {
             #[cfg(test)]
-            pub fn #mock_ident<'mry>(&'mry mut self, #(#mock_args),*) -> mry::MockLocator<impl std::ops::DerefMut<Target=mry::Mocks> + 'mry, #input_type_tuple, #output_type, #behavior_type> {
+            pub fn #mock_ident<'mry>(#mock_receiver#(#mock_args),*) -> mry::MockLocator<impl std::ops::DerefMut<Target=mry::Mocks> + 'mry, #input_type_tuple, #output_type, #behavior_type> {
                 mry::MockLocator {
-                    mocks: self.mry.mocks_write(),
+                    mocks: #mocks_write_lock,
+                    key: #key,
                     name: #name,
                     matcher: Some((#(#mock_args_into,)*).into()),
                     _phantom: Default::default(),
@@ -165,10 +178,12 @@ mod test {
         }
     }
 
-    fn t(name: &str, method: &ImplItemMethod) -> (TokenStream, TokenStream) {
+    fn t(method: &ImplItemMethod) -> (TokenStream, TokenStream) {
         transform(
-            name,
-            method.to_token_stream(),
+            quote![self.mry.mocks_write()],
+            quote![Self::],
+            "Cat::",
+            quote![self.mry.record_call_and_find_mock_output],
             Some(&method.vis),
             &method.attrs,
             &method.sig,
@@ -184,26 +199,6 @@ mod test {
     }
 
     #[test]
-    fn support_associated_functions() {
-        let input: ImplItemMethod = parse2(quote! {
-            fn meow() -> String{
-                "meow"
-            }
-        })
-        .unwrap();
-
-        assert_eq!(
-            t("Cat", &input).to_string(),
-            quote! {
-                fn meow() -> String {
-                    "meow"
-                }
-            }
-            .to_string()
-        );
-    }
-
-    #[test]
     fn adds_mock_function() {
         let input: ImplItemMethod = parse2(quote! {
             fn meow(&self, count: usize) -> String {
@@ -213,11 +208,11 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            t("Cat", &input).to_string(),
+            t(&input).to_string(),
             quote! {
                 fn meow(&self, count: usize) -> String {
                     #[cfg(test)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(Self::meow as fn(_, _,) -> _), "Cat::meow", (count.clone())) {
                         return out;
                     }
                     "meow".repeat(count)
@@ -227,6 +222,7 @@ mod test {
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
+                        key: Box::new(Self::meow as fn(_, _,) -> _),
                         name: "Cat::meow",
                         matcher: Some((arg0.into(),).into()),
                         _phantom: Default::default(),
@@ -247,11 +243,11 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            t("Cat", &input).to_string(),
+            t(&input).to_string(),
             quote! {
                 fn meow(&self, ) -> String {
                     #[cfg(test)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", ()) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(Self::meow as fn(_,) -> _), "Cat::meow", ()) {
                         return out;
                     }
                     "meow".into()
@@ -261,6 +257,7 @@ mod test {
                 pub fn mock_meow<'mry>(&'mry mut self, ) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (), String, mry::Behavior0<(), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
+                        key: Box::new(Self::meow as fn(_,) -> _),
                         name: "Cat::meow",
                         matcher: Some(().into()),
                         _phantom: Default::default(),
@@ -281,11 +278,11 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            t("Cat", &input).to_string(),
+            t(&input).to_string(),
             quote! {
                 fn meow(&self, base: String, count: usize) -> String {
                     #[cfg(test)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (base.clone(), count.clone())) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(Self::meow as fn(_, _, _,) -> _), "Cat::meow", (base.clone(), count.clone())) {
                         return out;
                     }
                     base.repeat(count)
@@ -295,6 +292,7 @@ mod test {
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<String>>, arg1: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (String, usize), String, mry::Behavior2<(String, usize), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
+                        key: Box::new(Self::meow as fn(_, _, _,) -> _),
                         name: "Cat::meow",
                         matcher: Some((arg0.into(), arg1.into(),).into()),
                         _phantom: Default::default(),
@@ -315,11 +313,11 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            t("Cat", &input).to_string(),
+            t(&input).to_string(),
             quote! {
                 fn meow(&self, out: &'static mut String, base: &str, count: &usize) -> () {
                     #[cfg(test)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (out.clone(), base.to_string(), count.clone())) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(Self::meow as fn(_, _, _, _,) -> _), "Cat::meow", (out.clone(), base.to_string(), count.clone())) {
                         return out;
                     }
                     *out = base.repeat(count);
@@ -330,6 +328,7 @@ mod test {
                     -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
+                        key: Box::new(Self::meow as fn(_, _, _, _,) -> _),
                         name: "Cat::meow",
                         matcher: Some((arg0.into(), arg1.into(), arg2.into(),).into()),
                         _phantom: Default::default(),
@@ -350,11 +349,11 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            t("Cat", &input).to_string(),
+            t(&input).to_string(),
             quote! {
                 async fn meow(&self, count: usize) -> String {
                     #[cfg(test)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(Self::meow as fn(_, _,) -> _), "Cat::meow", (count.clone())) {
                         return out;
                     }
                     base().await.repeat(count);
@@ -364,6 +363,7 @@ mod test {
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
+                        key: Box::new(Self::meow as fn(_, _,) -> _),
                         name: "Cat::meow",
                         matcher: Some((arg0.into(),).into()),
                         _phantom: Default::default(),
@@ -384,11 +384,11 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            t("Cat", &input).to_string(),
+            t(&input).to_string(),
             quote! {
 				fn meow(&self, arg0: A, count: usize, arg2: String) -> String {
                     #[cfg(test)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (arg0.clone(), count.clone(), arg2.clone())) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(Self::meow as fn(_, _, _, _,) -> _), "Cat::meow", (arg0.clone(), count.clone(), arg2.clone())) {
                         return out;
                     }
 					let A { name } = arg0;
@@ -400,6 +400,7 @@ mod test {
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<A>>, arg1: impl Into<mry::Matcher<usize>>, arg2: impl Into<mry::Matcher<String>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
+                        key: Box::new(Self::meow as fn(_, _, _, _,) -> _),
                         name: "Cat::meow",
                         matcher: Some((arg0.into(), arg1.into(), arg2.into(),).into()),
                         _phantom: Default::default(),
@@ -420,11 +421,11 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            t("Cat", &input).0.to_string(),
+            t(&input).0.to_string(),
             quote! {
                 pub fn meow(&self, count: usize) -> String {
                     #[cfg(test)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(Self::meow as fn(_, _,) -> _), "Cat::meow", (count.clone())) {
                         return out;
                     }
                     "meow".repeat(count)

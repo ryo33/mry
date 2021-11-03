@@ -16,9 +16,9 @@ impl<'ast> Visit<'ast> for AsyncTraitFindVisitor {
     }
 }
 
-pub(crate) fn transform(input: &ItemTrait) -> TokenStream {
+pub(crate) fn transform(input: ItemTrait) -> TokenStream {
     let mut async_trait_finder = AsyncTraitFindVisitor::default();
-    async_trait_finder.visit_item_trait(input);
+    async_trait_finder.visit_item_trait(&input);
     let async_trait_or_blank = if async_trait_finder.0 {
         quote!(#[async_trait::async_trait])
     } else {
@@ -35,8 +35,10 @@ pub(crate) fn transform(input: &ItemTrait) -> TokenStream {
         .iter()
         .map(|item| match item {
             syn::TraitItem::Method(method) => method::transform(
-                &trait_ident.to_string(),
-                method.to_token_stream(),
+                quote![self.mry.mocks_write()],
+                quote![#mry_ident::],
+                &(trait_ident.to_string() + "::"),
+                quote![self.mry.record_call_and_find_mock_output],
                 None,
                 &method.attrs,
                 &method.sig,
@@ -89,7 +91,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform(input).to_string(),
             quote! {
 				trait Cat {
 					fn meow(&self, count: usize) -> String;
@@ -105,7 +107,7 @@ mod test {
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(test)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(MockCat::meow as fn(_, _,) -> _), "Cat::meow", (count.clone())) {
                             return out;
                         }
                         panic!("mock not found for Cat")
@@ -118,6 +120,7 @@ mod test {
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
+                            key: Box::new(MockCat::meow as fn(_, _,) -> _),
                             name: "Cat::meow",
                             matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
@@ -139,7 +142,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform(input).to_string(),
             quote! {
 				pub trait Cat {
 					fn meow(&self, count: usize) -> String;
@@ -155,7 +158,7 @@ mod test {
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(test)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(MockCat::meow as fn(_, _,) -> _), "Cat::meow", (count.clone())) {
                             return out;
                         }
                         panic!("mock not found for Cat")
@@ -168,6 +171,7 @@ mod test {
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
+                            key: Box::new(MockCat::meow as fn(_, _,) -> _),
                             name: "Cat::meow",
                             matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
@@ -190,7 +194,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(&input).to_string(),
+            transform(input).to_string(),
             quote! {
                 #[async_trait::async_trait]
 				trait Cat {
@@ -208,7 +212,7 @@ mod test {
                 impl Cat for MockCat {
                     async fn meow(&self, count: usize) -> String {
                         #[cfg(test)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output("Cat::meow", (count.clone())) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output(Box::new(MockCat::meow as fn(_, _,) -> _), "Cat::meow", (count.clone())) {
                             return out;
                         }
                         panic!("mock not found for Cat")
@@ -221,6 +225,7 @@ mod test {
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
+                            key: Box::new(MockCat::meow as fn(_, _,) -> _),
                             name: "Cat::meow",
                             matcher: Some((arg0.into(),).into()),
                             _phantom: Default::default(),
