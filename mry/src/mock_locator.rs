@@ -1,15 +1,15 @@
-use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::DerefMut;
+use std::{any::TypeId, fmt::Debug};
 
-use crate::{mock_key::BoxMockKey, Behavior, Matcher, Mock, MockResult, Mocks};
+use crate::{Behavior, Matcher, Mock, MockResult, Mocks};
 
 /// Mock locator returned by mock_* methods
 pub struct MockLocator<M, I, O, B> {
     #[doc(hidden)]
     pub mocks: M,
     #[doc(hidden)]
-    pub key: BoxMockKey,
+    pub key: TypeId,
     #[doc(hidden)]
     pub name: &'static str,
     #[doc(hidden)]

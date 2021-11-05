@@ -6,7 +6,7 @@ use crate::method;
 
 pub(crate) fn transform(input: ItemFn) -> TokenStream {
     let (original, mock) = method::transform(
-        quote![mry::STATIC_MOCKS.write()],
+        quote![mry::DerefMocks(mry::STATIC_MOCKS.write())],
         Default::default(),
         "",
         quote![mry::STATIC_MOCKS.write().record_call_and_find_mock_output],
@@ -43,7 +43,7 @@ mod test {
             quote! {
 				fn meow(count: usize) -> String {
 					#[cfg(test)]
-					if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(Box::new(meow as fn(_,) -> _), "meow", (count.clone())) {
+					if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(std::any::std::any::Any::type_id(&meow), "meow", (count.clone())) {
 						return out;
 					}
 					{
@@ -55,7 +55,7 @@ mod test {
 				pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
 					mry::MockLocator {
 						mocks: mry::STATIC_MOCKS.write(),
-						key: Box::new(meow as fn(_,) -> _),
+						key: std::any::Any::type_id(&meow)
 						name: "meow",
 						matcher: Some((arg0.into(),).into()),
 						_phantom: Default::default(),
