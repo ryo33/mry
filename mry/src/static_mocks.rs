@@ -1,6 +1,6 @@
 use crate::Mocks;
 use once_cell::sync::Lazy;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use std::{
     any::TypeId,
     collections::HashMap,
@@ -15,7 +15,16 @@ pub static STATIC_MOCK_LOCKS: Lazy<RwLock<HashMap<TypeId, StaticMockMutex>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
 #[doc(hidden)]
-pub struct StaticMockLock;
+pub struct StaticMockLock<T> {
+    pub key: TypeId,
+    pub lock: T,
+}
+
+impl<T> Drop for StaticMockLock<T> {
+    fn drop(&mut self) {
+        STATIC_MOCKS.write().0.remove(&self.key);
+    }
+}
 
 #[doc(hidden)]
 #[derive(Default)]
@@ -61,21 +70,25 @@ impl StaticMocks {
 
 #[cfg(test)]
 mod tests {
-    use crate::Matcher;
+    use std::any::Any;
+
+    use crate::{
+        mock::{Mock, MockObjectReturns},
+        Matcher,
+    };
 
     use super::*;
 
     #[test]
     fn returns_none_if_not_mocked() {
-        let mocks = Mocks::default();
-        let mut static_mocks = StaticMocks(mocks);
-
         assert_eq!(
-            static_mocks.record_call_and_find_mock_output::<(), ()>(
-                TypeId::of::<usize>(),
-                "meow",
-                ()
-            ),
+            STATIC_MOCKS
+                .write()
+                .record_call_and_find_mock_output::<(), ()>(
+                    returns_none_if_not_mocked.type_id(),
+                    "meow",
+                    ()
+                ),
             None
         );
     }
@@ -84,21 +97,52 @@ mod tests {
     fn returns_some_if_mocked() {
         let mut mocks = Mocks::default();
         mocks
-            .get_mut_or_create(TypeId::of::<usize>(), "meow")
+            .get_mut_or_create(returns_some_if_mocked.type_id(), "meow")
             .returns(Matcher::Eq(()), ());
         let mut static_mocks = StaticMocks(mocks);
 
         STATIC_MOCK_LOCKS
             .write()
-            .insert(TypeId::of::<usize>(), Default::default());
+            .insert(returns_some_if_mocked.type_id(), Default::default());
 
         assert_eq!(
             static_mocks.record_call_and_find_mock_output::<(), ()>(
-                TypeId::of::<usize>(),
+                returns_some_if_mocked.type_id(),
                 "meow",
                 ()
             ),
             Some(())
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "the lock of `meow` is not acquired.")]
+    fn panic_if_lock_is_not_acquired() {
+        STATIC_MOCKS
+            .write()
+            .record_call_and_find_mock_output::<(), ()>(
+                panic_if_lock_is_not_acquired.type_id(),
+                "meow",
+                (),
+            );
+    }
+
+    #[test]
+    fn delete_mock_when_lock_is_dropped() {
+        STATIC_MOCKS.write().0.insert(
+            delete_mock_when_lock_is_dropped.type_id(),
+            Box::new(Mock::<usize, usize>::new("")),
+        );
+
+        drop(StaticMockLock {
+            key: delete_mock_when_lock_is_dropped.type_id(),
+            lock: (),
+        });
+
+        assert!(STATIC_MOCKS
+            .read()
+            .0
+            .get::<usize, usize>(&delete_mock_when_lock_is_dropped.type_id())
+            .is_none());
     }
 }

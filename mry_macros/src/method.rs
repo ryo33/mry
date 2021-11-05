@@ -118,7 +118,7 @@ pub fn transform(
         },
         quote! {
             #[cfg(test)]
-            pub fn #mock_ident<'mry>(#mock_receiver#(#mock_args),*) -> mry::MockLocator<impl std::ops::DerefMut<Target=mry::Mocks> + 'mry, #input_type_tuple, #output_type, #behavior_type> {
+            pub fn #mock_ident<'mry>(#mock_receiver#(#mock_args),*) -> mry::MockLocator<'mry, #input_type_tuple, #output_type, #behavior_type> {
                 mry::MockLocator {
                     mocks: #mocks_write_lock,
                     key: #key,
@@ -219,7 +219,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
                         key: std::any::Any::type_id(&Self::meow)
@@ -254,7 +254,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                pub fn mock_meow<'mry>(&'mry mut self, ) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (), String, mry::Behavior0<(), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self, ) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
                         key: std::any::Any::type_id(&Self::meow)
@@ -289,7 +289,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<String>>, arg1: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (String, usize), String, mry::Behavior2<(String, usize), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<String>>, arg1: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (String, usize), String, mry::Behavior2<(String, usize), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
                         key: std::any::Any::type_id(&Self::meow)
@@ -325,7 +325,7 @@ mod test {
 
                 #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into <mry::Matcher<String>>, arg1: impl Into<mry::Matcher<String>>, arg2: impl Into<mry::Matcher<usize>>)
-                    -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
+                    -> mry::MockLocator<'mry, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
                         key: std::any::Any::type_id(&Self::meow)
@@ -360,7 +360,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
                         key: std::any::Any::type_id(&Self::meow)
@@ -397,7 +397,7 @@ mod test {
                 }
 
                 #[cfg(test)]
-                pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<A>>, arg1: impl Into<mry::Matcher<usize>>, arg2: impl Into<mry::Matcher<String>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
+                pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<A>>, arg1: impl Into<mry::Matcher<usize>>, arg2: impl Into<mry::Matcher<String>>) -> mry::MockLocator<'mry, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
                         key: std::any::Any::type_id(&Self::meow)

@@ -6,7 +6,7 @@ use crate::method;
 
 pub(crate) fn transform(input: ItemFn) -> TokenStream {
     let (original, mock) = method::transform(
-        quote![mry::DerefMocks(mry::STATIC_MOCKS.write())],
+        quote![Box::new(mry::DerefMocks(mry::STATIC_MOCKS.write()))],
         Default::default(),
         "",
         quote![mry::STATIC_MOCKS.write().record_call_and_find_mock_output],
@@ -52,7 +52,7 @@ mod test {
 				}
 
 				#[cfg(test)]
-				pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
+				pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
 					mry::MockLocator {
 						mocks: mry::STATIC_MOCKS.write(),
 						key: std::any::Any::type_id(&meow)

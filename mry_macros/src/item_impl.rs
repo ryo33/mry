@@ -129,7 +129,7 @@ pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
                     )
                 } else {
                     method::transform(
-                        quote![mry::DerefMocks(mry::STATIC_MOCKS.write())],
+                        quote![Box::new(mry::DerefMocks(mry::STATIC_MOCKS.write()))],
                         quote![#qualified_type::],
                         &(type_name.clone() + "::"),
                         quote![mry::STATIC_MOCKS.write().record_call_and_find_mock_output],
@@ -205,7 +205,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(test)]
-                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
                             key: std::any::std::any::Any::type_id(&Cat::meow),
@@ -246,7 +246,7 @@ mod test {
 
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(test)]
-                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), B, mry::Behavior1<(usize), B> > {
+                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
                             key: std::any::std::any::Any::type_id(&Cat<'a, A)::meow>,
@@ -287,7 +287,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(test)]
-                    pub fn mock_name<'mry>(&'mry mut self,) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (), String, mry::Behavior0<(), String> > {
+                    pub fn mock_name<'mry>(&'mry mut self,) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
                             key: std::any::std::any::Any::type_id(&< Cat as Animal < A ) >::name>,
@@ -330,7 +330,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(test)]
-                    pub fn mock_next<'mry>(&'mry mut self,) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
+                    pub fn mock_next<'mry>(&'mry mut self,) -> mry::MockLocator<'mry, (), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
                             key: std::any::std::any::Any::type_id(&<Cat as Iterator)::next>,
@@ -371,7 +371,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(test)]
-                    pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<impl std::ops::DerefMut<Target = mry::Mocks> + 'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                    pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: mry::STATIC_MOCKS.write(),
                             key: std::any::std::any::Any::type_id(&Cat::meow),

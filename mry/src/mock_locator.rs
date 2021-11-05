@@ -2,12 +2,13 @@ use std::marker::PhantomData;
 use std::ops::DerefMut;
 use std::{any::TypeId, fmt::Debug};
 
-use crate::{Behavior, Matcher, Mock, MockResult, Mocks};
+use crate::mock::{BoxMockObject, MockObjectReturns};
+use crate::{Behavior, Matcher, MockResult, Mocks};
 
 /// Mock locator returned by mock_* methods
-pub struct MockLocator<M, I, O, B> {
+pub struct MockLocator<'a, I, O, B> {
     #[doc(hidden)]
-    pub mocks: M,
+    pub mocks: Box<dyn DerefMut<Target = Mocks> + 'a>,
     #[doc(hidden)]
     pub key: TypeId,
     #[doc(hidden)]
@@ -18,9 +19,8 @@ pub struct MockLocator<M, I, O, B> {
     pub _phantom: PhantomData<fn() -> (I, O, B)>,
 }
 
-impl<M, I, O, B> MockLocator<M, I, O, B>
+impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    M: DerefMut<Target = Mocks>,
     I: Clone + PartialEq + Debug + Send + Sync + 'static,
     O: Debug + Send + Sync + 'static,
     B: Into<Behavior<I, O>>,
@@ -30,7 +30,7 @@ where
     pub fn returns_with<T: Into<B>>(&mut self, behavior: T) {
         let matcher = self.matcher();
         self.get_mut_or_default()
-            .returns_with(matcher, behavior.into());
+            .returns_with(matcher, behavior.into().into());
     }
 
     /// This make the mock calls real impl. This is used for partial mocking.
@@ -48,11 +48,10 @@ where
     }
 }
 
-impl<M, I, O, B> MockLocator<M, I, O, B>
+impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    M: DerefMut<Target = Mocks>,
-    I: Send + Sync + 'static,
-    O: Clone + Send + Sync + 'static,
+    I: Clone + PartialEq + Debug + Send + Sync + 'static,
+    O: Clone + Debug + Send + Sync + 'static,
 {
     /// This makes the mock returns the given constant value.
     /// This requires `Clone`. For returning not clone value, use `returns_with`.
@@ -62,20 +61,24 @@ where
     }
 }
 
-impl<M, I, O, B> MockLocator<M, I, O, B>
+impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    M: DerefMut<Target = Mocks>,
-    I: Send + Sync + 'static,
-    O: Send + Sync + 'static,
+    I: Debug + PartialEq + Clone + Send + Sync + 'static,
+    O: Debug + Send + Sync + 'static,
 {
-    fn get_mut_or_default(&mut self) -> &mut Mock<I, O> {
+    fn get_mut_or_default(&mut self) -> &mut BoxMockObject<I, O> {
         self.mocks
             .get_mut_or_create::<I, O>(self.key.clone(), &self.name)
     }
-
-    fn get_or_error(&self) -> &Mock<I, O> {
+}
+impl<'a, I, O, B> MockLocator<'a, I, O, B>
+where
+    I: Send + Sync + 'static,
+    O: Send + Sync + 'static,
+{
+    fn get_or_error(&self) -> &BoxMockObject<I, O> {
         self.mocks
-            .get::<Mock<I, O>>(&self.key)
+            .get::<I, O>(&self.key)
             .expect(&format!("no mock is found for {}", self.name))
     }
 
