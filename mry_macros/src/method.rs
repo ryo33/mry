@@ -102,7 +102,6 @@ pub fn transform(
             (mock_arg, mock_arg_into)
         })
         .unzip();
-    let input_types_but_ = sig.inputs.iter().map(|_| quote![_]);
     let key = quote![std::any::Any::type_id(&#method_prefix#ident)];
     (
         quote! {

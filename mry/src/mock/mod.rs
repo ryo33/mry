@@ -1,7 +1,7 @@
 mod logs;
 mod mock_result;
+use std::fmt::Debug;
 use std::iter::repeat;
-use std::{fmt::Debug, ops::DerefMut};
 
 pub use logs::*;
 pub use mock_result::*;
@@ -9,22 +9,6 @@ pub use mock_result::*;
 use parking_lot::{Mutex, RwLock};
 
 use crate::{Behavior, Matcher, Output, Rule};
-
-pub type BoxMockObject<I, O> = Box<dyn MockObject<I, O> + Send + Sync>;
-
-#[doc(hidden)]
-pub trait MockObject<I, O> {
-    fn record_call_and_find_mock_output(&mut self, input: I) -> Option<O>;
-    fn returns_with(&mut self, matcher: Matcher<I>, behavior: Behavior<I, O>);
-    fn calls_real_impl(&mut self, matcher: Matcher<I>);
-    fn assert_called(&self, matcher: Matcher<I>) -> MockResult<I>;
-}
-
-// Separated because implementention needs Clone for O.
-#[doc(hidden)]
-pub trait MockObjectReturns<I, O> {
-    fn returns(&mut self, matcher: Matcher<I>, ret: O);
-}
 
 pub struct Mock<I, O> {
     pub name: &'static str,
@@ -52,22 +36,22 @@ impl<I: PartialEq + Clone, O> Mock<I, O> {
     }
 }
 
-impl<I: Clone + PartialEq + Debug, O: Debug> MockObject<I, O> for Mock<I, O> {
-    fn returns_with(&mut self, matcher: Matcher<I>, behavior: Behavior<I, O>) {
+impl<I: Clone + PartialEq + Debug, O: Debug> Mock<I, O> {
+    pub(crate) fn returns_with(&mut self, matcher: Matcher<I>, behavior: Behavior<I, O>) {
         self.rules.push(Rule {
             matcher,
             behavior: behavior,
         });
     }
 
-    fn calls_real_impl(&mut self, matcher: Matcher<I>) {
+    pub(crate) fn calls_real_impl(&mut self, matcher: Matcher<I>) {
         self.rules.push(Rule {
             matcher,
             behavior: Behavior::CallsRealImpl,
         })
     }
 
-    fn assert_called(&self, matcher: Matcher<I>) -> MockResult<I> {
+    pub(crate) fn assert_called(&self, matcher: Matcher<I>) -> MockResult<I> {
         let logs = self.handle_assert_called(&matcher, || {
             panic!("{} was not called\n{:?}", self.name, *self.logs.lock())
         });
@@ -77,7 +61,7 @@ impl<I: Clone + PartialEq + Debug, O: Debug> MockObject<I, O> for Mock<I, O> {
         }
     }
 
-    fn record_call_and_find_mock_output(&mut self, input: I) -> Option<O> {
+    pub(crate) fn record_call_and_find_mock_output(&mut self, input: I) -> Option<O> {
         self.logs.lock().push(input.clone());
         for rule in &mut self.rules {
             match rule.called(&input) {
@@ -89,12 +73,13 @@ impl<I: Clone + PartialEq + Debug, O: Debug> MockObject<I, O> for Mock<I, O> {
         panic!("mock not found for {}\n{:?}", self.name, self.rules)
     }
 }
-impl<I, O, T> MockObjectReturns<I, O> for T
+
+impl<I, O> Mock<I, O>
 where
-    O: Clone + Send + Sync + 'static,
-    T: DerefMut<Target = BoxMockObject<I, O>>,
+    I: Clone + PartialEq + Debug + Send + Sync + 'static,
+    O: Clone + Debug + Send + Sync + 'static,
 {
-    fn returns(&mut self, matcher: Matcher<I>, ret: O) {
+    pub(crate) fn returns(&mut self, matcher: Matcher<I>, ret: O) {
         self.returns_with(matcher, Behavior::Const(RwLock::new(Box::new(repeat(ret)))))
     }
 }
@@ -117,8 +102,7 @@ mod test {
 
     #[test]
     fn returns() {
-        let mut mock: Box<BoxMockObject<_, _>> =
-            Box::new(Box::new(Mock::<usize, String>::new("a")));
+        let mut mock = Mock::<usize, String>::new("a");
         mock.returns(Matcher::Any, "a".repeat(3));
 
         assert_eq!(
@@ -156,8 +140,7 @@ mod test {
     #[test]
     #[should_panic(expected = "mock not found for a")]
     fn returns_never() {
-        let mut mock: Box<BoxMockObject<_, _>> =
-            Box::new(Box::new(Mock::<usize, String>::new("a")));
+        let mut mock = Mock::<usize, String>::new("a");
         mock.returns(Matcher::Never, "a".repeat(3));
 
         mock.record_call_and_find_mock_output(3);
@@ -165,8 +148,7 @@ mod test {
 
     #[test]
     fn returns_always() {
-        let mut mock: Box<BoxMockObject<_, _>> =
-            Box::new(Box::new(Mock::<usize, String>::new("a")));
+        let mut mock = Mock::<usize, String>::new("a");
         mock.returns(Matcher::Any, "a".repeat(3));
 
         assert_eq!(

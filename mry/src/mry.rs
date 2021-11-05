@@ -103,7 +103,7 @@ mod test {
     use std::cmp::Ordering;
     use std::collections::HashSet;
 
-    use crate::mock::{Mock, MockObjectReturns};
+    use crate::mock::Mock;
     use crate::Matcher;
 
     use super::*;
@@ -161,10 +161,11 @@ mod test {
     fn generate_does_not_overwrite() {
         let mut mry = Mry::default();
         mry.generate();
-        mry._mocks.as_ref().unwrap().write().insert(
-            TypeId::of::<usize>(),
-            Box::new(Mock::<usize, usize>::new("")),
-        );
+        mry._mocks
+            .as_ref()
+            .unwrap()
+            .write()
+            .insert(TypeId::of::<usize>(), Mock::<usize, usize>::new(""));
         mry.generate();
         assert_eq!(mry._mocks.unwrap().read().mock_objects.len(), 1);
     }
@@ -173,10 +174,11 @@ mod test {
     fn clone() {
         let mut mry = Mry::default();
         mry.generate();
-        mry._mocks.as_ref().unwrap().write().insert(
-            TypeId::of::<usize>(),
-            Box::new(Mock::<usize, usize>::new("")),
-        );
+        mry._mocks
+            .as_ref()
+            .unwrap()
+            .write()
+            .insert(TypeId::of::<usize>(), Mock::<usize, usize>::new(""));
 
         assert_eq!(mry.clone()._mocks.unwrap().read().mock_objects.len(), 1);
     }

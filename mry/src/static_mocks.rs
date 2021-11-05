@@ -72,10 +72,7 @@ impl StaticMocks {
 mod tests {
     use std::any::Any;
 
-    use crate::{
-        mock::{Mock, MockObjectReturns},
-        Matcher,
-    };
+    use crate::{mock::Mock, Matcher};
 
     use super::*;
 
@@ -131,7 +128,7 @@ mod tests {
     fn delete_mock_when_lock_is_dropped() {
         STATIC_MOCKS.write().0.insert(
             delete_mock_when_lock_is_dropped.type_id(),
-            Box::new(Mock::<usize, usize>::new("")),
+            Mock::<usize, usize>::new(""),
         );
 
         drop(StaticMockLock {

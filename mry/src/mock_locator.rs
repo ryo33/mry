@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::ops::DerefMut;
 use std::{any::TypeId, fmt::Debug};
 
-use crate::mock::{BoxMockObject, MockObjectReturns};
+use crate::mock::Mock;
 use crate::{Behavior, Matcher, MockResult, Mocks};
 
 /// Mock locator returned by mock_* methods
@@ -63,10 +63,10 @@ where
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Debug + PartialEq + Clone + Send + Sync + 'static,
-    O: Debug + Send + Sync + 'static,
+    I: Send + Sync + 'static,
+    O: Send + Sync + 'static,
 {
-    fn get_mut_or_default(&mut self) -> &mut BoxMockObject<I, O> {
+    fn get_mut_or_default(&mut self) -> &mut Mock<I, O> {
         self.mocks
             .get_mut_or_create::<I, O>(self.key.clone(), &self.name)
     }
@@ -76,7 +76,7 @@ where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
 {
-    fn get_or_error(&self) -> &BoxMockObject<I, O> {
+    fn get_or_error(&self) -> &Mock<I, O> {
         self.mocks
             .get::<I, O>(&self.key)
             .expect(&format!("no mock is found for {}", self.name))

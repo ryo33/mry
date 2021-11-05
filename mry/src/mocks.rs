@@ -2,8 +2,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use crate::mock::{BoxMockObject, MockObject};
-use crate::Mock;
+use crate::mock::Mock;
 
 type BoxAnySend = Box<dyn Any + Send + Sync>;
 
@@ -14,24 +13,20 @@ pub struct Mocks {
 }
 
 impl Mocks {
-    pub(crate) fn get<I: 'static, O: 'static>(&self, key: &TypeId) -> Option<&BoxMockObject<I, O>> {
+    pub(crate) fn get<I: 'static, O: 'static>(&self, key: &TypeId) -> Option<&Mock<I, O>> {
         self.mock_objects
             .get(key)
             .map(|mock| mock.downcast_ref().unwrap())
     }
 
-    pub(crate) fn get_mut_or_create<
-        I: Clone + PartialEq + Debug + Send + Sync + 'static,
-        O: Debug + Send + Sync + 'static,
-    >(
+    pub(crate) fn get_mut_or_create<I: Send + Sync + 'static, O: Send + Sync + 'static>(
         &mut self,
         key: TypeId,
         name: &'static str,
-    ) -> &mut BoxMockObject<I, O> {
-        let box_mock_object: BoxMockObject<I, O> = Box::new(Mock::<I, O>::new(name));
+    ) -> &mut Mock<I, O> {
         self.mock_objects
             .entry(key)
-            .or_insert(Box::new(box_mock_object))
+            .or_insert(Box::new(Mock::<I, O>::new(name)))
             .downcast_mut()
             .unwrap()
     }
@@ -51,10 +46,10 @@ impl Mocks {
     }
 
     #[cfg(test)]
-    pub(crate) fn insert<I: 'static, O: 'static>(
+    pub(crate) fn insert<I: Send + Sync + 'static, O: 'static>(
         &mut self,
         key: TypeId,
-        item: BoxMockObject<I, O>,
+        item: Mock<I, O>,
     ) {
         self.mock_objects.insert(key, Box::new(item));
     }
@@ -66,7 +61,7 @@ impl Mocks {
 
 #[cfg(test)]
 mod test {
-    use crate::{mock::MockObject, Behavior, Matcher};
+    use crate::{Behavior, Matcher};
 
     use super::*;
 
@@ -81,10 +76,7 @@ mod test {
     #[test]
     fn get_returns_an_item() {
         let mut mock_data = Mocks::default();
-        mock_data.insert(
-            TypeId::of::<usize>(),
-            Box::new(Mock::<usize, usize>::new("")),
-        );
+        mock_data.insert(TypeId::of::<usize>(), Mock::<usize, usize>::new(""));
         assert!(mock_data
             .get::<usize, usize>(&TypeId::of::<usize>())
             .is_some());
@@ -95,7 +87,7 @@ mod test {
         let mut mock_data = Mocks::default();
         let mut mock = Mock::<u8, u8>::new("a");
         mock.returns_with(Matcher::Any, Behavior::Function(Box::new(|_| 4u8)));
-        mock_data.insert(TypeId::of::<usize>(), Box::new(mock));
+        mock_data.insert(TypeId::of::<usize>(), mock);
         assert_eq!(
             mock_data
                 .get_mut_or_create::<u8, u8>(TypeId::of::<usize>(), &"meow")
