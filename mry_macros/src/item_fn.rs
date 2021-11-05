@@ -6,7 +6,7 @@ use crate::method;
 
 pub(crate) fn transform(input: ItemFn) -> TokenStream {
     let (original, mock) = method::transform(
-        quote![Box::new(mry::DerefMocks(mry::STATIC_MOCKS.write()))],
+        quote![Box::new(mry::STATIC_MOCKS.write())],
         Default::default(),
         "",
         quote![mry::STATIC_MOCKS.write().record_call_and_find_mock_output],

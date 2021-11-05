@@ -1,12 +1,7 @@
-use crate::Mocks;
+use crate::{mock::Mock, MockGetter, Mocks};
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::{
-    any::TypeId,
-    collections::HashMap,
-    fmt::Debug,
-    ops::{Deref, DerefMut},
-};
+use std::{any::TypeId, collections::HashMap, fmt::Debug};
 
 pub static STATIC_MOCKS: Lazy<RwLock<StaticMocks>> =
     Lazy::new(|| RwLock::new(StaticMocks::default()));
@@ -34,19 +29,13 @@ pub struct StaticMockMutex {}
 #[derive(Default)]
 pub struct StaticMocks(Mocks);
 
-pub struct DerefMocks<T>(pub T);
-
-impl<T: DerefMut<Target = StaticMocks>> DerefMut for DerefMocks<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0.deref_mut().0
+impl<I: Send + Sync + 'static, O: 'static> MockGetter<I, O> for StaticMocks {
+    fn get(&self, key: &TypeId) -> Option<&Mock<I, O>> {
+        self.0.get(key)
     }
-}
 
-impl<T: Deref<Target = StaticMocks>> Deref for DerefMocks<T> {
-    type Target = Mocks;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0.deref().0
+    fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O> {
+        self.0.get_mut_or_create(key, name)
     }
 }
 
@@ -72,7 +61,7 @@ impl StaticMocks {
 mod tests {
     use std::any::Any;
 
-    use crate::{mock::Mock, Matcher};
+    use crate::{mock::Mock, Matcher, MockGetter};
 
     use super::*;
 
@@ -136,10 +125,10 @@ mod tests {
             lock: (),
         });
 
-        assert!(STATIC_MOCKS
-            .read()
-            .0
-            .get::<usize, usize>(&delete_mock_when_lock_is_dropped.type_id())
-            .is_none());
+        assert!(MockGetter::<usize, usize>::get(
+            &STATIC_MOCKS.read().0,
+            &delete_mock_when_lock_is_dropped.type_id()
+        )
+        .is_none());
     }
 }

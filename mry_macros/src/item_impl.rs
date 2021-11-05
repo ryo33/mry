@@ -129,7 +129,7 @@ pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
                     )
                 } else {
                     method::transform(
-                        quote![Box::new(mry::DerefMocks(mry::STATIC_MOCKS.write()))],
+                        quote![Box::new(mry::STATIC_MOCKS.write())],
                         quote![#qualified_type::],
                         &(type_name.clone() + "::"),
                         quote![mry::STATIC_MOCKS.write().record_call_and_find_mock_output],

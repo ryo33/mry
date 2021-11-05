@@ -1,14 +1,13 @@
 use std::marker::PhantomData;
-use std::ops::DerefMut;
 use std::{any::TypeId, fmt::Debug};
 
 use crate::mock::Mock;
-use crate::{Behavior, Matcher, MockResult, Mocks};
+use crate::{Behavior, Matcher, MockGetter, MockResult};
 
 /// Mock locator returned by mock_* methods
 pub struct MockLocator<'a, I, O, B> {
     #[doc(hidden)]
-    pub mocks: Box<dyn DerefMut<Target = Mocks> + 'a>,
+    pub mocks: Box<dyn MockGetter<I, O> + 'a>,
     #[doc(hidden)]
     pub key: TypeId,
     #[doc(hidden)]
@@ -67,8 +66,7 @@ where
     O: Send + Sync + 'static,
 {
     fn get_mut_or_default(&mut self) -> &mut Mock<I, O> {
-        self.mocks
-            .get_mut_or_create::<I, O>(self.key.clone(), &self.name)
+        self.mocks.get_mut_or_create(self.key.clone(), &self.name)
     }
 }
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
@@ -78,7 +76,7 @@ where
 {
     fn get_or_error(&self) -> &Mock<I, O> {
         self.mocks
-            .get::<I, O>(&self.key)
+            .get(&self.key)
             .expect(&format!("no mock is found for {}", self.name))
     }
 

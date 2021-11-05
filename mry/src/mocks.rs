@@ -1,10 +1,31 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::ops::{Deref, DerefMut};
 
 use crate::mock::Mock;
 
 type BoxAnySend = Box<dyn Any + Send + Sync>;
+
+#[doc(hidden)]
+pub trait MockGetter<I, O> {
+    fn get(&self, key: &TypeId) -> Option<&Mock<I, O>>;
+    fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O>;
+}
+
+impl<I, O, T, M: 'static> MockGetter<I, O> for T
+where
+    T: DerefMut<Target = M> + Deref<Target = M>,
+    M: MockGetter<I, O>,
+{
+    fn get<'a>(&'a self, key: &TypeId) -> Option<&'a Mock<I, O>> {
+        self.deref().get(key)
+    }
+
+    fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O> {
+        self.deref_mut().get_mut_or_create(key, name)
+    }
+}
 
 #[derive(Default)]
 #[doc(hidden)]
@@ -12,25 +33,23 @@ pub struct Mocks {
     pub(crate) mock_objects: HashMap<TypeId, BoxAnySend>,
 }
 
-impl Mocks {
-    pub(crate) fn get<I: 'static, O: 'static>(&self, key: &TypeId) -> Option<&Mock<I, O>> {
+impl<I: Send + Sync + 'static, O: 'static> MockGetter<I, O> for Mocks {
+    fn get(&self, key: &TypeId) -> Option<&Mock<I, O>> {
         self.mock_objects
             .get(key)
             .map(|mock| mock.downcast_ref().unwrap())
     }
 
-    pub(crate) fn get_mut_or_create<I: Send + Sync + 'static, O: Send + Sync + 'static>(
-        &mut self,
-        key: TypeId,
-        name: &'static str,
-    ) -> &mut Mock<I, O> {
+    fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O> {
         self.mock_objects
             .entry(key)
             .or_insert(Box::new(Mock::<I, O>::new(name)))
             .downcast_mut()
             .unwrap()
     }
+}
 
+impl Mocks {
     #[doc(hidden)]
     pub fn record_call_and_find_mock_output<
         I: PartialEq + Debug + Clone + Send + Sync + 'static,
@@ -41,7 +60,7 @@ impl Mocks {
         name: &'static str,
         input: I,
     ) -> Option<O> {
-        self.get_mut_or_create::<I, O>(key, name)
+        self.get_mut_or_create(key, name)
             .record_call_and_find_mock_output(input)
     }
 
@@ -68,18 +87,14 @@ mod test {
     #[test]
     fn get_returns_none() {
         let mock_data = Mocks::default();
-        assert!(mock_data
-            .get::<usize, usize>(&TypeId::of::<usize>())
-            .is_none());
+        assert!(MockGetter::<usize, usize>::get(&mock_data, &TypeId::of::<usize>()).is_none());
     }
 
     #[test]
     fn get_returns_an_item() {
         let mut mock_data = Mocks::default();
         mock_data.insert(TypeId::of::<usize>(), Mock::<usize, usize>::new(""));
-        assert!(mock_data
-            .get::<usize, usize>(&TypeId::of::<usize>())
-            .is_some());
+        assert!(MockGetter::<usize, usize>::get(&mock_data, &TypeId::of::<usize>()).is_some());
     }
 
     #[test]
@@ -90,9 +105,9 @@ mod test {
         mock_data.insert(TypeId::of::<usize>(), mock);
         assert_eq!(
             mock_data
-                .get_mut_or_create::<u8, u8>(TypeId::of::<usize>(), &"meow")
-                .record_call_and_find_mock_output(1),
-            Some(4)
+                .get_mut_or_create(TypeId::of::<usize>(), &"meow")
+                .record_call_and_find_mock_output(1u8),
+            Some(4u8)
         );
     }
 
@@ -101,6 +116,10 @@ mod test {
     fn get_mut_or_create_returns_default() {
         let mut mock_data = Mocks::default();
 
-        mock_data.get_mut_or_create::<u8, u8>(TypeId::of::<usize>(), &"meow");
+        MockGetter::<usize, usize>::get_mut_or_create(
+            &mut mock_data,
+            TypeId::of::<usize>(),
+            &"meow",
+        );
     }
 }

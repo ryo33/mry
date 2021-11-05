@@ -1,13 +1,12 @@
 use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::DerefMut;
 use std::sync::atomic::AtomicU16;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
 
-use crate::Mocks;
+use crate::{MockGetter, Mocks};
 
 /// A unique id for an object
 pub type MryId = u16;
@@ -51,7 +50,9 @@ impl Mry {
     }
 
     #[doc(hidden)]
-    pub fn mocks_write<'a>(&'a mut self) -> Box<dyn DerefMut<Target = Mocks> + 'a> {
+    pub fn mocks_write<'a, I: Send + Sync + 'static, O: 'static>(
+        &'a mut self,
+    ) -> Box<dyn MockGetter<I, O> + 'a> {
         Box::new(self.generate()._mocks.as_ref().unwrap().write())
     }
 
@@ -105,6 +106,7 @@ mod test {
 
     use crate::mock::Mock;
     use crate::Matcher;
+    use crate::MockGetter;
 
     use super::*;
 
@@ -198,12 +200,12 @@ mod test {
         let mut mry = Mry::default();
 
         mry.mocks_write()
-            .get_mut_or_create::<u8, u16>(TypeId::of::<usize>(), "name")
-            .returns(Matcher::Any, 1);
+            .get_mut_or_create(TypeId::of::<usize>(), "name")
+            .returns(Matcher::Eq(1u8), 1u8);
 
         assert_eq!(
-            mry.record_call_and_find_mock_output::<u8, u16>(TypeId::of::<usize>(), "name", 1u8),
-            Some(1)
+            mry.record_call_and_find_mock_output::<u8, u8>(TypeId::of::<usize>(), "name", 1u8),
+            Some(1u8)
         );
     }
 }
