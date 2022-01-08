@@ -77,7 +77,9 @@ impl StaticMocks {
 }
 
 #[doc(hidden)]
-pub fn __mutexes(keys: Vec<TypeId>) -> Vec<StaticMockMutex> {
+pub fn __mutexes(mut keys: Vec<TypeId>) -> Vec<StaticMockMutex> {
+    // Prevent deadlock by sorting the keys.
+    keys.sort();
     keys.into_iter()
         .map(|key| StaticMockMutex {
             key,
@@ -264,6 +266,15 @@ mod tests {
         assert!(mutexes[0].mutex.try_lock().is_none());
 
         cleanup_static_mock_lock(__mutexes_creates_mutexes.type_id());
+    }
+
+    #[test]
+    fn __mutexes_sorts_keys() {
+        let mut keys = vec![0u16.type_id(), 0u8.type_id(), 0u32.type_id()];
+        let mutexes = __mutexes(keys.clone());
+
+        keys.sort();
+        assert_eq!(mutexes.iter().map(|m| m.key).collect::<Vec<_>>(), keys);
     }
 
     #[test]
