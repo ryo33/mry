@@ -1,0 +1,12 @@
+mod async_method;
+mod async_trait;
+mod function_style_macro;
+mod impl_trait;
+mod iterator;
+mod mock_trait;
+mod nested_mock;
+mod not_clone;
+mod partial_mock;
+mod reference_and_pattern;
+mod simple_case;
+mod static_function;

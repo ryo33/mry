@@ -76,7 +76,7 @@ where
 {
     fn get_or_error(&self) -> &Mock<I, O> {
         self.mocks
-            .get(&self.key)
+            .get(&self.key, &self.name)
             .expect(&format!("no mock is found for {}", self.name))
     }
 

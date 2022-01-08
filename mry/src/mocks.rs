@@ -9,7 +9,7 @@ type BoxAnySend = Box<dyn Any + Send + Sync>;
 
 #[doc(hidden)]
 pub trait MockGetter<I, O> {
-    fn get(&self, key: &TypeId) -> Option<&Mock<I, O>>;
+    fn get(&self, key: &TypeId, name: &'static str) -> Option<&Mock<I, O>>;
     fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O>;
 }
 
@@ -18,8 +18,8 @@ where
     T: DerefMut<Target = M> + Deref<Target = M>,
     M: MockGetter<I, O>,
 {
-    fn get<'a>(&'a self, key: &TypeId) -> Option<&'a Mock<I, O>> {
-        self.deref().get(key)
+    fn get<'a>(&'a self, key: &TypeId, name: &'static str) -> Option<&'a Mock<I, O>> {
+        self.deref().get(key, name)
     }
 
     fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O> {
@@ -34,7 +34,7 @@ pub struct Mocks {
 }
 
 impl<I: Send + Sync + 'static, O: 'static> MockGetter<I, O> for Mocks {
-    fn get(&self, key: &TypeId) -> Option<&Mock<I, O>> {
+    fn get(&self, key: &TypeId, _name: &'static str) -> Option<&Mock<I, O>> {
         self.mock_objects
             .get(key)
             .map(|mock| mock.downcast_ref().unwrap())
@@ -87,14 +87,18 @@ mod test {
     #[test]
     fn get_returns_none() {
         let mock_data = Mocks::default();
-        assert!(MockGetter::<usize, usize>::get(&mock_data, &TypeId::of::<usize>()).is_none());
+        assert!(
+            MockGetter::<usize, usize>::get(&mock_data, &TypeId::of::<usize>(), "meow").is_none()
+        );
     }
 
     #[test]
     fn get_returns_an_item() {
         let mut mock_data = Mocks::default();
         mock_data.insert(TypeId::of::<usize>(), Mock::<usize, usize>::new(""));
-        assert!(MockGetter::<usize, usize>::get(&mock_data, &TypeId::of::<usize>()).is_some());
+        assert!(
+            MockGetter::<usize, usize>::get(&mock_data, &TypeId::of::<usize>(), "name").is_some()
+        );
     }
 
     #[test]

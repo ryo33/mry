@@ -6,11 +6,15 @@ mod item_struct;
 mod item_trait;
 mod method;
 mod new;
+mod lock;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::visit_mut::VisitMut;
 mod alphabets;
-use syn::{parse, parse2, parse_macro_input, ExprStruct, ItemFn, ItemImpl, ItemStruct, ItemTrait};
+use syn::{
+    parse, parse2, parse_macro_input, AttributeArgs, ExprStruct, ItemFn, ItemImpl, ItemStruct,
+    ItemTrait,
+};
 
 enum Target {
     ItemStruct(ItemStruct),
@@ -53,6 +57,18 @@ pub fn create_behaviors(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro]
 pub fn create_matchers(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
     create_matchers::create().into()
+}
+
+#[proc_macro_attribute]
+pub fn lock(
+    attribute: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    lock::transform(
+        parse_macro_input!(attribute as AttributeArgs),
+        parse_macro_input!(input as ItemFn),
+    )
+    .into()
 }
 
 struct M(TokenStream);

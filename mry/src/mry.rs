@@ -106,7 +106,6 @@ mod test {
 
     use crate::mock::Mock;
     use crate::Matcher;
-    use crate::MockGetter;
 
     use super::*;
 
