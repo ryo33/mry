@@ -73,8 +73,8 @@ impl Mocks {
         self.mock_objects.insert(key, Box::new(item));
     }
 
-    pub(crate) fn remove(&mut self, key: &TypeId) {
-        self.mock_objects.remove(key);
+    pub(crate) fn remove(&mut self, key: &TypeId) -> Option<()> {
+        self.mock_objects.remove(key).map(|_| ())
     }
 }
 

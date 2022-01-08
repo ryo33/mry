@@ -73,3 +73,9 @@ fn hello_returns() {
 
     assert_eq!(hello(2), "Called".to_string());
 }
+
+#[mry::lock(hello)]
+#[should_panic(expected = "hello is locked but no used.")]
+#[test]
+fn hello_not_used() {
+}

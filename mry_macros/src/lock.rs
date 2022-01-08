@@ -3,9 +3,10 @@ use quote::{quote, ToTokens};
 use syn::{parse_quote, AttributeArgs, ItemFn, Stmt};
 
 pub(crate) fn transform(args: AttributeArgs, mut input: ItemFn) -> TokenStream {
-    let args = args
-        .into_iter()
-        .map(|arg| quote![std::any::Any::type_id(&#arg)]);
+    let args = args.into_iter().map(|arg| {
+        let name = arg.to_token_stream().to_string().replace(" ", "");
+        quote![(std::any::Any::type_id(&#arg), #name.to_string())]
+    });
     let block = input.block.clone();
     input.block.stmts.clear();
     let mutexes = quote![mry::__mutexes(vec![#(#args,)*])];
@@ -34,8 +35,8 @@ mod test {
     #[test]
     fn lock() {
         let args: AttributeArgs = vec![
-            NestedMeta::Meta(syn::Meta::Path(parse_str("a").unwrap())),
-            NestedMeta::Meta(syn::Meta::Path(parse_str("b").unwrap())),
+            NestedMeta::Meta(syn::Meta::Path(parse_str("a::a").unwrap())),
+            NestedMeta::Meta(syn::Meta::Path(parse_str("b::b").unwrap())),
         ];
         let input: ItemFn = parse2(quote! {
             #[test]
@@ -51,8 +52,8 @@ mod test {
                 #[test]
                 fn test_meow() {
                     mry::__lock_and_run(mry::__mutexes(vec![
-                        std::any::Any::type_id(&a),
-                        std::any::Any::type_id(&b),
+                        (std::any::Any::type_id(&a :: a), "a::a".to_string()),
+                        (std::any::Any::type_id(&b :: b), "b::b".to_string()),
                     ]), move | | {
                         assert!(true);
                     })
