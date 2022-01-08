@@ -5,12 +5,12 @@
 [![Crates.io](https://img.shields.io/crates/v/mry)](https://crates.io/crates/mry)
 [![docs.rs](https://img.shields.io/docsrs/mry)](https://docs.rs/mry)
 
-A cfg-free mocking library for **structs** and **traits**, which supports **partial mocks**.
+A cfg(test)-free mocking library for **structs**, **traits**, and **function**.
 
 ## Features
 
 * No need of switching between mock objects and real objects such as the way using `#[cfg(test)]`.
-* Supports mocking for `impl Struct`, `impl Trait for Struct`, and `trait Trait`.
+* Supports mocking for structs, traits, and functions.
 * Supports partial mocking.
 
 ## Mocking a struct
@@ -46,6 +46,7 @@ Cat {
 
 // If you derive or impl Default trait.
 Cat::default();
+// or
 Cat { name: "Tama", ..Default::default() };
 ```
 
@@ -166,6 +167,58 @@ Add `#[mry::mry]` with the async_trait attribute underneath.
 #[async_trait::async_trait]
 pub trait Cat {
     async fn meow(&self, count: usize) -> String;
+}
+```
+
+## Mocking a function
+
+Add `#[mry::mry]` to the function definition.
+
+```rust
+#[mry::mry]
+fn hello(count: usize) -> String {
+    "hello".repeat(count)
+}
+```
+
+We need to acquire a lock of the function by using `#[mry::lock(hello)]` because mocking of static function uses global state.
+
+```rust
+#[test]
+#[mry::lock(hello)] // This is required!
+fn function_keeps_original_function() {
+    // Usage is the same as the struct mocks.
+    mock_hello(Any).calls_real_impl();
+
+    assert_eq!(hello(3), "hellohellohello");
+}
+```
+
+## Mocking a associated function (static function)
+
+Include your associated function into the impl block with `#[mry::mry]`.
+
+```rust
+struct Cat {}
+
+#[mry::mry]
+impl Cat {
+    fn meow(count: usize) -> String {
+        "meow".repeat(count)
+    }
+}
+```
+
+We need to acquire a lock for the same reason in mocking function above.
+
+```rust
+#[test]
+#[mry::lock(Cat::meow)] // This is required!
+fn meow_returns() {
+    // Usage is the same as the struct mocks.
+    Cat::mock_meow(Any).returns("Called".to_string());
+
+    assert_eq!(Cat::meow(2), "Called".to_string());
 }
 ```
 
