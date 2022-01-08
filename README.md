@@ -13,6 +13,31 @@ A cfg(test)-free mocking library for **structs**, **traits**, and **function**.
 * Supports mocking for structs, traits, and functions.
 * Supports partial mocking.
 
+## Example
+
+```rust
+#[mry::mry]
+struct Cat {
+    name: String,
+}
+
+#[mry::mry]
+impl Cat {
+    fn meow(&self, count: usize) -> String {
+        format!("{}: {}", self.name, "meow".repeat(count))
+    }
+}
+
+#[test]
+fn meow_returns() {
+    let mut cat = mry::new!(Cat { name: "Tama".into() });
+
+    cat.mock_meow(mry::Any).returns("Called".to_string());
+
+    assert_eq!(cat.meow(2), "Called".to_string());
+}
+```
+
 ## Mocking a struct
 
 We need to add an attribute `#[mry::mry]` in the front of struct definition and impl block to mock them.
