@@ -78,7 +78,7 @@ Now you can mock it by using following functions:
 
 - `mock_*(...).returns(...)`: Makes a mock to return a constant value.
 - `mock_*(...).ruturns_with(|arg| ...)`: Makes a mock to return a value with a closure (This is allowed to return `!Clone` unlike `returns` cannot).
-- `mock_*(...).assert_called(...)`: Assert that a mock was called with correct arguments (and times).
+- `mock_*(...).assert_called(...)`: Asserts that a mock was called with correct arguments and times, and returns call logs.
 
 ### Examples
 
