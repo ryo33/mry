@@ -19,7 +19,6 @@ pub(crate) fn transform(input: ExprStruct) -> TokenStream {
         })
         .collect();
     fields.push(quote! {
-        #[cfg(test)]
         mry: Default::default(),
     });
     quote! {
@@ -50,7 +49,6 @@ mod test {
             quote! {
                 Cat {
                     name: "aaa",
-                    #[cfg(test)]
                     mry: Default::default(),
                 }
             }
@@ -72,7 +70,6 @@ mod test {
             quote! {
                 Cat::<A> {
                     name: "aaa",
-                    #[cfg(test)]
                     mry: Default::default(),
                 }
             }

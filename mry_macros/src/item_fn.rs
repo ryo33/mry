@@ -42,7 +42,6 @@ mod test {
             transform(input).to_string(),
             quote! {
 				fn meow(count: usize) -> String {
-					#[cfg(test)]
 					if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(std::any::Any::type_id(&meow), "meow", (count.clone())) {
 						return out;
 					}
@@ -51,7 +50,6 @@ mod test {
                     }
 				}
 
-				#[cfg(test)]
 				pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
 					mry::MockLocator {
 						mocks: Box::new(mry::STATIC_MOCKS.write()),

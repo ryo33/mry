@@ -36,7 +36,6 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
         #(#attrs)*
         #vis struct #struct_name #generics {
             #(#struct_fields),*#comma_for_fields
-            #[cfg(test)]
             pub mry: mry::Mry,
         }
     }
@@ -63,7 +62,6 @@ mod test {
             quote! {
                 struct Cat {
                     name: String,
-                    #[cfg(test)]
                     pub mry : mry::Mry,
                 }
             }
@@ -89,7 +87,6 @@ mod test {
                 struct Cat {
                     #[name]
                     name: String,
-                    #[cfg(test)]
                     pub mry : mry::Mry,
                 }
             }
@@ -111,7 +108,6 @@ mod test {
             quote! {
                 pub struct Cat {
                     pub name: String,
-                    #[cfg(test)]
                     pub mry : mry::Mry,
                 }
             }
@@ -133,7 +129,6 @@ mod test {
             quote! {
                 pub struct Cat<'a, A> {
                     pub name: &'a A,
-                    #[cfg(test)]
                     pub mry : mry::Mry,
                 }
             }
@@ -153,7 +148,6 @@ mod test {
             transform(input).to_string(),
             quote! {
                 struct Cat {
-                    #[cfg(test)]
                     pub mry : mry::Mry,
                 }
             }

@@ -65,7 +65,6 @@ mry::new!(Cat { name: "Tama" })
 // is equivalent to:
 Cat {
     name: "Tama",
-    #[cfg(test)]
     mry: Default::default(),
 };
 

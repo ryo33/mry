@@ -195,7 +195,6 @@ mod test {
                     #[meow]
                     #[meow]
                     fn meow(#[a] &self, #[b] count: usize) -> String {
-                        #[cfg(test)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
@@ -204,7 +203,6 @@ mod test {
                 }
 
                 impl Cat {
-                    #[cfg(test)]
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
@@ -236,7 +234,6 @@ mod test {
             quote! {
                 impl<'a, A: Clone> Cat<'a, A> {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
-                        #[cfg(test)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Cat<'a, A>::meow), "Cat<'a, A>::meow", (count.clone())) {
                             return out;
                         }
@@ -245,7 +242,6 @@ mod test {
                 }
 
                 impl <'a, A: Clone> Cat<'a, A> {
-                    #[cfg(test)]
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
@@ -277,7 +273,6 @@ mod test {
             quote! {
                 impl<A: Clone> Animal<A> for Cat {
                     fn name(&self, ) -> String {
-                        #[cfg(test)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&<Cat as Animal<A> >::name), "<Cat as Animal<A>>::name", ()) {
                             return out;
                         }
@@ -286,7 +281,6 @@ mod test {
                 }
 
                 impl Cat {
-                    #[cfg(test)]
                     pub fn mock_name<'mry>(&'mry mut self,) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
@@ -320,7 +314,6 @@ mod test {
                 impl Iterator for Cat {
                     type Item = String;
                     fn next(&self, ) -> Option< <Self as Iterator>::Item> {
-                        #[cfg(test)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&<Cat as Iterator>::next), "<Cat as Iterator>::next", ()) {
                             return out;
                         }
@@ -329,7 +322,6 @@ mod test {
                 }
 
                 impl Cat {
-                    #[cfg(test)]
                     pub fn mock_next<'mry>(&'mry mut self,) -> mry::MockLocator<'mry, (), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
@@ -361,7 +353,6 @@ mod test {
             quote! {
                 impl Cat {
                     fn meow(count: usize) -> String {
-                        #[cfg(test)]
                         if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
@@ -370,7 +361,6 @@ mod test {
                 }
 
                 impl Cat {
-                    #[cfg(test)]
                     pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: Box::new(mry::STATIC_MOCKS.write()),

@@ -55,19 +55,16 @@ pub(crate) fn transform(input: ItemTrait) -> TokenStream {
     quote! {
         #input
 
-        #[cfg(test)]
         #[derive(Default, Clone)]
         #vis struct #mry_ident {
             pub mry: mry::Mry,
         }
 
-        #[cfg(test)]
         #async_trait_or_blank
         impl #generics #trait_ident for #mry_ident {
             #(#items)*
         }
 
-        #[cfg(test)]
         impl #mry_ident {
             #(#impl_items)*
         }
@@ -97,16 +94,13 @@ mod test {
 					fn meow(&self, count: usize) -> String;
 				}
 
-				#[cfg(test)]
 				#[derive(Default, Clone)]
 				struct MockCat {
 					pub mry : mry::Mry,
 				}
 
-				#[cfg(test)]
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
-                        #[cfg(test)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&MockCat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
@@ -114,9 +108,7 @@ mod test {
                     }
                 }
 
-				#[cfg(test)]
                 impl MockCat {
-                    #[cfg(test)]
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
@@ -148,16 +140,13 @@ mod test {
 					fn meow(&self, count: usize) -> String;
 				}
 
-				#[cfg(test)]
 				#[derive(Default, Clone)]
 				pub struct MockCat {
 					pub mry : mry::Mry,
 				}
 
-				#[cfg(test)]
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
-                        #[cfg(test)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&MockCat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
@@ -165,9 +154,7 @@ mod test {
                     }
                 }
 
-				#[cfg(test)]
                 impl MockCat {
-                    #[cfg(test)]
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
@@ -201,17 +188,14 @@ mod test {
 					async fn meow(&self, count: usize) -> String;
 				}
 
-				#[cfg(test)]
 				#[derive(Default, Clone)]
 				struct MockCat {
 					pub mry : mry::Mry,
 				}
 
-				#[cfg(test)]
                 #[async_trait::async_trait]
                 impl Cat for MockCat {
                     async fn meow(&self, count: usize) -> String {
-                        #[cfg(test)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&MockCat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
@@ -219,9 +203,7 @@ mod test {
                     }
                 }
 
-				#[cfg(test)]
                 impl MockCat {
-                    #[cfg(test)]
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),

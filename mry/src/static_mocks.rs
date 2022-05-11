@@ -30,7 +30,10 @@ impl<'a> Drop for StaticMockLock<'a> {
     fn drop(&mut self) {
         let lock = &mut STATIC_MOCKS.write().0;
         if lock.remove(&self.key).is_none() {
-            panic!("{} is locked but no used. Remove {} from mry::lock", self.name, self.name);
+            panic!(
+                "{} is locked but no used. Remove {} from mry::lock",
+                self.name, self.name
+            );
         };
     }
 }
@@ -320,7 +323,6 @@ mod tests {
 
         let mutexes = __mutexes(vec![(a.type_id(), "a".into()), (b.type_id(), "b".into())]);
         __lock_and_run(mutexes, || {
-
             assert!(STATIC_MOCK_LOCKS
                 .read()
                 .get(&a.type_id())

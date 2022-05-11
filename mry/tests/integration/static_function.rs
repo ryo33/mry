@@ -77,5 +77,4 @@ fn hello_returns() {
 #[mry::lock(hello)]
 #[should_panic(expected = "hello is locked but no used.")]
 #[test]
-fn hello_not_used() {
-}
+fn hello_not_used() {}

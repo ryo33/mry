@@ -1,38 +1,53 @@
+#[cfg(debug_assertions)]
+use parking_lot::RwLock;
 use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::Debug;
+#[cfg(debug_assertions)]
 use std::sync::atomic::AtomicU16;
+#[cfg(debug_assertions)]
 use std::sync::Arc;
 
-use parking_lot::RwLock;
-
-use crate::{MockGetter, Mocks};
+#[cfg(debug_assertions)]
+use crate::MockGetter;
+#[cfg(debug_assertions)]
+use crate::Mocks;
 
 /// A unique id for an object
 pub type MryId = u16;
+#[cfg(debug_assertions)]
 static ID: AtomicU16 = AtomicU16::new(0);
 
 #[derive(Clone)]
 /// Mock container that has blank and harmless trait implementation for major traits such as `Eq` and `Ord`
 pub struct Mry {
+    #[cfg(debug_assertions)]
     id: MryId,
-    _mocks: Option<Arc<RwLock<Mocks>>>,
+    #[cfg(debug_assertions)]
+    mocks: Option<Arc<RwLock<Mocks>>>,
 }
 
 impl std::fmt::Debug for Mry {
+    #[cfg(debug_assertions)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Mry").field("id", &self.id).finish()
+    }
+    #[cfg(not(debug_assertions))]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Mry").finish()
     }
 }
 
 impl Mry {
+    #[cfg(debug_assertions)]
     pub(crate) fn generate(&mut self) -> &mut Self {
-        self._mocks
+        self.mocks
             .get_or_insert(Arc::new(RwLock::new(Default::default())));
         self
     }
 
     #[doc(hidden)]
+    #[cfg(debug_assertions)]
     pub fn record_call_and_find_mock_output<
         I: PartialEq + Debug + Clone + Send + Sync + 'static,
         O: Debug + Send + Sync + 'static,
@@ -42,32 +57,47 @@ impl Mry {
         name: &'static str,
         input: I,
     ) -> Option<O> {
-        self._mocks.as_ref().and_then(|mocks| {
+        self.mocks.as_ref().and_then(|mocks| {
             mocks
                 .write()
                 .record_call_and_find_mock_output(key, name, input)
         })
     }
 
+    #[cfg(not(debug_assertions))]
+    pub fn record_call_and_find_mock_output<
+        I: PartialEq + Debug + Clone + Send + Sync + 'static,
+        O: Debug + Send + Sync + 'static,
+    >(
+        &self,
+        _key: TypeId,
+        _name: &'static str,
+        _input: I,
+    ) -> Option<O> {
+        None
+    }
+
     #[doc(hidden)]
+    #[cfg(debug_assertions)]
     pub fn mocks_write<'a, I: Send + Sync + 'static, O: 'static>(
         &'a mut self,
     ) -> Box<dyn MockGetter<I, O> + 'a> {
-        Box::new(self.generate()._mocks.as_ref().unwrap().write())
-    }
-
-    /// Returns a unique object ID
-    pub fn id(&self) -> MryId {
-        self.id
+        Box::new(self.generate().mocks.as_ref().unwrap().write())
     }
 }
 
 impl Default for Mry {
+    #[cfg(debug_assertions)]
     fn default() -> Self {
         Self {
             id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            _mocks: None,
+            mocks: None,
         }
+    }
+
+    #[cfg(not(debug_assertions))]
+    fn default() -> Self {
+        Self {}
     }
 }
 
@@ -113,12 +143,12 @@ mod test {
     fn mry_unique() {
         let mut mry1 = Mry::default();
         let mry2 = Mry::default();
-        assert_ne!(mry1.generate().id(), mry2.id());
+        assert_ne!(mry1.generate().id, mry2.id);
     }
 
     #[test]
     fn mry_default_is_none() {
-        assert!(Mry::default()._mocks.is_none());
+        assert!(Mry::default().mocks.is_none());
     }
 
     #[test]
@@ -153,35 +183,35 @@ mod test {
     #[test]
     fn generate_create_mock() {
         let mut mry = Mry::default();
-        assert!(mry._mocks.is_none());
+        assert!(mry.mocks.is_none());
         mry.generate();
-        assert!(mry._mocks.is_some());
+        assert!(mry.mocks.is_some());
     }
 
     #[test]
     fn generate_does_not_overwrite() {
         let mut mry = Mry::default();
         mry.generate();
-        mry._mocks
+        mry.mocks
             .as_ref()
             .unwrap()
             .write()
             .insert(TypeId::of::<usize>(), Mock::<usize, usize>::new(""));
         mry.generate();
-        assert_eq!(mry._mocks.unwrap().read().mock_objects.len(), 1);
+        assert_eq!(mry.mocks.unwrap().read().mock_objects.len(), 1);
     }
 
     #[test]
     fn clone() {
         let mut mry = Mry::default();
         mry.generate();
-        mry._mocks
+        mry.mocks
             .as_ref()
             .unwrap()
             .write()
             .insert(TypeId::of::<usize>(), Mock::<usize, usize>::new(""));
 
-        assert_eq!(mry.clone()._mocks.unwrap().read().mock_objects.len(), 1);
+        assert_eq!(mry.clone().mocks.unwrap().read().mock_objects.len(), 1);
     }
 
     #[test]

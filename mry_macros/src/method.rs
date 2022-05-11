@@ -107,7 +107,6 @@ pub fn transform(
         quote! {
             #(#attrs)*
             #vis #asyn fn #ident #generics(#args) -> #output_type {
-                #[cfg(test)]
                 if let Some(out) = #record_call_and_find_mock_output(#key, #name, #cloned_input_tuple) {
                     return out;
                 }
@@ -116,7 +115,6 @@ pub fn transform(
             }
         },
         quote! {
-            #[cfg(test)]
             pub fn #mock_ident<'mry>(#mock_receiver#(#mock_args),*) -> mry::MockLocator<'mry, #input_type_tuple, #output_type, #behavior_type> {
                 mry::MockLocator {
                     mocks: #mocks_write_lock,
@@ -210,14 +208,12 @@ mod test {
             t(&input).to_string(),
             quote! {
                 fn meow(&self, count: usize) -> String {
-                    #[cfg(test)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.clone())) {
                         return out;
                     }
                     "meow".repeat(count)
                 }
 
-                #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
@@ -245,14 +241,12 @@ mod test {
             t(&input).to_string(),
             quote! {
                 fn meow(&self, ) -> String {
-                    #[cfg(test)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::meow), "Cat::meow", ()) {
                         return out;
                     }
                     "meow".into()
                 }
 
-                #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self, ) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
@@ -280,14 +274,12 @@ mod test {
             t(&input).to_string(),
             quote! {
                 fn meow(&self, base: String, count: usize) -> String {
-                    #[cfg(test)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::meow), "Cat::meow", (base.clone(), count.clone())) {
                         return out;
                     }
                     base.repeat(count)
                 }
 
-                #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<String>>, arg1: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (String, usize), String, mry::Behavior2<(String, usize), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
@@ -315,14 +307,12 @@ mod test {
             t(&input).to_string(),
             quote! {
                 fn meow(&self, out: &'static mut String, base: &str, count: &usize) -> () {
-                    #[cfg(test)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::meow), "Cat::meow", (out.clone(), base.to_string(), count.clone())) {
                         return out;
                     }
                     *out = base.repeat(count);
                 }
 
-                #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into <mry::Matcher<String>>, arg1: impl Into<mry::Matcher<String>>, arg2: impl Into<mry::Matcher<usize>>)
                     -> mry::MockLocator<'mry, (String, String, usize), (), mry::Behavior3<(String, String, usize), ()> > {
                     mry::MockLocator {
@@ -351,14 +341,12 @@ mod test {
             t(&input).to_string(),
             quote! {
                 async fn meow(&self, count: usize) -> String {
-                    #[cfg(test)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.clone())) {
                         return out;
                     }
                     base().await.repeat(count);
                 }
 
-                #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
@@ -386,7 +374,6 @@ mod test {
             t(&input).to_string(),
             quote! {
 				fn meow(&self, arg0: A, count: usize, arg2: String) -> String {
-                    #[cfg(test)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::meow), "Cat::meow", (arg0.clone(), count.clone(), arg2.clone())) {
                         return out;
                     }
@@ -395,7 +382,6 @@ mod test {
                     name.repeat(count)
                 }
 
-                #[cfg(test)]
                 pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<A>>, arg1: impl Into<mry::Matcher<usize>>, arg2: impl Into<mry::Matcher<String>>) -> mry::MockLocator<'mry, (A, usize, String), String, mry::Behavior3<(A, usize, String), String> > {
                     mry::MockLocator {
                         mocks: self.mry.mocks_write(),
@@ -423,7 +409,6 @@ mod test {
             t(&input).0.to_string(),
             quote! {
                 pub fn meow(&self, count: usize) -> String {
-                    #[cfg(test)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.clone())) {
                         return out;
                     }
