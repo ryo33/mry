@@ -34,5 +34,5 @@ fn assert_called() {
 
     cat.meow(2);
 
-    cat.mock_meow(2).assert_called();
+    cat.mock_meow(2).assert_called(1..=1);
 }

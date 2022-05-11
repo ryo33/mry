@@ -1,14 +1,12 @@
 mod logs;
-mod mock_result;
 use std::fmt::Debug;
 use std::iter::repeat;
 
 pub use logs::*;
-pub use mock_result::*;
 
 use parking_lot::{Mutex, RwLock};
 
-use crate::{Behavior, Matcher, Output, Rule};
+use crate::{times::Times, Behavior, Matcher, Output, Rule};
 
 pub struct Mock<I, O> {
     pub name: &'static str,
@@ -23,16 +21,6 @@ impl<I, O> Mock<I, O> {
             logs: Default::default(),
             rules: Default::default(),
         }
-    }
-}
-
-impl<I: PartialEq + Clone, O> Mock<I, O> {
-    fn handle_assert_called(&self, matcher: &Matcher<I>, f: impl FnOnce()) -> Logs<I> {
-        let logs = self.logs.lock().filter_matches(matcher);
-        if logs.is_empty() {
-            f();
-        }
-        logs
     }
 }
 
@@ -51,14 +39,12 @@ impl<I: Clone + PartialEq + Debug, O: Debug> Mock<I, O> {
         })
     }
 
-    pub(crate) fn assert_called(&self, matcher: Matcher<I>) -> MockResult<I> {
-        let logs = self.handle_assert_called(&matcher, || {
+    pub(crate) fn assert_called(&self, matcher: Matcher<I>, times: Times) -> Logs<I> {
+        let logs = self.logs.lock().filter_matches(&matcher);
+        if !times.contains(&dbg!(logs.0.len())) {
             panic!("{} was not called\n{:?}", self.name, *self.logs.lock())
-        });
-        MockResult {
-            name: self.name,
-            logs,
         }
+        logs
     }
 
     pub(crate) fn record_call_and_find_mock_output(&mut self, input: I) -> Option<O> {
@@ -181,7 +167,7 @@ mod test {
 
         mock.record_call_and_find_mock_output(3);
 
-        mock.assert_called(Matcher::Eq(3));
+        mock.assert_called(Matcher::Eq(3), Times::Exact(1));
     }
 
     #[test]
@@ -192,7 +178,7 @@ mod test {
 
         mock.record_call_and_find_mock_output(3);
 
-        mock.assert_called(Matcher::Eq(2));
+        mock.assert_called(Matcher::Eq(2), Times::Exact(1));
     }
 
     #[test]
@@ -201,7 +187,7 @@ mod test {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)).into());
 
-        mock.assert_called(Matcher::Eq(3));
+        mock.assert_called(Matcher::Eq(3), Times::Exact(1));
     }
 
     #[test]
@@ -213,7 +199,7 @@ mod test {
         mock.record_call_and_find_mock_output(2);
         mock.record_call_and_find_mock_output(2);
 
-        mock.assert_called(Matcher::Eq(3));
+        mock.assert_called(Matcher::Eq(3), Times::Exact(1));
     }
 
     #[test]
@@ -226,11 +212,8 @@ mod test {
         mock.record_call_and_find_mock_output(2);
 
         assert_eq!(
-            mock.assert_called(Matcher::Any),
-            MockResult {
-                name: "a",
-                logs: Logs(vec![3, 3, 2]),
-            }
+            mock.assert_called(Matcher::Any, Times::Exact(3)),
+            Logs(vec![3, 3, 2]),
         );
     }
 
@@ -245,11 +228,8 @@ mod test {
         mock.record_call_and_find_mock_output(2);
 
         assert_eq!(
-            mock.assert_called(Matcher::Eq(2)),
-            MockResult {
-                name: "a",
-                logs: Logs(vec![2, 2]),
-            }
+            mock.assert_called(Matcher::Eq(2), Times::Exact(2)),
+            Logs(vec![2, 2]),
         );
     }
 

@@ -78,7 +78,7 @@ Now you can mock it by using following functions:
 
 - `mock_*(...).returns(...)`: Makes a mock to return a constant value.
 - `mock_*(...).ruturns_with(|arg| ...)`: Makes a mock to return a value with a closure (This is allowed to return `!Clone` unlike `returns` cannot).
-- `mock_*(...).assert_called()`: Assert that a mock was called with correct arguments (and times).
+- `mock_*(...).assert_called(...)`: Assert that a mock was called with correct arguments (and times).
 
 ### Examples
 
@@ -89,10 +89,9 @@ cat.mock_meow(mry::Any).returns_with(|count| format!("Called with {}", count)); 
 ```
 
 ```rust
-cat.mock_meow(3).assert_called(); // Assert called with 3
-cat.mock_meow(mry::Any).assert_called(); // Assert called with any value
-cat.mock_meow(3).assert_called().times(1); // exactly called 1 time with 3
-cat.mock_meow(3).assert_called().times_within(0..100); // or within the range
+cat.mock_meow(3).assert_called(1); // Assert called exactly 1 time with 3
+cat.mock_meow(mry::Any).assert_called(1); // Assert called with any value
+cat.mock_meow(3).assert_called(0..100); // or within the range
 ```
 
 ## impl Trait for Struct

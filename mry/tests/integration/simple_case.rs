@@ -59,7 +59,17 @@ fn assert_called() {
 
     cat.meow(2);
 
-    cat.mock_meow(Any).assert_called();
+    cat.mock_meow(Any).assert_called(1);
+}
+
+#[test]
+fn assert_called_0_times() {
+    let mut cat = Cat {
+        name: "Tama".into(),
+        ..Default::default()
+    };
+    cat.mock_meow(Any).returns("Called".into());
+    cat.mock_meow(Any).assert_called(0);
 }
 
 #[test]
@@ -74,7 +84,7 @@ fn assert_called_fails() {
 
     cat.meow(3);
 
-    cat.mock_meow(2).assert_called();
+    cat.mock_meow(2).assert_called(1);
 }
 
 #[test]
@@ -108,7 +118,7 @@ fn times() {
     cat.mock_meow(Any).returns("Called".into());
     cat.meow(2);
     cat.meow(2);
-    cat.mock_meow(2).assert_called().times(2);
+    cat.mock_meow(2).assert_called(2);
 }
 
 #[test]
@@ -121,5 +131,5 @@ fn times_within() {
     cat.just_meow();
     cat.just_meow();
 
-    cat.mock_just_meow().assert_called().times_within(2..3);
+    cat.mock_just_meow().assert_called(2..3);
 }

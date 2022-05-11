@@ -6,7 +6,6 @@ mod rule;
 mod static_mocks;
 
 pub use crate::mry::*;
-use mock::*;
 pub use mock_locator::*;
 pub use mocks::*;
 pub use mry_macros::{lock, m, mry, new};

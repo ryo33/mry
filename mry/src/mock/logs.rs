@@ -8,10 +8,6 @@ impl<I: PartialEq + Clone> Logs<I> {
         self.0.push(item);
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
-        self.0.len() == 0
-    }
-
     pub(crate) fn filter_matches(&self, matcher: &Matcher<I>) -> Self {
         Self(
             self.0
@@ -32,12 +28,6 @@ impl<I> Default for Logs<I> {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn is_empty() {
-        assert!(Logs::<u8>(vec![]).is_empty());
-        assert!(!Logs::<u8>(vec![1]).is_empty());
-    }
 
     #[test]
     fn filter_matches() {

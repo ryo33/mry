@@ -1,8 +1,12 @@
+pub mod times;
+
 use std::marker::PhantomData;
 use std::{any::TypeId, fmt::Debug};
 
 use crate::mock::Mock;
-use crate::{Behavior, Matcher, MockGetter, MockResult};
+use crate::{Behavior, Matcher, MockGetter};
+
+use self::times::Times;
 
 /// Mock locator returned by mock_* methods
 pub struct MockLocator<'a, I, O, B> {
@@ -41,9 +45,9 @@ where
     /// Assert the mock is called.
     /// Returns `MockResult` allows to call `times(n)`
     /// Panics if not called
-    pub fn assert_called(&mut self) -> MockResult<I> {
+    pub fn assert_called(&mut self, times: impl Into<Times>) -> Vec<I> {
         let matcher = self.matcher.take().unwrap();
-        self.get_or_error().assert_called(matcher)
+        self.get_or_error().assert_called(matcher, times.into()).0
     }
 }
 
