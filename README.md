@@ -94,6 +94,10 @@ cat.mock_meow(mry::Any).assert_called(1); // Assert called with any value
 cat.mock_meow(3).assert_called(0..100); // or within the range
 ```
 
+## Release build
+
+When release build, the `mry` field of your struct will be zero size, and `mock_*` functions will be unavailable.
+
 ## impl Trait for Struct
 
 Also, mocking of impl trait is supported in the same API.
