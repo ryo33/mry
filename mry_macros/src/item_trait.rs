@@ -101,6 +101,7 @@ mod test {
 
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
+                        #[cfg(debug_assertions)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&MockCat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
@@ -109,6 +110,7 @@ mod test {
                 }
 
                 impl MockCat {
+                    #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
@@ -147,6 +149,7 @@ mod test {
 
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
+                        #[cfg(debug_assertions)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&MockCat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
@@ -155,6 +158,7 @@ mod test {
                 }
 
                 impl MockCat {
+                    #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
@@ -196,6 +200,7 @@ mod test {
                 #[async_trait::async_trait]
                 impl Cat for MockCat {
                     async fn meow(&self, count: usize) -> String {
+                        #[cfg(debug_assertions)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&MockCat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
@@ -204,6 +209,7 @@ mod test {
                 }
 
                 impl MockCat {
+                    #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
