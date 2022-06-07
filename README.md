@@ -5,7 +5,7 @@
 [![Crates.io](https://img.shields.io/crates/v/mry)](https://crates.io/crates/mry)
 [![docs.rs](https://img.shields.io/docsrs/mry)](https://docs.rs/mry)
 
-A cfg-free mocking library for **structs**, **traits**, and **function**.
+A simple mocking library for **structs**, **traits**, and **function**.
 
 ## Features
 
