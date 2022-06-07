@@ -9,7 +9,8 @@ A simple mocking library for **structs**, **traits**, and **function**.
 
 ## Features
 
-* No need of switching between mock objects and real objects such as the way using `#[cfg(test)]`.
+* A really simple and easy API
+* No need of switching between mock objects and real objects.
 * Supports mocking for structs, traits, and functions.
 * Supports partial mocking.
 
