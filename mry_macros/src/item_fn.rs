@@ -52,12 +52,12 @@ mod test {
 				}
 
                 #[cfg(debug_assertions)]
-				pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
+				pub fn mock_meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
 					mry::MockLocator {
 						mocks: Box::new(mry::STATIC_MOCKS.write()),
 						key: std::any::Any::type_id(&meow),
 						name: "meow",
-						matcher: Some((arg0.into(),).into()),
+						matcher: Some((count.into(),).into()),
 						_phantom: Default::default(),
 					}
 				}

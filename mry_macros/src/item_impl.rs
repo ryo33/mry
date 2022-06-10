@@ -205,12 +205,12 @@ mod test {
 
                 impl Cat {
                     #[cfg(debug_assertions)]
-                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                    pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
                             key: std::any::Any::type_id(&Cat::meow),
                             name: "Cat::meow",
-                            matcher: Some((arg0.into(),).into()),
+                            matcher: Some((count.into(),).into()),
                             _phantom: Default::default(),
                         }
                     }
@@ -246,12 +246,12 @@ mod test {
 
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(debug_assertions)]
-                    pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
+                    pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
                         mry::MockLocator {
                             mocks: self.mry.mocks_write(),
                             key: std::any::Any::type_id(&Cat<'a, A>::meow),
                             name: "Cat<'a, A>::meow",
-                            matcher: Some((arg0.into(),).into()),
+                            matcher: Some((count.into(),).into()),
                             _phantom: Default::default(),
                         }
                     }
@@ -371,12 +371,12 @@ mod test {
 
                 impl Cat {
                     #[cfg(debug_assertions)]
-                    pub fn mock_meow<'mry>(arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                    pub fn mock_meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
                             mocks: Box::new(mry::STATIC_MOCKS.write()),
                             key: std::any::Any::type_id(&Cat::meow),
                             name: "Cat::meow",
-                            matcher: Some((arg0.into(), ).into()),
+                            matcher: Some((count.into(), ).into()),
                             _phantom: Default::default(),
                         }
                     }
