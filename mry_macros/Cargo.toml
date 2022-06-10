@@ -1,9 +1,9 @@
 [package]
 name = "mry_macros"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2018"
 license = "MIT OR Apache-2.0"
-description = "Macro crate for mry, a cfg(test)-free mocking library that supports struct, trait, and function."
+description = "Macro crate for mry, a simple but powerful mocking library that supports struct, trait, and function."
 homepage = "https://github.com/ryo33/mry"
 repository = "https://github.com/ryo33/mry"
 readme = "../README.md"
