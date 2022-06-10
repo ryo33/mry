@@ -64,7 +64,12 @@ pub fn transform(
     let cloned_input: Vec<_> = args_without_receiver
         .iter()
         .map(|input| {
-            let pat = &input.pat;
+            let mut pat = input.pat.clone();
+
+            if let Pat::Ident(ident) = &mut *pat {
+                ident.mutability = None;
+            }
+
             if is_str(&input.ty) {
                 return quote!(#pat.to_string());
             }
@@ -428,6 +433,43 @@ mod test {
                         return out;
                     }
                     "meow".repeat(count)
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn supports_mut() {
+        let input: ImplItemMethod = parse2(quote! {
+            fn increment(&self, mut count: usize) -> usize {
+                count += 1;
+                count
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            t(&input).to_string(),
+            quote! {
+                fn increment(&self, mut count: usize) -> usize {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::increment), "Cat::increment", (count.clone())) {
+                        return out;
+                    }
+                    count += 1;
+                    count
+                }
+
+                #[cfg(debug_assertions)]
+                pub fn mock_increment<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), usize, mry::Behavior1<(usize), usize> > {
+                    mry::MockLocator {
+                        mocks: self.mry.mocks_write(),
+                        key: std::any::Any::type_id(&Self::increment),
+                        name: "Cat::increment",
+                        matcher: Some((arg0.into(),).into()),
+                        _phantom: Default::default(),
+                    }
                 }
             }
             .to_string()

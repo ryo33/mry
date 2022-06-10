@@ -4,6 +4,7 @@ mod function_style_macro;
 mod impl_trait;
 mod iterator;
 mod mock_trait;
+mod mut_param;
 mod nested_mock;
 mod not_clone;
 mod partial_mock;
