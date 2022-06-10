@@ -57,9 +57,9 @@ pub fn transform(
             }
         })
         .collect();
-    let derefed_input_type_tuple: Vec<_> = args_without_receiver
+    let owned_input_type_tuple: Vec<_> = args_without_receiver
         .iter()
-        .map(|input| deref_type(&*input.ty))
+        .map(|input| make_owned_type(&*input.ty))
         .collect();
     let cloned_input: Vec<_> = args_without_receiver
         .iter()
@@ -78,7 +78,11 @@ pub fn transform(
         .collect();
     let output_type = match &sig.output {
         ReturnType::Default => quote!(()),
-        ReturnType::Type(_, ty) => quote!(#ty),
+        ReturnType::Type(_, ty) => quote![#ty],
+    };
+    let static_output_type = match &sig.output {
+        ReturnType::Default => quote!(()),
+        ReturnType::Type(_, ty) => make_static_type(&ty),
     };
     let generics = &sig.generics;
     let attrs = attrs.clone();
@@ -88,20 +92,20 @@ pub fn transform(
     let vis = &vis;
     let name = format!("{}{}", method_debug_prefix, ident.to_string());
     let args = quote!(#receiver#(#args_without_receiver),*);
-    let input_type_tuple = quote!((#(#derefed_input_type_tuple),*));
+    let input_type_tuple = quote!((#(#owned_input_type_tuple),*));
     let cloned_input_tuple = quote!((#(#cloned_input),*));
     let bindings = bindings.iter().map(|(pat, arg)| quote![let #pat = #arg;]);
     let behavior_name = Ident::new(
         &format!("Behavior{}", inputs_without_receiver.len()),
         Span::call_site(),
     );
-    let behavior_type = quote![mry::#behavior_name<#input_type_tuple, #output_type>];
+    let behavior_type = quote![mry::#behavior_name<#input_type_tuple, #static_output_type>];
     let (mock_args, mock_args_into): (Vec<_>, Vec<_>) = inputs_without_receiver
         .iter()
         .enumerate()
         .map(|(index, input)| {
             let name = Ident::new(&format!("arg{}", index), Span::call_site());
-            let ty = deref_type(&*input.ty);
+            let ty = make_owned_type(&*input.ty);
             let mock_arg = quote![#name: impl Into<mry::Matcher<#ty>>];
             let mock_arg_into = quote![#name.into()];
             (mock_arg, mock_arg_into)
@@ -122,7 +126,7 @@ pub fn transform(
         },
         quote! {
             #[cfg(debug_assertions)]
-            pub fn #mock_ident<'mry>(#mock_receiver#(#mock_args),*) -> mry::MockLocator<'mry, #input_type_tuple, #output_type, #behavior_type> {
+            pub fn #mock_ident<'mry>(#mock_receiver#(#mock_args),*) -> mry::MockLocator<'mry, #input_type_tuple, #static_output_type, #behavior_type> {
                 mry::MockLocator {
                     mocks: #mocks_write_lock,
                     key: #key,
@@ -135,7 +139,7 @@ pub fn transform(
     )
 }
 
-pub fn deref_type(ty: &Type) -> TokenStream {
+pub fn make_owned_type(ty: &Type) -> TokenStream {
     if is_str(&ty) {
         return quote!(String);
     }
@@ -143,6 +147,16 @@ pub fn deref_type(ty: &Type) -> TokenStream {
         Type::Reference(ty) => {
             let ty = &ty.elem;
             quote!(#ty)
+        }
+        ty => quote!(#ty),
+    }
+}
+
+pub fn make_static_type(ty: &Type) -> TokenStream {
+    match &ty {
+        Type::Reference(ty) => {
+            let ty = &ty.elem;
+            quote!(&'static #ty)
         }
         ty => quote!(#ty),
     }
@@ -467,6 +481,41 @@ mod test {
                         mocks: self.mry.mocks_write(),
                         key: std::any::Any::type_id(&Self::increment),
                         name: "Cat::increment",
+                        matcher: Some((arg0.into(),).into()),
+                        _phantom: Default::default(),
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn supports_bounds() {
+        let input: ImplItemMethod = parse2(quote! {
+            fn meow<'a, T: Display, const A: usize>(&self, a: usize) -> &'a String {
+                todo!()
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            t(&input).to_string(),
+            quote! {
+                fn meow<'a, T: Display, const A: usize>(&self, a: usize) -> &'a String {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::meow), "Cat::meow", (a.clone())) {
+                        return out;
+                    }
+                    todo!()
+                }
+
+                #[cfg(debug_assertions)]
+                pub fn mock_meow<'mry>(&'mry mut self, arg0: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), &'static String, mry::Behavior1<(usize), &'static String> > {
+                    mry::MockLocator {
+                        mocks: self.mry.mocks_write(),
+                        key: std::any::Any::type_id(&Self::meow),
+                        name: "Cat::meow",
                         matcher: Some((arg0.into(),).into()),
                         _phantom: Default::default(),
                     }
