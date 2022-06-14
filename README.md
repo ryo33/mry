@@ -10,9 +10,27 @@ A simple but powerful mocking library for **structs**, **traits**, and **functio
 ## Features
 
 * A really simple and easy API
+* Supports mock of structs, traits, and functions.
 * No need of switching between mock objects and real objects.
-* Supports mocking for structs, traits, and functions.
 * Supports partial mocking.
+
+## Compared to [mockall](https://github.com/asomers/mockall)
+
+The clear difference is that the API is single and simple, and since it is still being developed, you would find some behaviors that are not yet supported.
+Also, based on the priciple of least astonishment, mry solves several problems of mockall by the simplest way.
+
+**Mry is cfg-free**
+
+In mockall, `#[double]` is used to switch real and mocked structs.
+The problem is that `#[double]` makes mocked structs to be used for all test cases, so it will be complicated when some test case needs the real structs, especially for testing the struct itself.
+
+In mry, no `#[double]` or complex use strategy is required. 
+
+**Mry doesn't cause data races**
+
+In mockall, you need a manual synchronization with mock of static functions and methods. The problem is that the result will be unpredicted and hard to debug when you forget to have a lock.
+
+In mry, there is a managed synchronization, and when you forget it, you can get an error that tells it is required.
 
 ## Example
 
@@ -249,12 +267,3 @@ fn meow_returns() {
     assert_eq!(Cat::meow(2), "Called".to_string());
 }
 ```
-
-## Rust Analyzer
-
-Currently comprehensive support of proc macros is not available in rust-analyzer,
-so above examples are not fully recognized by rust-analyzer and completions and type hints are inconvenient.
-
-You can support them via [GitHub Sponsors](https://github.com/sponsors/rust-analyzer) or [Open Collective](https://opencollective.com/rust-analyzer).
-
-Also, we can contribute to it on [GitHub](https://github.com/rust-analyzer/rust-analyzer).
