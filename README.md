@@ -16,7 +16,7 @@ A simple but powerful mocking library for **structs**, **traits**, and **functio
 
 ## Compared to [mockall](https://github.com/asomers/mockall)
 
-The clear difference is that the API is single and simple, and since it is still being developed, you would find some behaviors that are not yet supported.
+The clear difference is that the API is simple and , and since it is still being developed, you would find some behaviors that are not yet supported.
 Also, based on the priciple of least astonishment, mry solves several problems of mockall by the simplest way.
 
 **Mry is cfg-free**
