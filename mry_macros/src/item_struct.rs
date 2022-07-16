@@ -188,30 +188,6 @@ mod test {
     #[test]
     fn skip_serde() {
         let input: ItemStruct = parse2(quote! {
-            #[derive(serde::Serialize)]
-            struct Cat {
-                pub name: String
-            }
-        })
-        .unwrap();
-
-        assert_eq!(
-            transform(input).to_string(),
-            quote! {
-                #[derive(serde::Serialize)]
-                struct Cat {
-                    pub name: String,
-                    #[serde(skip)]
-                    pub mry : mry::Mry,
-                }
-            }
-            .to_string()
-        );
-    }
-
-    #[test]
-    fn skip_serde_with_use() {
-        let input: ItemStruct = parse2(quote! {
             #[derive(Debug, Clone, PartialEq, serde::Serialize)]
             struct Cat {
                 pub name: String
