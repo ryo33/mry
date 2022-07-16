@@ -1,10 +1,39 @@
+use proc_macro2::TokenTree;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::ItemStruct;
+use syn::{ItemStruct, visit::Visit};
+
+#[derive(Default)]
+struct SerdeFindVisitor(bool);
+
+impl<'ast> Visit<'ast> for SerdeFindVisitor {
+    fn visit_attribute(&mut self, i: &'ast syn::Attribute) {
+       if i.path.is_ident("derive") && i.tokens.clone().into_iter().any(|t| match t {
+        TokenTree::Group(g) => {
+            g.stream().into_iter().any(|s| match s {
+                TokenTree::Ident(i) => i == "serde",
+                _ => false
+            })
+        }
+        _ => false
+       }) {
+        self.0 =true
+    };
+}
+}
 
 pub(crate) fn transform(input: ItemStruct) -> TokenStream {
     let vis = &input.vis;
     let struct_name = &input.ident;
+
+    let mut serde_find_visitor = SerdeFindVisitor::default();
+    let _ = &input.attrs.clone().into_iter().for_each(|a| serde_find_visitor.visit_attribute(&a));
+    let serde_skip_or_blank = if serde_find_visitor.0 {
+        quote!(#[serde(skip)])
+    } else {
+        TokenStream::default()
+    };
+
     let attrs = &input.attrs;
     let struct_fields = input
         .fields
@@ -36,6 +65,7 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
         #(#attrs)*
         #vis struct #struct_name #generics {
             #(#struct_fields),*#comma_for_fields
+            #serde_skip_or_blank
             pub mry: mry::Mry,
         }
     }
@@ -148,6 +178,54 @@ mod test {
             transform(input).to_string(),
             quote! {
                 struct Cat {
+                    pub mry : mry::Mry,
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn skip_serde() {
+        let input: ItemStruct = parse2(quote! {
+            #[derive(serde::Serialize)]
+            struct Cat {
+                pub name: String
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+                #[derive(serde::Serialize)]
+                struct Cat {
+                    pub name: String,
+                    #[serde(skip)]
+                    pub mry : mry::Mry,
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn skip_serde_with_use() {
+        let input: ItemStruct = parse2(quote! {
+            #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+            struct Cat {
+                pub name: String
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+                #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+                struct Cat {
+                    pub name: String,
+                    #[serde(skip)]
                     pub mry : mry::Mry,
                 }
             }

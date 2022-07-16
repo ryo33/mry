@@ -12,3 +12,4 @@ mod partial_mock;
 mod reference_and_pattern;
 mod simple_case;
 mod static_function;
+mod serde_struct;
