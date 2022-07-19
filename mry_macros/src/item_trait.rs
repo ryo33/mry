@@ -55,7 +55,7 @@ pub(crate) fn transform(input: ItemTrait) -> TokenStream {
     quote! {
         #input
 
-        #[derive(Default, Clone)]
+        #[derive(Default, Clone, Debug)]
         #vis struct #mry_ident {
             pub mry: mry::Mry,
         }
@@ -94,7 +94,7 @@ mod test {
 					fn meow(&self, count: usize) -> String;
 				}
 
-				#[derive(Default, Clone)]
+				#[derive(Default, Clone, Debug)]
 				struct MockCat {
 					pub mry : mry::Mry,
 				}
@@ -142,7 +142,7 @@ mod test {
 					fn meow(&self, count: usize) -> String;
 				}
 
-				#[derive(Default, Clone)]
+				#[derive(Default, Clone, Debug)]
 				pub struct MockCat {
 					pub mry : mry::Mry,
 				}
@@ -192,7 +192,7 @@ mod test {
 					async fn meow(&self, count: usize) -> String;
 				}
 
-				#[derive(Default, Clone)]
+				#[derive(Default, Clone, Debug)]
 				struct MockCat {
 					pub mry : mry::Mry,
 				}
