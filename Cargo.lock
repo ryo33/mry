@@ -411,7 +411,7 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
 name = "mry"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "async-recursion",
  "async-std",
@@ -425,7 +425,7 @@ dependencies = [
 
 [[package]]
 name = "mry_macros"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "pretty_assertions",
  "proc-macro2",
