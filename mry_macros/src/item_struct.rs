@@ -1,25 +1,25 @@
-use proc_macro2::TokenTree;
 use proc_macro2::TokenStream;
+use proc_macro2::TokenTree;
 use quote::quote;
-use syn::{ItemStruct, visit::Visit};
+use syn::{visit::Visit, ItemStruct};
 
 #[derive(Default)]
 struct SerdeFindVisitor(bool);
 
 impl<'ast> Visit<'ast> for SerdeFindVisitor {
     fn visit_attribute(&mut self, i: &'ast syn::Attribute) {
-       if i.path.is_ident("derive") && i.tokens.clone().into_iter().any(|t| match t {
-        TokenTree::Group(g) => {
-            g.stream().into_iter().any(|s| match s {
-                TokenTree::Ident(i) => i == "serde",
-                _ => false
+        if i.path.is_ident("derive")
+            && i.tokens.clone().into_iter().any(|t| match t {
+                TokenTree::Group(g) => g.stream().into_iter().any(|s| match s {
+                    TokenTree::Ident(i) => i == "serde",
+                    _ => false,
+                }),
+                _ => false,
             })
-        }
-        _ => false
-       }) {
-        self.0 =true
-    };
-}
+        {
+            self.0 = true
+        };
+    }
 }
 
 pub(crate) fn transform(input: ItemStruct) -> TokenStream {
@@ -27,7 +27,11 @@ pub(crate) fn transform(input: ItemStruct) -> TokenStream {
     let struct_name = &input.ident;
 
     let mut serde_find_visitor = SerdeFindVisitor::default();
-    let _ = &input.attrs.clone().into_iter().for_each(|a| serde_find_visitor.visit_attribute(&a));
+    let _ = &input
+        .attrs
+        .clone()
+        .into_iter()
+        .for_each(|a| serde_find_visitor.visit_attribute(&a));
     let serde_skip_or_blank = if serde_find_visitor.0 {
         quote!(#[serde(skip)])
     } else {
