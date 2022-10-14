@@ -224,4 +224,53 @@ mod test {
             .to_string()
         );
     }
+
+    #[test]
+    fn add_allow_non_snake_case() {
+        let input: ItemTrait = parse2(quote! {
+            trait Cat {
+                fn _meow(&self, count: usize) -> String;
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+				trait Cat {
+					fn _meow(&self, count: usize) -> String;
+				}
+
+				#[derive(Default, Clone, Debug)]
+				struct MockCat {
+					pub mry : mry::Mry,
+				}
+
+                impl Cat for MockCat {
+                    fn _meow(&self, count: usize) -> String {
+                        #[cfg(debug_assertions)]
+                        if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&MockCat::_meow), "Cat::_meow", (count.clone())) {
+                            return out;
+                        }
+                        panic!("mock not found for Cat")
+                    }
+                }
+
+                impl MockCat {
+                    #[cfg(debug_assertions)]
+                    #[allow(non_snake_case)]
+                    pub fn mock__meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                        mry::MockLocator {
+                            mocks: self.mry.mocks_write(),
+                            key: std::any::Any::type_id(&MockCat::_meow),
+                            name: "Cat::_meow",
+                            matcher: Some((count.into(),).into()),
+                            _phantom: Default::default(),
+                        }
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
 }

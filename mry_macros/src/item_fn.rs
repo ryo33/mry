@@ -65,4 +65,42 @@ mod test {
             .to_string()
         );
     }
+
+    #[test]
+    fn add_allow_non_snake_case() {
+        let input: ItemFn = parse2(quote! {
+            fn _meow(count: usize) -> String {
+                "meow".repeat(count)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(input).to_string(),
+            quote! {
+				fn _meow(count: usize) -> String {
+                    #[cfg(debug_assertions)]
+					if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(std::any::Any::type_id(&_meow), "_meow", (count.clone())) {
+						return out;
+					}
+					{
+                        "meow".repeat(count)
+                    }
+				}
+
+                #[cfg(debug_assertions)]
+                #[allow(non_snake_case)]
+				pub fn mock__meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
+					mry::MockLocator {
+						mocks: Box::new(mry::STATIC_MOCKS.write()),
+						key: std::any::Any::type_id(&_meow),
+						name: "_meow",
+						matcher: Some((count.into(),).into()),
+						_phantom: Default::default(),
+					}
+				}
+            }
+            .to_string()
+        );
+    }
 }

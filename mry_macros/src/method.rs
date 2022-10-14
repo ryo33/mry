@@ -116,6 +116,11 @@ pub fn transform(
             (mock_arg, mock_arg_into)
         })
         .unzip();
+    let allow_non_snake_case_or_blank = if ident.to_string().starts_with("_") {
+        quote!(#[allow(non_snake_case)])
+    } else {
+        TokenStream::default()
+    };
     let key = quote![std::any::Any::type_id(&#method_prefix#ident)];
     (
         quote! {
@@ -131,6 +136,7 @@ pub fn transform(
         },
         quote! {
             #[cfg(debug_assertions)]
+            #allow_non_snake_case_or_blank
             pub fn #mock_ident<'mry>(#mock_receiver#(#mock_args),*) -> mry::MockLocator<'mry, #input_type_tuple, #static_output_type, #behavior_type> {
                 mry::MockLocator {
                     mocks: #mocks_write_lock,
@@ -247,6 +253,42 @@ mod test {
                         mocks: self.mry.mocks_write(),
                         key: std::any::Any::type_id(&Self::meow),
                         name: "Cat::meow",
+                        matcher: Some((count.into(),).into()),
+                        _phantom: Default::default(),
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn adds_allow_non_snake_case() {
+        let input: ImplItemMethod = parse2(quote! {
+            fn _meow(&self, count: usize) -> String {
+                "meow".repeat(count)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            t(&input).to_string(),
+            quote! {
+                fn _meow(&self, count: usize) -> String {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::_meow), "Cat::_meow", (count.clone())) {
+                        return out;
+                    }
+                    "meow".repeat(count)
+                }
+
+                #[cfg(debug_assertions)]
+                #[allow(non_snake_case)]
+                pub fn mock__meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
+                    mry::MockLocator {
+                        mocks: self.mry.mocks_write(),
+                        key: std::any::Any::type_id(&Self::_meow),
+                        name: "Cat::_meow",
                         matcher: Some((count.into(),).into()),
                         _phantom: Default::default(),
                     }
