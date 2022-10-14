@@ -24,5 +24,8 @@ fn meow_returns_with() {
     cat.mock_meow("aaa".to_string())
         .returns_with(|string| format!("Called with {}", string));
 
-    assert_eq!(cat.meow("aaa".to_string()), "Called with aaa".to_string());
+    assert_eq!(
+        cat.meow("aaa".to_string()),
+        "Called with aaa".to_string()
+    );
 }

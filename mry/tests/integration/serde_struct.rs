@@ -11,6 +11,7 @@ impl Cat {
     }
 }
 
+
 #[test]
 fn cat_can_serialize() {
     let cat: Cat = mry::new!(Cat {
