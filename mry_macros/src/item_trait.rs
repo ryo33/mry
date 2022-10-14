@@ -90,14 +90,14 @@ mod test {
         assert_eq!(
             transform(input).to_string(),
             quote! {
-				trait Cat {
-					fn meow(&self, count: usize) -> String;
-				}
+                trait Cat {
+                    fn meow(&self, count: usize) -> String;
+                }
 
-				#[derive(Default, Clone, Debug)]
-				struct MockCat {
-					pub mry : mry::Mry,
-				}
+                #[derive(Default, Clone, Debug)]
+                struct MockCat {
+                    pub mry : mry::Mry,
+                }
 
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
@@ -138,14 +138,14 @@ mod test {
         assert_eq!(
             transform(input).to_string(),
             quote! {
-				pub trait Cat {
-					fn meow(&self, count: usize) -> String;
-				}
+                pub trait Cat {
+                    fn meow(&self, count: usize) -> String;
+                }
 
-				#[derive(Default, Clone, Debug)]
-				pub struct MockCat {
-					pub mry : mry::Mry,
-				}
+                #[derive(Default, Clone, Debug)]
+                pub struct MockCat {
+                    pub mry : mry::Mry,
+                }
 
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
@@ -188,14 +188,14 @@ mod test {
             transform(input).to_string(),
             quote! {
                 #[async_trait::async_trait]
-				trait Cat {
-					async fn meow(&self, count: usize) -> String;
-				}
+                trait Cat {
+                    async fn meow(&self, count: usize) -> String;
+                }
 
-				#[derive(Default, Clone, Debug)]
-				struct MockCat {
-					pub mry : mry::Mry,
-				}
+                #[derive(Default, Clone, Debug)]
+                struct MockCat {
+                    pub mry : mry::Mry,
+                }
 
                 #[async_trait::async_trait]
                 impl Cat for MockCat {
@@ -237,14 +237,14 @@ mod test {
         assert_eq!(
             transform(input).to_string(),
             quote! {
-				trait Cat {
-					fn _meow(&self, count: usize) -> String;
-				}
+                trait Cat {
+                    fn _meow(&self, count: usize) -> String;
+                }
 
-				#[derive(Default, Clone, Debug)]
-				struct MockCat {
-					pub mry : mry::Mry,
-				}
+                #[derive(Default, Clone, Debug)]
+                struct MockCat {
+                    pub mry : mry::Mry,
+                }
 
                 impl Cat for MockCat {
                     fn _meow(&self, count: usize) -> String {

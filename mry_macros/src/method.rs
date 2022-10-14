@@ -451,13 +451,13 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
-				fn meow(&self, arg0: A, count: usize, arg2: String) -> String {
+                fn meow(&self, arg0: A, count: usize, arg2: String) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Self::meow), "Cat::meow", (arg0.clone(), count.clone(), arg2.clone())) {
                         return out;
                     }
-					let A { name } = arg0;
-					let _ = arg2;
+                    let A { name } = arg0;
+                    let _ = arg2;
                     name.repeat(count)
                 }
 
