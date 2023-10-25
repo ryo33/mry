@@ -241,7 +241,7 @@ fn function_keeps_original_function() {
 }
 ```
 
-## Mocking a associated function (static function)
+## Mocking an associated function (static function)
 
 Include your associated function into the impl block with `#[mry::mry]`.
 
@@ -268,3 +268,7 @@ fn meow_returns() {
     assert_eq!(Cat::meow(2), "Called".to_string());
 }
 ```
+
+Certainly. Here's a revised version of the sentence:
+
+To lock multiple static functions simultaneously, list the functions in a comma-separated format: `#[mry::lock(function_a, function_b, function_c)]`. This approach automatically prevents deadlocks by sorting the functions before locking.
