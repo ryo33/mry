@@ -269,6 +269,4 @@ fn meow_returns() {
 }
 ```
 
-Certainly. Here's a revised version of the sentence:
-
 To lock multiple static functions simultaneously, list the functions in a comma-separated format: `#[mry::lock(function_a, function_b, function_c)]`. This approach automatically prevents deadlocks by sorting the functions before locking.
