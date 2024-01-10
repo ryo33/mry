@@ -7,36 +7,34 @@ mod item_trait;
 mod lock;
 mod method;
 mod new;
+use lock::LockPaths;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::visit_mut::VisitMut;
 mod alphabets;
-use syn::{
-    parse, parse2, parse_macro_input, AttributeArgs, ExprStruct, ItemFn, ItemImpl, ItemStruct,
-    ItemTrait,
-};
+use syn::{parse, parse2, parse_macro_input, ExprStruct, ItemFn, ItemImpl, ItemStruct, ItemTrait};
 
-enum Target {
-    ItemStruct(ItemStruct),
-    ItemImpl(ItemImpl),
-    ItemTrait(ItemTrait),
-    ItemFn(ItemFn),
+enum TargetItem {
+    Struct(ItemStruct),
+    Impl(ItemImpl),
+    Trait(ItemTrait),
+    Fn(ItemFn),
 }
 
 #[proc_macro_attribute]
 pub fn mry(_: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match parse(input.clone())
-        .map(Target::ItemStruct)
-        .or_else(|_| parse(input.clone()).map(Target::ItemImpl))
-        .or_else(|_| parse(input.clone()).map(Target::ItemTrait))
-        .or_else(|_| parse(input.clone()).map(Target::ItemFn))
+        .map(TargetItem::Struct)
+        .or_else(|_| parse(input.clone()).map(TargetItem::Impl))
+        .or_else(|_| parse(input.clone()).map(TargetItem::Trait))
+        .or_else(|_| parse(input.clone()).map(TargetItem::Fn))
     {
         Ok(target) => {
             let token_stream = match target {
-                Target::ItemStruct(target) => item_struct::transform(target),
-                Target::ItemImpl(target) => item_impl::transform(target),
-                Target::ItemTrait(target) => item_trait::transform(target),
-                Target::ItemFn(target) => item_fn::transform(target),
+                TargetItem::Struct(target) => item_struct::transform(target),
+                TargetItem::Impl(target) => item_impl::transform(target),
+                TargetItem::Trait(target) => item_trait::transform(target),
+                TargetItem::Fn(target) => item_fn::transform(target),
             };
             token_stream.into()
         }
@@ -65,7 +63,7 @@ pub fn lock(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     lock::transform(
-        parse_macro_input!(attribute as AttributeArgs),
+        parse_macro_input!(attribute as LockPaths),
         parse_macro_input!(input as ItemFn),
     )
     .into()

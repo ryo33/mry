@@ -8,7 +8,7 @@ pub fn transform(
     method_debug_prefix: &str,     // "Cat::"
     record_call_and_find_mock_output: TokenStream,
     vis: Option<&Visibility>,
-    attrs: &Vec<Attribute>,
+    attrs: &[Attribute],
     sig: &Signature,
     body: &TokenStream,
 ) -> (TokenStream, TokenStream) {
@@ -59,7 +59,7 @@ pub fn transform(
         .collect();
     let owned_input_type_tuple: Vec<_> = args_without_receiver
         .iter()
-        .map(|input| make_owned_type(&*input.ty))
+        .map(|input| make_owned_type(&input.ty))
         .collect();
     let cloned_input: Vec<_> = args_without_receiver
         .iter()
@@ -82,16 +82,15 @@ pub fn transform(
     };
     let static_output_type = match &sig.output {
         ReturnType::Default => quote!(()),
-        ReturnType::Type(_, ty) => make_static_type(&ty),
+        ReturnType::Type(_, ty) => make_static_type(ty),
     };
     let generics = &sig.generics;
-    let attrs = attrs.clone();
     let ident = sig.ident.clone();
     let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
     let asyn = &sig.asyncness;
     let vis = &vis;
-    let name = format!("{}{}", method_debug_prefix, ident.to_string());
-    let args = quote!(#receiver#(#args_without_receiver),*);
+    let name = format!("{}{}", method_debug_prefix, ident);
+    let args = quote!(#receiver #(#args_without_receiver),*);
     let input_type_tuple = quote!((#(#owned_input_type_tuple),*));
     let cloned_input_tuple = quote!((#(#cloned_input),*));
     let bindings = bindings.iter().map(|(pat, arg)| quote![let #pat = #arg;]);
@@ -110,18 +109,18 @@ pub fn transform(
                 let name = Ident::new(&format!("arg{}", index), Span::call_site());
                 quote![#name]
             };
-            let ty = make_owned_type(&*input.ty);
+            let ty = make_owned_type(&input.ty);
             let mock_arg = quote![#name: impl Into<mry::Matcher<#ty>>];
             let mock_arg_into = quote![#name.into()];
             (mock_arg, mock_arg_into)
         })
         .unzip();
-    let allow_non_snake_case_or_blank = if ident.to_string().starts_with("_") {
+    let allow_non_snake_case_or_blank = if ident.to_string().starts_with('_') {
         quote!(#[allow(non_snake_case)])
     } else {
         TokenStream::default()
     };
-    let key = quote![std::any::Any::type_id(&#method_prefix#ident)];
+    let key = quote![std::any::Any::type_id(&#method_prefix #ident)];
     (
         quote! {
             #(#attrs)*
@@ -137,7 +136,7 @@ pub fn transform(
         quote! {
             #[cfg(debug_assertions)]
             #allow_non_snake_case_or_blank
-            pub fn #mock_ident<'mry>(#mock_receiver#(#mock_args),*) -> mry::MockLocator<'mry, #input_type_tuple, #static_output_type, #behavior_type> {
+            pub fn #mock_ident<'mry>(#mock_receiver #(#mock_args),*) -> mry::MockLocator<'mry, #input_type_tuple, #static_output_type, #behavior_type> {
                 mry::MockLocator {
                     mocks: #mocks_write_lock,
                     key: #key,
@@ -151,7 +150,7 @@ pub fn transform(
 }
 
 pub fn make_owned_type(ty: &Type) -> TokenStream {
-    if is_str(&ty) {
+    if is_str(ty) {
         return quote!(String);
     }
     match &ty {
@@ -178,7 +177,7 @@ pub fn is_str(ty: &Type) -> bool {
         Type::Reference(ty) => {
             if let Type::Path(path) = &*ty.elem {
                 if let Some(ident) = path.path.get_ident() {
-                    return ident.to_string() == "str";
+                    return ident == "str";
                 }
             }
             false
@@ -192,7 +191,7 @@ mod test {
     use super::*;
     use pretty_assertions::assert_eq;
     use quote::{quote, ToTokens};
-    use syn::{parse2, ImplItemMethod};
+    use syn::{parse2, ImplItemFn};
 
     trait ToString {
         fn to_string(&self) -> String;
@@ -207,7 +206,7 @@ mod test {
         }
     }
 
-    fn t(method: &ImplItemMethod) -> (TokenStream, TokenStream) {
+    fn t(method: &ImplItemFn) -> (TokenStream, TokenStream) {
         transform(
             quote![self.mry.mocks_write()],
             quote![Self::],
@@ -229,7 +228,7 @@ mod test {
 
     #[test]
     fn adds_mock_function() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             fn meow(&self, count: usize) -> String {
                 "meow".repeat(count)
             }
@@ -264,7 +263,7 @@ mod test {
 
     #[test]
     fn adds_allow_non_snake_case() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             fn _meow(&self, count: usize) -> String {
                 "meow".repeat(count)
             }
@@ -300,7 +299,7 @@ mod test {
 
     #[test]
     fn empty_args() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             fn meow(&self) -> String {
                 "meow".into()
             }
@@ -335,7 +334,7 @@ mod test {
 
     #[test]
     fn multiple_args() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             fn meow(&self, base: String, count: usize) -> String {
                 base.repeat(count)
             }
@@ -370,7 +369,7 @@ mod test {
 
     #[test]
     fn input_reference_and_str() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             fn meow(&self, out: &'static mut String, base: &str, count: &usize) {
                 *out = base.repeat(count);
             }
@@ -406,7 +405,7 @@ mod test {
 
     #[test]
     fn supports_async() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             async fn meow(&self, count: usize) -> String{
                 base().await.repeat(count);
             }
@@ -441,7 +440,7 @@ mod test {
 
     #[test]
     fn support_pattern() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             fn meow(&self, A { name }: A, count: usize, _: String) -> String {
                 name.repeat(count)
             }
@@ -478,7 +477,7 @@ mod test {
 
     #[test]
     fn respect_visibility() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             pub fn meow(&self, count: usize) -> String {
                 "meow".repeat(count)
             }
@@ -502,7 +501,7 @@ mod test {
 
     #[test]
     fn supports_mut() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             fn increment(&self, mut count: usize) -> usize {
                 count += 1;
                 count
@@ -539,7 +538,7 @@ mod test {
 
     #[test]
     fn supports_bounds() {
-        let input: ImplItemMethod = parse2(quote! {
+        let input: ImplItemFn = parse2(quote! {
             fn meow<'a, T: Display, const A: usize>(&self, a: usize) -> &'a String {
                 todo!()
             }

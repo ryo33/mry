@@ -10,7 +10,7 @@ struct A<T>(T);
 #[mry::mry]
 impl Cat {
     fn meow(&self, mut string: String) -> String {
-        string = format!("{}", self.name);
+        string = self.name.to_string();
         string
     }
 }

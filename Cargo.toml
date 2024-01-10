@@ -1,3 +1,6 @@
 [workspace]
 
-members = ["mry", "mry_macros"]
+resolver = "2"
+
+members = ["mry", "mry_macros", "mry/tests/serde"]
+default-members = ["mry", "mry_macros"]

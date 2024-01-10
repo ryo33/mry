@@ -9,7 +9,7 @@ use crate::method;
 struct AsyncTraitFindVisitor(bool);
 
 impl<'ast> Visit<'ast> for AsyncTraitFindVisitor {
-    fn visit_trait_item_method(&mut self, i: &'ast syn::TraitItemMethod) {
+    fn visit_trait_item_fn(&mut self, i: &'ast syn::TraitItemFn) {
         if i.sig.asyncness.is_some() {
             self.0 = true;
         }
@@ -34,7 +34,7 @@ pub(crate) fn transform(input: ItemTrait) -> TokenStream {
         .items
         .iter()
         .map(|item| match item {
-            syn::TraitItem::Method(method) => method::transform(
+            syn::TraitItem::Fn(method) => method::transform(
                 quote![self.mry.mocks_write()],
                 quote![#mry_ident::],
                 &(trait_ident.to_string() + "::"),

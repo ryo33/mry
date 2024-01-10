@@ -14,10 +14,10 @@ impl<'a> Into<String> for Cat<'a> {
 #[test]
 fn meow_returns_with() {
     let mut cat: Cat = Cat {
-        name: "Tama".into(),
+        name: "Tama",
         ..Default::default()
     };
-    cat.mock_into().returns_with(|| format!("Called"));
+    cat.mock_into().returns_with(|| "Called".to_string());
 
     assert_eq!(<Cat as Into<String>>::into(cat), "Called".to_string());
 }

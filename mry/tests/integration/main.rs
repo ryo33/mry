@@ -10,6 +10,5 @@ mod nested_mock;
 mod not_clone;
 mod partial_mock;
 mod reference_and_pattern;
-mod serde_struct;
 mod simple_case;
 mod static_function;

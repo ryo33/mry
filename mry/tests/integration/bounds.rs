@@ -6,7 +6,9 @@ fn meow<'a>(base: &'a str) -> &'a str {
 }
 
 #[test]
+#[mry::lock(meow)]
 fn keeps_original_function() {
+    mock_meow(Any).calls_real_impl();
     assert_eq!(meow("a"), "a");
 }
 

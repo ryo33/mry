@@ -129,6 +129,21 @@ impl PartialEq for Mry {
     }
 }
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for Mry {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_unit()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Mry {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_unit(serde::de::IgnoredAny)
+            .map(|_| Self::default())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::cmp::Ordering;

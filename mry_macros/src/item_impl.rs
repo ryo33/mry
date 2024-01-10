@@ -37,11 +37,11 @@ impl VisitMut for QualifiesAssociatedTypes {
                 .into_iter()
                 .take(2)
                 .collect();
-            if let (Some(first), Some(second)) = (first_and_second.get(0), first_and_second.get(1))
+            if let (Some(first), Some(second)) = (first_and_second.first(), first_and_second.get(1))
             {
                 let trait_ = &self.0;
                 let trailing = type_path.path.segments.iter().skip(1);
-                if first.ident.to_string() == "Self" && self.1.contains(&second.ident) {
+                if first.ident == "Self" && self.1.contains(&second.ident) {
                     *type_path = parse2(quote![<Self as #trait_>::#(#trailing)::*]).unwrap();
                 }
             }
@@ -109,7 +109,7 @@ pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
         .items
         .iter()
         .map(|item| {
-            if let ImplItem::Method(method) = item {
+            if let ImplItem::Fn(method) = item {
                 if let Some(FnArg::Receiver(_)) = method.sig.inputs.first() {
                     method::transform(
                         quote![self.mry.mocks_write()],

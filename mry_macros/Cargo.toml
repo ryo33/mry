@@ -13,12 +13,12 @@ categories = ["development-tools"]
 [dependencies]
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "1.0", features = ["visit", "visit-mut", "full"] }
+syn = { version = "2.0", features = ["visit", "visit-mut", "full", "parsing"] }
 
 [lib]
 proc-macro = true
 
 [dev-dependencies]
-pretty_assertions = "0.7"
+pretty_assertions = "1.4"
 similar-asserts = "1.1"
-serde = { version = '1', features = ["derive"]}
+serde = { version = '1', features = ["derive"] }
