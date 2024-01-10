@@ -1,3 +1,4 @@
+mod async_fn_in_trait;
 mod async_method;
 mod async_trait;
 mod bounds;
