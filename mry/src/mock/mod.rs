@@ -88,6 +88,19 @@ where
     }
 }
 
+impl<I, R> Mock<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>>
+where
+    I: Clone + PartialEq + Send + 'static,
+    R: Send + 'static,
+{
+    pub(crate) fn returns_ready_once(&mut self, matcher: Matcher<I>, ret: R) {
+        self.returns_with(
+            matcher,
+            Behavior::Once(Mutex::new(Some(Box::pin(std::future::ready(ret))))),
+        )
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

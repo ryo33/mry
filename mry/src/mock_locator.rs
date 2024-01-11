@@ -91,6 +91,20 @@ where
     }
 }
 
+impl<'a, I, B, R>
+    MockLocator<'a, I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
+where
+    I: Clone + PartialEq + Send + 'static,
+    R: Send + 'static,
+{
+    /// This makes the mock returns the given constant value with `std::future::ready`.
+    /// This requires `Clone`. For returning not clone value, use `returns_with`.
+    pub fn returns_ready_once(&mut self, ret: R) {
+        let matcher = self.matcher();
+        self.get_mut_or_default().returns_ready_once(matcher, ret);
+    }
+}
+
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
     I: Send + 'static,
