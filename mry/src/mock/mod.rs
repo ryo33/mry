@@ -1,5 +1,4 @@
 mod logs;
-use std::fmt::Debug;
 use std::iter::repeat;
 
 pub use logs::*;
@@ -24,12 +23,9 @@ impl<I, O> Mock<I, O> {
     }
 }
 
-impl<I: Clone + PartialEq + Debug, O: Debug> Mock<I, O> {
+impl<I: Clone + PartialEq, O> Mock<I, O> {
     pub(crate) fn returns_with(&mut self, matcher: Matcher<I>, behavior: Behavior<I, O>) {
-        self.rules.push(Rule {
-            matcher,
-            behavior: behavior,
-        });
+        self.rules.push(Rule { matcher, behavior });
     }
 
     pub(crate) fn calls_real_impl(&mut self, matcher: Matcher<I>) {
@@ -41,8 +37,8 @@ impl<I: Clone + PartialEq + Debug, O: Debug> Mock<I, O> {
 
     pub(crate) fn assert_called(&self, matcher: Matcher<I>, times: Times) -> Logs<I> {
         let logs = self.logs.lock().filter_matches(&matcher);
-        if !times.contains(&dbg!(logs.0.len())) {
-            panic!("{} was not called\n{:?}", self.name, *self.logs.lock())
+        if !times.contains(&logs.0.len()) {
+            panic!("{} was not called", self.name)
         }
         logs
     }
@@ -56,17 +52,32 @@ impl<I: Clone + PartialEq + Debug, O: Debug> Mock<I, O> {
                 Output::CallsRealImpl => return None,
             };
         }
-        panic!("mock not found for {}\n{:?}", self.name, self.rules)
+        panic!("mock not found for {}", self.name)
     }
 }
 
 impl<I, O> Mock<I, O>
 where
-    I: Clone + PartialEq + Debug + Send + Sync + 'static,
-    O: Clone + Debug + Send + Sync + 'static,
+    I: Clone + PartialEq + Send + Sync + 'static,
+    O: Clone + Send + Sync + 'static,
 {
     pub(crate) fn returns(&mut self, matcher: Matcher<I>, ret: O) {
         self.returns_with(matcher, Behavior::Const(RwLock::new(Box::new(repeat(ret)))))
+    }
+}
+
+impl<I, R> Mock<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + Sync + 'static>>>
+where
+    I: Clone + PartialEq + Send + Sync + 'static,
+    R: Clone + Send + Sync + 'static,
+{
+    pub(crate) fn returns_ready(&mut self, matcher: Matcher<I>, ret: R) {
+        self.returns_with(
+            matcher,
+            Behavior::Const(RwLock::new(Box::new(
+                repeat(ret).map(|r| Box::pin(std::future::ready(r)) as _),
+            ))),
+        )
     }
 }
 
@@ -191,18 +202,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "[1, 2, 2]")]
-    fn assert_called_with_log() {
-        let mut mock = Mock::<usize, String>::new("a");
-        mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)).into());
-        mock.record_call_and_find_mock_output(1);
-        mock.record_call_and_find_mock_output(2);
-        mock.record_call_and_find_mock_output(2);
-
-        mock.assert_called(Matcher::Eq(3), Times::Exact(1));
-    }
-
-    #[test]
     fn assert_called_returns_logs() {
         let mut mock = Mock::<usize, String>::new("a");
         mock.returns_with(Matcher::Any, Behavior1::from(|a| "a".repeat(a)).into());
@@ -231,20 +230,5 @@ mod test {
             mock.assert_called(Matcher::Eq(2), Times::Exact(2)),
             Logs(vec![2, 2]),
         );
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "[Rule { matcher: Eq(3), behavior: Function(_) }, Rule { matcher: Eq(3), behavior: CallsRealImpl }]"
-    )]
-    fn mock_not_found_with_rules() {
-        let mut mock = Mock::<usize, String>::new("a");
-        mock.returns_with(
-            Matcher::Eq(3),
-            Behavior::Function(Box::new(|_| "42".to_string())),
-        );
-        mock.calls_real_impl(Matcher::Eq(3));
-
-        mock.record_call_and_find_mock_output(2);
     }
 }

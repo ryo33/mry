@@ -1,7 +1,7 @@
 pub mod times;
 
+use std::any::TypeId;
 use std::marker::PhantomData;
-use std::{any::TypeId, fmt::Debug};
 
 use crate::mock::Mock;
 use crate::{Behavior, Matcher, MockGetter};
@@ -19,23 +19,30 @@ pub struct MockLocator<'a, I, O, B> {
     #[doc(hidden)]
     pub matcher: Option<Matcher<I>>,
     #[doc(hidden)]
+    #[allow(clippy::type_complexity)]
     pub _phantom: PhantomData<fn() -> (I, O, B)>,
 }
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Clone + PartialEq + Debug + Send + Sync + 'static,
-    O: Debug + Send + Sync + 'static,
+    I: Clone + PartialEq + Send + Sync + 'static,
+    O: Send + Sync + 'static,
     B: Into<Behavior<I, O>>,
 {
-    /// Returns value with using a clojure.
-    /// Arguments of a method call are passed to the given clojure.
+    /// Returns value with using a closure.
+    /// Arguments of a method call are passed to the given closure.
     pub fn returns_with<T: Into<B>>(&mut self, behavior: T) {
         let matcher = self.matcher();
         self.get_mut_or_default()
             .returns_with(matcher, behavior.into().into());
     }
+}
 
+impl<'a, I, O, B> MockLocator<'a, I, O, B>
+where
+    I: Clone + PartialEq + Send + Sync + 'static,
+    O: Send + Sync + 'static,
+{
     /// This make the mock calls real impl. This is used for partial mocking.
     pub fn calls_real_impl(&mut self) {
         let matcher = self.matcher();
@@ -53,8 +60,8 @@ where
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Clone + PartialEq + Debug + Send + Sync + 'static,
-    O: Clone + Debug + Send + Sync + 'static,
+    I: Clone + PartialEq + Send + Sync + 'static,
+    O: Clone + Send + Sync + 'static,
 {
     /// This makes the mock returns the given constant value.
     /// This requires `Clone`. For returning not clone value, use `returns_with`.
@@ -64,13 +71,32 @@ where
     }
 }
 
+impl<'a, I, B, R>
+    MockLocator<
+        'a,
+        I,
+        std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + Sync + 'static>>,
+        B,
+    >
+where
+    I: Clone + PartialEq + Send + Sync + 'static,
+    R: Clone + Send + Sync + 'static,
+{
+    /// This makes the mock returns the given constant value with `std::future::ready`.
+    /// This requires `Clone`. For returning not clone value, use `returns_with`.
+    pub fn returns_ready(&mut self, ret: R) {
+        let matcher = self.matcher();
+        self.get_mut_or_default().returns_ready(matcher, ret);
+    }
+}
+
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
     I: Send + Sync + 'static,
     O: Send + Sync + 'static,
 {
     fn get_mut_or_default(&mut self) -> &mut Mock<I, O> {
-        self.mocks.get_mut_or_create(self.key.clone(), &self.name)
+        self.mocks.get_mut_or_create(self.key, self.name)
     }
 }
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
@@ -80,8 +106,8 @@ where
 {
     fn get_or_error(&self) -> &Mock<I, O> {
         self.mocks
-            .get(&self.key, &self.name)
-            .expect(&format!("no mock is found for {}", self.name))
+            .get(&self.key, self.name)
+            .unwrap_or_else(|| panic!("no mock is found for {}", self.name))
     }
 
     fn matcher(&mut self) -> Matcher<I> {

@@ -43,7 +43,7 @@ mod test {
             quote! {
                 fn meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(std::any::Any::type_id(&meow), "meow", (count.clone())) {
+                    if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&meow), "meow", (count.clone())) {
                         return out;
                     }
                     {
@@ -80,7 +80,7 @@ mod test {
             quote! {
                 fn _meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(std::any::Any::type_id(&_meow), "_meow", (count.clone())) {
+                    if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&_meow), "_meow", (count.clone())) {
                         return out;
                     }
                     {
@@ -95,43 +95,6 @@ mod test {
                         mocks: Box::new(mry::STATIC_MOCKS.write()),
                         key: std::any::Any::type_id(&_meow),
                         name: "_meow",
-                        matcher: Some((count.into(),).into()),
-                        _phantom: Default::default(),
-                    }
-                }
-            }
-            .to_string()
-        );
-    }
-
-    #[test]
-    fn async_fn_in_trait() {
-        let input: ItemFn = parse2(quote! {
-            async fn meow(count: usize) -> String {
-                "meow".repeat(count)
-            }
-        })
-        .unwrap();
-
-        assert_eq!(
-            transform(input).to_string(),
-            quote! {
-                async fn meow(count: usize) -> String {
-                    #[cfg(debug_assertions)]
-                    if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(std::any::Any::type_id(&meow), "meow", (count.clone())) {
-                        return out;
-                    }
-                    {
-                        "meow".repeat(count)
-                    }
-                }
-
-                #[cfg(debug_assertions)]
-                pub fn mock_meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                    mry::MockLocator {
-                        mocks: Box::new(mry::STATIC_MOCKS.write()),
-                        key: std::any::Any::type_id(&meow),
-                        name: "meow",
                         matcher: Some((count.into(),).into()),
                         _phantom: Default::default(),
                     }

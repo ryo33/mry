@@ -5,7 +5,7 @@ use std::fmt::Debug;
 pub enum Matcher<I> {
     /// Any value
     Any,
-    #[doc(hidden)]
+    /// Never matches
     Never,
     /// Equal to the value
     Eq(I),
@@ -41,9 +41,9 @@ impl From<&str> for Matcher<String> {
     }
 }
 
-impl<I: PartialEq> Into<Matcher<I>> for (Matcher<I>,) {
-    fn into(self) -> Matcher<I> {
-        self.0
+impl<I: PartialEq> From<(Matcher<I>,)> for Matcher<I> {
+    fn from(val: (Matcher<I>,)) -> Self {
+        val.0
     }
 }
 

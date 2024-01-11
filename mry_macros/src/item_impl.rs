@@ -196,7 +196,7 @@ mod test {
                     #[meow]
                     fn meow(#[a] &self, #[b] count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
                         "meow".repeat(count)
@@ -237,7 +237,7 @@ mod test {
                 impl<'a, A: Clone> Cat<'a, A> {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&Cat<'a, A>::meow), "Cat<'a, A>::meow", (count.clone())) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, B>(std::any::Any::type_id(&Cat<'a, A>::meow), "Cat<'a, A>::meow", (count.clone())) {
                             return out;
                         }
                         "meow".repeat(count)
@@ -276,9 +276,9 @@ mod test {
             transform(input).to_string(),
             quote! {
                 impl<A: Clone> Animal<A> for Cat {
-                    fn name(&self, ) -> String {
+                    fn name(&self) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&<Cat as Animal<A> >::name), "<Cat as Animal<A>>::name", ()) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<Cat as Animal<A> >::name), "<Cat as Animal<A>>::name", ()) {
                             return out;
                         }
                         self.name
@@ -319,9 +319,9 @@ mod test {
             quote! {
                 impl Iterator for Cat {
                     type Item = String;
-                    fn next(&self, ) -> Option< <Self as Iterator>::Item> {
+                    fn next(&self) -> Option< <Self as Iterator>::Item> {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output(std::any::Any::type_id(&<Cat as Iterator>::next), "<Cat as Iterator>::next", ()) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, Option< <Self as Iterator>::Item> >(std::any::Any::type_id(&<Cat as Iterator>::next), "<Cat as Iterator>::next", ()) {
                             return out;
                         }
                         Some(self.name)
@@ -362,7 +362,7 @@ mod test {
                 impl Cat {
                     fn meow(count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
+                        if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
                         "meow".repeat(count)

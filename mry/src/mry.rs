@@ -2,7 +2,6 @@
 use parking_lot::RwLock;
 use std::any::TypeId;
 use std::cmp::Ordering;
-use std::fmt::Debug;
 #[cfg(debug_assertions)]
 use std::sync::atomic::AtomicU16;
 #[cfg(debug_assertions)]
@@ -49,8 +48,8 @@ impl Mry {
     #[doc(hidden)]
     #[cfg(debug_assertions)]
     pub fn record_call_and_find_mock_output<
-        I: PartialEq + Debug + Clone + Send + Sync + 'static,
-        O: Debug + Send + Sync + 'static,
+        I: PartialEq + Clone + Send + Sync + 'static,
+        O: Send + Sync + 'static,
     >(
         &self,
         key: TypeId,
@@ -102,8 +101,8 @@ impl Default for Mry {
 }
 
 impl PartialOrd for Mry {
-    fn partial_cmp(&self, _: &Self) -> Option<std::cmp::Ordering> {
-        Some(Ordering::Equal)
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 

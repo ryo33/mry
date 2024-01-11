@@ -1,6 +1,5 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 
 use crate::mock::Mock;
@@ -52,8 +51,8 @@ impl<I: Send + Sync + 'static, O: 'static> MockGetter<I, O> for Mocks {
 impl Mocks {
     #[doc(hidden)]
     pub fn record_call_and_find_mock_output<
-        I: PartialEq + Debug + Clone + Send + Sync + 'static,
-        O: Debug + Send + Sync + 'static,
+        I: PartialEq + Clone + Send + Sync + 'static,
+        O: Send + Sync + 'static,
     >(
         &mut self,
         key: TypeId,
@@ -109,7 +108,7 @@ mod test {
         mock_data.insert(TypeId::of::<usize>(), mock);
         assert_eq!(
             mock_data
-                .get_mut_or_create(TypeId::of::<usize>(), &"meow")
+                .get_mut_or_create(TypeId::of::<usize>(), "meow")
                 .record_call_and_find_mock_output(1u8),
             Some(4u8)
         );
@@ -123,7 +122,7 @@ mod test {
         MockGetter::<usize, usize>::get_mut_or_create(
             &mut mock_data,
             TypeId::of::<usize>(),
-            &"meow",
+            "meow",
         );
     }
 }

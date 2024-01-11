@@ -53,18 +53,18 @@ mod tests {
     #[test]
     fn exact() {
         let times = Times::Exact(2);
-        assert_eq!(times.contains(&2), true);
-        assert_eq!(times.contains(&1), false);
-        assert_eq!(times.contains(&3), false);
+        assert!(times.contains(&2));
+        assert!(!times.contains(&1));
+        assert!(!times.contains(&3));
     }
 
     #[test]
     fn range() {
         let times = Times::Range((Bound::Included(2), Bound::Excluded(4)));
-        assert_eq!(times.contains(&1), false);
-        assert_eq!(times.contains(&2), true);
-        assert_eq!(times.contains(&3), true);
-        assert_eq!(times.contains(&4), false);
-        assert_eq!(times.contains(&5), false);
+        assert!(!times.contains(&1));
+        assert!(times.contains(&2));
+        assert!(times.contains(&3));
+        assert!(!times.contains(&4));
+        assert!(!times.contains(&5));
     }
 }
