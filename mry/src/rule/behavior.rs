@@ -6,6 +6,8 @@ use parking_lot::RwLock;
 pub(crate) enum Output<O> {
     NotMatches,
     CallsRealImpl,
+    /// called once already called
+    ErrorCalledOnce,
     Found(O),
 }
 
@@ -15,6 +17,8 @@ pub enum Behavior<I, O> {
     Function(Box<dyn FnMut(I) -> O + Send + Sync + 'static>),
     /// Returns a constant value
     Const(RwLock<Box<dyn Iterator<Item = O> + Send + Sync + 'static>>),
+    /// Once
+    Once(RwLock<Option<O>>),
     /// Calls real implementation instead of mock
     CallsRealImpl,
 }
@@ -27,6 +31,10 @@ impl<I: Debug, O: Debug> std::fmt::Debug for Behavior<I, O> {
                 .debug_tuple("Const")
                 .field(&cons.write().next().unwrap())
                 .finish(),
+            Self::Once(once) => f
+                .debug_tuple("Once")
+                .field(&once.write().as_ref().unwrap())
+                .finish(),
             Self::CallsRealImpl => write!(f, "CallsRealImpl"),
         }
     }
@@ -37,6 +45,13 @@ impl<I: Clone, O> Behavior<I, O> {
         match self {
             Behavior::Function(function) => Output::Found(function(input.clone())),
             Behavior::Const(cons) => Output::Found(cons.get_mut().next().unwrap()),
+            Behavior::Once(once) => {
+                if let Some(ret) = once.write().take() {
+                    Output::Found(ret)
+                } else {
+                    Output::ErrorCalledOnce
+                }
+            }
             Behavior::CallsRealImpl => Output::CallsRealImpl,
         }
     }

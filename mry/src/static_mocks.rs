@@ -50,7 +50,7 @@ fn check_locked(key: &TypeId) -> bool {
         .unwrap_or(false)
 }
 
-impl<I: Send + Sync + 'static, O: 'static> MockGetter<I, O> for StaticMocks {
+impl<I: Send + Sync + 'static, O: Send + Sync + 'static> MockGetter<I, O> for StaticMocks {
     fn get(&self, key: &TypeId, name: &'static str) -> Option<&Mock<I, O>> {
         if !check_locked(key) {
             panic!("the lock of `{}` is not acquired. See `mry::lock`.", name);

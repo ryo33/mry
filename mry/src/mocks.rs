@@ -32,7 +32,7 @@ pub struct Mocks {
     pub(crate) mock_objects: HashMap<TypeId, BoxAnySend>,
 }
 
-impl<I: Send + Sync + 'static, O: 'static> MockGetter<I, O> for Mocks {
+impl<I: Send + Sync + 'static, O: Send + Sync + 'static> MockGetter<I, O> for Mocks {
     fn get(&self, key: &TypeId, _name: &'static str) -> Option<&Mock<I, O>> {
         self.mock_objects
             .get(key)
@@ -64,7 +64,7 @@ impl Mocks {
     }
 
     #[cfg(test)]
-    pub(crate) fn insert<I: Send + Sync + 'static, O: 'static>(
+    pub(crate) fn insert<I: Send + Sync + 'static, O: Send + Sync + 'static>(
         &mut self,
         key: TypeId,
         item: Mock<I, O>,

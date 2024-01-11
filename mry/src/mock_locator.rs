@@ -36,6 +36,12 @@ where
         self.get_mut_or_default()
             .returns_with(matcher, behavior.into().into());
     }
+
+    /// Returns value once. After that, it panics.
+    pub fn returns_once(&mut self, ret: O) {
+        let matcher = self.matcher();
+        self.get_mut_or_default().returns_once(matcher, ret);
+    }
 }
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>

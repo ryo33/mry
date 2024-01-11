@@ -28,6 +28,10 @@ impl<I: Clone + PartialEq, O> Mock<I, O> {
         self.rules.push(Rule { matcher, behavior });
     }
 
+    pub(crate) fn returns_once(&mut self, matcher: Matcher<I>, ret: O) {
+        self.returns_with(matcher, Behavior::Once(RwLock::new(Some(ret))))
+    }
+
     pub(crate) fn calls_real_impl(&mut self, matcher: Matcher<I>) {
         self.rules.push(Rule {
             matcher,
@@ -49,6 +53,9 @@ impl<I: Clone + PartialEq, O> Mock<I, O> {
             match rule.called(&input) {
                 Output::Found(output) => return Some(output),
                 Output::NotMatches => {}
+                Output::ErrorCalledOnce => {
+                    panic!("{} was called more than once", self.name)
+                }
                 Output::CallsRealImpl => return None,
             };
         }
@@ -230,5 +237,15 @@ mod test {
             mock.assert_called(Matcher::Eq(2), Times::Exact(2)),
             Logs(vec![2, 2]),
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "a was called more than once")]
+    fn panic_on_once_called_multiple_time() {
+        let mut mock = Mock::<usize, String>::new("a");
+        mock.returns_once(Matcher::Any, "a".repeat(3));
+
+        mock.record_call_and_find_mock_output(3);
+        mock.record_call_and_find_mock_output(3);
     }
 }

@@ -133,3 +133,30 @@ fn times_within() {
 
     cat.mock_just_meow().assert_called(2..3);
 }
+
+#[test]
+fn returns_once_not_clone_value() {
+    #[mry::mry]
+    #[derive(Default, PartialEq)]
+    struct Cat {
+        name: String,
+    }
+
+    #[mry::mry]
+    impl Cat {
+        fn meow(&self, count: usize) -> NotClone {
+            todo!()
+        }
+    }
+
+    pub struct NotClone;
+
+    let mut cat: Cat = Cat {
+        name: "Tama".into(),
+        ..Default::default()
+    };
+    cat.mock_meow(0).returns_once(NotClone);
+
+    cat.meow(0);
+    cat.mock_meow(0).assert_called(1);
+}

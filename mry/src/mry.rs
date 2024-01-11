@@ -78,7 +78,7 @@ impl Mry {
 
     #[doc(hidden)]
     #[cfg(debug_assertions)]
-    pub fn mocks_write<'a, I: Send + Sync + 'static, O: 'static>(
+    pub fn mocks_write<'a, I: Send + Sync + 'static, O: Send + Sync + 'static>(
         &'a mut self,
     ) -> Box<dyn MockGetter<I, O> + 'a> {
         Box::new(self.generate().mocks.as_ref().unwrap().write())
