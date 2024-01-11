@@ -3,7 +3,7 @@ use std::iter::repeat;
 
 pub use logs::*;
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 
 use crate::{times::Times, Behavior, Matcher, Output, Rule};
 
@@ -29,7 +29,7 @@ impl<I: Clone + PartialEq, O> Mock<I, O> {
     }
 
     pub(crate) fn returns_once(&mut self, matcher: Matcher<I>, ret: O) {
-        self.returns_with(matcher, Behavior::Once(RwLock::new(Some(ret))))
+        self.returns_with(matcher, Behavior::Once(Mutex::new(Some(ret))))
     }
 
     pub(crate) fn calls_real_impl(&mut self, matcher: Matcher<I>) {
@@ -65,23 +65,23 @@ impl<I: Clone + PartialEq, O> Mock<I, O> {
 
 impl<I, O> Mock<I, O>
 where
-    I: Clone + PartialEq + Send + Sync + 'static,
-    O: Clone + Send + Sync + 'static,
+    I: Clone + PartialEq + Send + 'static,
+    O: Clone + Send + 'static,
 {
     pub(crate) fn returns(&mut self, matcher: Matcher<I>, ret: O) {
-        self.returns_with(matcher, Behavior::Const(RwLock::new(Box::new(repeat(ret)))))
+        self.returns_with(matcher, Behavior::Const(Mutex::new(Box::new(repeat(ret)))))
     }
 }
 
-impl<I, R> Mock<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + Sync + 'static>>>
+impl<I, R> Mock<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>>
 where
-    I: Clone + PartialEq + Send + Sync + 'static,
-    R: Clone + Send + Sync + 'static,
+    I: Clone + PartialEq + Send + 'static,
+    R: Clone + Send + 'static,
 {
     pub(crate) fn returns_ready(&mut self, matcher: Matcher<I>, ret: R) {
         self.returns_with(
             matcher,
-            Behavior::Const(RwLock::new(Box::new(
+            Behavior::Const(Mutex::new(Box::new(
                 repeat(ret).map(|r| Box::pin(std::future::ready(r)) as _),
             ))),
         )

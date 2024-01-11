@@ -7,7 +7,7 @@ use syn::{
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn transform(
-    mocks_write_lock: TokenStream, // `MOCKS.write()`
+    mocks_write_lock: TokenStream, // `MOCKS.lock()`
     method_prefix: TokenStream,    // `Self::`
     method_debug_prefix: &str,     // "Cat::"
     record_call_and_find_mock_output: TokenStream,

@@ -10,7 +10,7 @@ pub enum Matcher<I> {
     /// Equal to the value
     Eq(I),
     /// Composite matcher
-    Composite(Box<dyn CompositeMatcher<I> + Send + Sync>),
+    Composite(Box<dyn CompositeMatcher<I> + Send>),
 }
 
 #[doc(hidden)]

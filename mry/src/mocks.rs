@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::mock::Mock;
 
-type BoxAnySend = Box<dyn Any + Send + Sync>;
+type BoxAnySend = Box<dyn Any + Send>;
 
 #[doc(hidden)]
 pub trait MockGetter<I, O> {
@@ -32,7 +32,7 @@ pub struct Mocks {
     pub(crate) mock_objects: HashMap<TypeId, BoxAnySend>,
 }
 
-impl<I: Send + Sync + 'static, O: Send + Sync + 'static> MockGetter<I, O> for Mocks {
+impl<I: Send + 'static, O: Send + 'static> MockGetter<I, O> for Mocks {
     fn get(&self, key: &TypeId, _name: &'static str) -> Option<&Mock<I, O>> {
         self.mock_objects
             .get(key)
@@ -51,8 +51,8 @@ impl<I: Send + Sync + 'static, O: Send + Sync + 'static> MockGetter<I, O> for Mo
 impl Mocks {
     #[doc(hidden)]
     pub fn record_call_and_find_mock_output<
-        I: PartialEq + Clone + Send + Sync + 'static,
-        O: Send + Sync + 'static,
+        I: PartialEq + Clone + Send + 'static,
+        O: Send + 'static,
     >(
         &mut self,
         key: TypeId,
@@ -64,7 +64,7 @@ impl Mocks {
     }
 
     #[cfg(test)]
-    pub(crate) fn insert<I: Send + Sync + 'static, O: Send + Sync + 'static>(
+    pub(crate) fn insert<I: Send + 'static, O: Send + 'static>(
         &mut self,
         key: TypeId,
         item: Mock<I, O>,

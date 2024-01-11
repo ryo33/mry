@@ -25,8 +25,8 @@ pub struct MockLocator<'a, I, O, B> {
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Clone + PartialEq + Send + Sync + 'static,
-    O: Send + Sync + 'static,
+    I: Clone + PartialEq + Send + 'static,
+    O: Send + 'static,
     B: Into<Behavior<I, O>>,
 {
     /// Returns value with using a closure.
@@ -46,8 +46,8 @@ where
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Clone + PartialEq + Send + Sync + 'static,
-    O: Send + Sync + 'static,
+    I: Clone + PartialEq + Send + 'static,
+    O: Send + 'static,
 {
     /// This make the mock calls real impl. This is used for partial mocking.
     pub fn calls_real_impl(&mut self) {
@@ -66,8 +66,8 @@ where
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Clone + PartialEq + Send + Sync + 'static,
-    O: Clone + Send + Sync + 'static,
+    I: Clone + PartialEq + Send + 'static,
+    O: Clone + Send + 'static,
 {
     /// This makes the mock returns the given constant value.
     /// This requires `Clone`. For returning not clone value, use `returns_with`.
@@ -78,15 +78,10 @@ where
 }
 
 impl<'a, I, B, R>
-    MockLocator<
-        'a,
-        I,
-        std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + Sync + 'static>>,
-        B,
-    >
+    MockLocator<'a, I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
 where
-    I: Clone + PartialEq + Send + Sync + 'static,
-    R: Clone + Send + Sync + 'static,
+    I: Clone + PartialEq + Send + 'static,
+    R: Clone + Send + 'static,
 {
     /// This makes the mock returns the given constant value with `std::future::ready`.
     /// This requires `Clone`. For returning not clone value, use `returns_with`.
@@ -98,8 +93,8 @@ where
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Send + Sync + 'static,
-    O: Send + Sync + 'static,
+    I: Send + 'static,
+    O: Send + 'static,
 {
     fn get_mut_or_default(&mut self) -> &mut Mock<I, O> {
         self.mocks.get_mut_or_create(self.key, self.name)
@@ -107,8 +102,8 @@ where
 }
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
 where
-    I: Send + Sync + 'static,
-    O: Send + Sync + 'static,
+    I: Send + 'static,
+    O: Send + 'static,
 {
     fn get_or_error(&self) -> &Mock<I, O> {
         self.mocks

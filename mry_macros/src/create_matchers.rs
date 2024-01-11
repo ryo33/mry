@@ -19,7 +19,7 @@ pub(crate) fn create() -> TokenStream {
         let matchers: Vec<_> = types.iter().map(|ty| quote![Matcher<#ty>]).collect();
         let trait_bounds: Vec<_> = types
             .iter()
-            .map(|ty| quote![#ty: PartialEq + Debug + Send + Sync + 'static])
+            .map(|ty| quote![#ty: PartialEq + Debug + Send + 'static])
             .collect();
         let types = quote![#(#types),*];
         let matchers = quote![#(#matchers,)*];

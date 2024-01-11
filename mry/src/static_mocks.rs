@@ -1,16 +1,16 @@
 use crate::{mock::Mock, MockGetter, Mocks};
 use async_recursion::async_recursion;
 use once_cell::sync::Lazy;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use std::{
     any::TypeId, collections::HashMap, fmt::Debug, future::Future, ops::Deref, pin::Pin, sync::Arc,
 };
 
-pub static STATIC_MOCKS: Lazy<RwLock<StaticMocks>> =
-    Lazy::new(|| RwLock::new(StaticMocks::default()));
+pub static STATIC_MOCKS: Lazy<Mutex<StaticMocks>> =
+    Lazy::new(|| Mutex::new(StaticMocks::default()));
 
-pub static STATIC_MOCK_LOCKS: Lazy<RwLock<HashMap<TypeId, Arc<Mutex<()>>>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+pub static STATIC_MOCK_LOCKS: Lazy<Mutex<HashMap<TypeId, Arc<Mutex<()>>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[doc(hidden)]
 pub struct StaticMockMutex {
@@ -28,7 +28,7 @@ pub struct StaticMockLock<'a> {
 
 impl<'a> Drop for StaticMockLock<'a> {
     fn drop(&mut self) {
-        let lock = &mut STATIC_MOCKS.write().0;
+        let lock = &mut STATIC_MOCKS.lock().0;
         if lock.remove(&self.key).is_none() {
             panic!(
                 "{} is locked but no used. Remove {} from mry::lock",
@@ -44,13 +44,13 @@ pub struct StaticMocks(Mocks);
 
 fn check_locked(key: &TypeId) -> bool {
     STATIC_MOCK_LOCKS
-        .read()
+        .lock()
         .get(key)
         .map(|lock| lock.try_lock().is_none())
         .unwrap_or(false)
 }
 
-impl<I: Send + Sync + 'static, O: Send + Sync + 'static> MockGetter<I, O> for StaticMocks {
+impl<I: Send + 'static, O: Send + 'static> MockGetter<I, O> for StaticMocks {
     fn get(&self, key: &TypeId, name: &'static str) -> Option<&Mock<I, O>> {
         if !check_locked(key) {
             panic!("the lock of `{}` is not acquired. See `mry::lock`.", name);
@@ -68,8 +68,8 @@ impl<I: Send + Sync + 'static, O: Send + Sync + 'static> MockGetter<I, O> for St
 
 impl StaticMocks {
     pub fn record_call_and_find_mock_output<
-        I: PartialEq + Debug + Clone + Send + Sync + 'static,
-        O: Debug + Send + Sync + 'static,
+        I: PartialEq + Debug + Clone + Send + 'static,
+        O: Debug + Send + 'static,
     >(
         &mut self,
         key: TypeId,
@@ -93,7 +93,7 @@ pub fn __mutexes(mut keys: Vec<(TypeId, String)>) -> Vec<StaticMockMutex> {
             key,
             name,
             mutex: STATIC_MOCK_LOCKS
-                .write()
+                .lock()
                 .entry(key)
                 .or_insert(Arc::new(Default::default()))
                 .clone(),
@@ -143,14 +143,14 @@ mod tests {
 
     #[test]
     fn returns_none_if_not_mocked() {
-        STATIC_MOCK_LOCKS.write().insert(
+        STATIC_MOCK_LOCKS.lock().insert(
             returns_none_if_not_mocked.type_id(),
             Arc::new(Default::default()),
         );
 
         assert_eq!(
             STATIC_MOCKS
-                .write()
+                .lock()
                 .record_call_and_find_mock_output::<(), ()>(
                     returns_none_if_not_mocked.type_id(),
                     "meow",
@@ -172,7 +172,7 @@ mod tests {
         let _lock = mutex.lock();
 
         STATIC_MOCK_LOCKS
-            .write()
+            .lock()
             .insert(returns_some_if_mocked.type_id(), mutex.clone());
 
         assert_eq!(
@@ -189,7 +189,7 @@ mod tests {
     #[should_panic(expected = "the lock of `meow` is not acquired.")]
     fn panic_if_lock_is_not_created() {
         MockGetter::<(), ()>::get(
-            &STATIC_MOCKS.write(),
+            &STATIC_MOCKS.lock(),
             &panic_if_lock_is_not_created.type_id(),
             "meow",
         );
@@ -199,7 +199,7 @@ mod tests {
     #[should_panic(expected = "the lock of `meow` is not acquired.")]
     fn panic_if_lock_is_not_created_mut() {
         MockGetter::<(), ()>::get_mut_or_create(
-            &mut STATIC_MOCKS.write(),
+            &mut STATIC_MOCKS.lock(),
             panic_if_lock_is_not_created_mut.type_id(),
             "meow",
         );
@@ -208,12 +208,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "the lock of `meow` is not acquired.")]
     fn panic_if_lock_is_not_acquired() {
-        STATIC_MOCK_LOCKS.write().insert(
+        STATIC_MOCK_LOCKS.lock().insert(
             panic_if_lock_is_not_acquired.type_id(),
             Arc::new(Default::default()),
         );
         MockGetter::<(), ()>::get(
-            &STATIC_MOCKS.write(),
+            &STATIC_MOCKS.lock(),
             &panic_if_lock_is_not_acquired.type_id(),
             "meow",
         );
@@ -222,12 +222,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "the lock of `meow` is not acquired.")]
     fn panic_if_lock_is_not_acquired_mut() {
-        STATIC_MOCK_LOCKS.write().insert(
+        STATIC_MOCK_LOCKS.lock().insert(
             panic_if_lock_is_not_acquired_mut.type_id(),
             Arc::new(Default::default()),
         );
         MockGetter::<(), ()>::get_mut_or_create(
-            &mut STATIC_MOCKS.write(),
+            &mut STATIC_MOCKS.lock(),
             panic_if_lock_is_not_acquired_mut.type_id(),
             "meow",
         );
@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn delete_mock_when_lock_is_dropped() {
-        STATIC_MOCKS.write().0.insert(
+        STATIC_MOCKS.lock().0.insert(
             delete_mock_when_lock_is_dropped.type_id(),
             Mock::<usize, usize>::new(""),
         );
@@ -247,7 +247,7 @@ mod tests {
         });
 
         assert!(MockGetter::<usize, usize>::get(
-            &STATIC_MOCKS.read().0,
+            &STATIC_MOCKS.lock().0,
             &delete_mock_when_lock_is_dropped.type_id(),
             "meow"
         )
@@ -263,7 +263,7 @@ mod tests {
 
         assert_eq!(mutexes.len(), 1);
         assert!(STATIC_MOCK_LOCKS
-            .read()
+            .lock()
             .get(&__mutexes_creates_mutexes.type_id())
             .is_some());
 
@@ -312,26 +312,26 @@ mod tests {
         fn a() {}
         fn b() {}
         STATIC_MOCKS
-            .write()
+            .lock()
             .0
             .insert(a.type_id(), Mock::<usize, usize>::new(""));
 
         STATIC_MOCKS
-            .write()
+            .lock()
             .0
             .insert(b.type_id(), Mock::<usize, usize>::new(""));
 
         let mutexes = __mutexes(vec![(a.type_id(), "a".into()), (b.type_id(), "b".into())]);
         __lock_and_run(mutexes, || {
             assert!(STATIC_MOCK_LOCKS
-                .read()
+                .lock()
                 .get(&a.type_id())
                 .unwrap()
                 .try_lock()
                 .is_none());
 
             assert!(STATIC_MOCK_LOCKS
-                .read()
+                .lock()
                 .get(&b.type_id())
                 .unwrap()
                 .try_lock()
@@ -344,12 +344,12 @@ mod tests {
         fn a() {}
         fn b() {}
         STATIC_MOCKS
-            .write()
+            .lock()
             .0
             .insert(a.type_id(), Mock::<usize, usize>::new(""));
 
         STATIC_MOCKS
-            .write()
+            .lock()
             .0
             .insert(b.type_id(), Mock::<usize, usize>::new(""));
 
@@ -357,27 +357,27 @@ mod tests {
             __mutexes(vec![(a.type_id(), "a".into()), (b.type_id(), "b".into())]),
             || {
                 assert!(
-                    MockGetter::<usize, usize>::get(&STATIC_MOCKS.write(), &a.type_id(), "a")
+                    MockGetter::<usize, usize>::get(&STATIC_MOCKS.lock(), &a.type_id(), "a")
                         .is_some()
                 );
 
                 assert!(
-                    MockGetter::<usize, usize>::get(&STATIC_MOCKS.write(), &b.type_id(), "b")
+                    MockGetter::<usize, usize>::get(&STATIC_MOCKS.lock(), &b.type_id(), "b")
                         .is_some()
                 );
             },
         );
 
         assert!(
-            MockGetter::<usize, usize>::get(&STATIC_MOCKS.write().0, &a.type_id(), "a").is_none()
+            MockGetter::<usize, usize>::get(&STATIC_MOCKS.lock().0, &a.type_id(), "a").is_none()
         );
 
         assert!(
-            MockGetter::<usize, usize>::get(&STATIC_MOCKS.write().0, &b.type_id(), "b").is_none()
+            MockGetter::<usize, usize>::get(&STATIC_MOCKS.lock().0, &b.type_id(), "b").is_none()
         );
     }
 
     fn cleanup_static_mock_lock(key: TypeId) {
-        STATIC_MOCK_LOCKS.write().remove(&key);
+        STATIC_MOCK_LOCKS.lock().remove(&key);
     }
 }

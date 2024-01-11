@@ -129,10 +129,10 @@ pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
                     )
                 } else {
                     method::transform(
-                        quote![Box::new(mry::STATIC_MOCKS.write())],
+                        quote![Box::new(mry::STATIC_MOCKS.lock())],
                         quote![#qualified_type::],
                         &(type_name.clone() + "::"),
-                        quote![mry::STATIC_MOCKS.write().record_call_and_find_mock_output],
+                        quote![mry::STATIC_MOCKS.lock().record_call_and_find_mock_output],
                         Some(&method.vis),
                         &method.attrs,
                         &method.sig,
@@ -362,7 +362,7 @@ mod test {
                 impl Cat {
                     fn meow(count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = mry::STATIC_MOCKS.write().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
+                        if let Some(out) = mry::STATIC_MOCKS.lock().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
                             return out;
                         }
                         "meow".repeat(count)
@@ -373,7 +373,7 @@ mod test {
                     #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator {
-                            mocks: Box::new(mry::STATIC_MOCKS.write()),
+                            mocks: Box::new(mry::STATIC_MOCKS.lock()),
                             key: std::any::Any::type_id(&Cat::meow),
                             name: "Cat::meow",
                             matcher: Some((count.into(), ).into()),

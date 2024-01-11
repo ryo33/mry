@@ -1,5 +1,5 @@
 #[cfg(debug_assertions)]
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 use std::any::TypeId;
 use std::cmp::Ordering;
 #[cfg(debug_assertions)]
@@ -23,7 +23,7 @@ pub struct Mry {
     #[cfg(debug_assertions)]
     id: MryId,
     #[cfg(debug_assertions)]
-    mocks: Option<Arc<RwLock<Mocks>>>,
+    mocks: Option<Arc<Mutex<Mocks>>>,
 }
 
 impl std::fmt::Debug for Mry {
@@ -41,15 +41,15 @@ impl Mry {
     #[cfg(debug_assertions)]
     pub(crate) fn generate(&mut self) -> &mut Self {
         self.mocks
-            .get_or_insert(Arc::new(RwLock::new(Default::default())));
+            .get_or_insert(Arc::new(Mutex::new(Default::default())));
         self
     }
 
     #[doc(hidden)]
     #[cfg(debug_assertions)]
     pub fn record_call_and_find_mock_output<
-        I: PartialEq + Clone + Send + Sync + 'static,
-        O: Send + Sync + 'static,
+        I: PartialEq + Clone + Send + 'static,
+        O: Send + 'static,
     >(
         &self,
         key: TypeId,
@@ -58,15 +58,15 @@ impl Mry {
     ) -> Option<O> {
         self.mocks.as_ref().and_then(|mocks| {
             mocks
-                .write()
+                .lock()
                 .record_call_and_find_mock_output(key, name, input)
         })
     }
 
     #[cfg(not(debug_assertions))]
     pub fn record_call_and_find_mock_output<
-        I: PartialEq + Debug + Clone + Send + Sync + 'static,
-        O: Debug + Send + Sync + 'static,
+        I: PartialEq + Debug + Clone + Send + 'static,
+        O: Debug + Send + 'static,
     >(
         &self,
         _key: TypeId,
@@ -78,10 +78,10 @@ impl Mry {
 
     #[doc(hidden)]
     #[cfg(debug_assertions)]
-    pub fn mocks_write<'a, I: Send + Sync + 'static, O: Send + Sync + 'static>(
+    pub fn mocks_write<'a, I: Send + 'static, O: Send + 'static>(
         &'a mut self,
     ) -> Box<dyn MockGetter<I, O> + 'a> {
-        Box::new(self.generate().mocks.as_ref().unwrap().write())
+        Box::new(self.generate().mocks.as_ref().unwrap().lock())
     }
 }
 
@@ -209,10 +209,10 @@ mod test {
         mry.mocks
             .as_ref()
             .unwrap()
-            .write()
+            .lock()
             .insert(TypeId::of::<usize>(), Mock::<usize, usize>::new(""));
         mry.generate();
-        assert_eq!(mry.mocks.unwrap().read().mock_objects.len(), 1);
+        assert_eq!(mry.mocks.unwrap().lock().mock_objects.len(), 1);
     }
 
     #[test]
@@ -222,10 +222,10 @@ mod test {
         mry.mocks
             .as_ref()
             .unwrap()
-            .write()
+            .lock()
             .insert(TypeId::of::<usize>(), Mock::<usize, usize>::new(""));
 
-        assert_eq!(mry.clone().mocks.unwrap().read().mock_objects.len(), 1);
+        assert_eq!(mry.clone().mocks.unwrap().lock().mock_objects.len(), 1);
     }
 
     #[test]

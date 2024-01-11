@@ -1,4 +1,4 @@
-#[trait_variant::make(Cat: Send + Sync)]
+#[trait_variant::make(Cat: Send)]
 #[mry::mry]
 pub trait LocalCat {
     async fn meow(&self, count: usize) -> &'static str;

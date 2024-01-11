@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum Output<O> {
@@ -14,11 +14,11 @@ pub(crate) enum Output<O> {
 /// Behavior of mock
 pub enum Behavior<I, O> {
     /// Behaves with a function
-    Function(Box<dyn FnMut(I) -> O + Send + Sync + 'static>),
+    Function(Box<dyn FnMut(I) -> O + Send + 'static>),
     /// Returns a constant value
-    Const(RwLock<Box<dyn Iterator<Item = O> + Send + Sync + 'static>>),
+    Const(Mutex<Box<dyn Iterator<Item = O> + Send + 'static>>),
     /// Once
-    Once(RwLock<Option<O>>),
+    Once(Mutex<Option<O>>),
     /// Calls real implementation instead of mock
     CallsRealImpl,
 }
@@ -29,11 +29,11 @@ impl<I: Debug, O: Debug> std::fmt::Debug for Behavior<I, O> {
             Self::Function(_) => f.debug_tuple("Function(_)").finish(),
             Self::Const(cons) => f
                 .debug_tuple("Const")
-                .field(&cons.write().next().unwrap())
+                .field(&cons.lock().next().unwrap())
                 .finish(),
             Self::Once(once) => f
                 .debug_tuple("Once")
-                .field(&once.write().as_ref().unwrap())
+                .field(&once.lock().as_ref().unwrap())
                 .finish(),
             Self::CallsRealImpl => write!(f, "CallsRealImpl"),
         }
@@ -46,7 +46,7 @@ impl<I: Clone, O> Behavior<I, O> {
             Behavior::Function(function) => Output::Found(function(input.clone())),
             Behavior::Const(cons) => Output::Found(cons.get_mut().next().unwrap()),
             Behavior::Once(once) => {
-                if let Some(ret) = once.write().take() {
+                if let Some(ret) = once.lock().take() {
                     Output::Found(ret)
                 } else {
                     Output::ErrorCalledOnce
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn const_value() {
         assert_eq!(
-            Behavior::Const(RwLock::new(Box::new(repeat("aaa")))).called(&()),
+            Behavior::Const(Mutex::new(Box::new(repeat("aaa")))).called(&()),
             Output::Found("aaa")
         );
     }
@@ -102,7 +102,7 @@ mod tests {
         assert_eq!(
             format!(
                 "{:?}",
-                Behavior::<u8, u8>::Const(RwLock::new(Box::new(repeat(3))))
+                Behavior::<u8, u8>::Const(Mutex::new(Box::new(repeat(3))))
             ),
             "Const(3)".to_string()
         )
