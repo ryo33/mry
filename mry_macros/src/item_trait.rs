@@ -54,6 +54,11 @@ pub(crate) fn transform(input: ItemTrait) -> TokenStream {
             pub mry: mry::Mry,
         }
 
+        // This cfg(debug_assertions) is needed because `panic!` with return position impl
+        // trait is not supported yet in rustc. It is problem with using
+        // `trait_variant::make` macro that desugars `async fn`.
+        // See https://github.com/rust-lang/rust/issues/35121
+        #[cfg(debug_assertions)]
         #async_trait_or_blank
         impl #generics #trait_ident for #mry_ident {
             #(#items)*
@@ -93,6 +98,7 @@ mod test {
                     pub mry : mry::Mry,
                 }
 
+                #[cfg(debug_assertions)]
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
@@ -141,6 +147,7 @@ mod test {
                     pub mry : mry::Mry,
                 }
 
+                #[cfg(debug_assertions)]
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
@@ -191,6 +198,7 @@ mod test {
                     pub mry : mry::Mry,
                 }
 
+                #[cfg(debug_assertions)]
                 #[async_trait::async_trait]
                 impl Cat for MockCat {
                     async fn meow(&self, count: usize) -> String {
@@ -240,6 +248,7 @@ mod test {
                     pub mry : mry::Mry,
                 }
 
+                #[cfg(debug_assertions)]
                 impl Cat for MockCat {
                     fn _meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
@@ -289,6 +298,7 @@ mod test {
                     pub mry : mry::Mry,
                 }
 
+                #[cfg(debug_assertions)]
                 impl Cat for MockCat {
                     async fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
