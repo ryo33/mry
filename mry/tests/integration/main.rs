@@ -3,7 +3,6 @@ mod async_fn_trait_variant;
 mod async_method;
 mod async_trait;
 mod bounds;
-mod crate_bound;
 mod function_style_macro;
 mod impl_trait;
 mod iterator;

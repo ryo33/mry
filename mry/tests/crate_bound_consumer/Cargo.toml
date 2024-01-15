@@ -1,0 +1,10 @@
+[package]
+name = "crate_bound_consumer"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mry = { path = "../.." }
+crate_bound = { path = "../crate_bound" }
