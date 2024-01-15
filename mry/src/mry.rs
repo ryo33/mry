@@ -65,8 +65,8 @@ impl Mry {
 
     #[cfg(not(debug_assertions))]
     pub fn record_call_and_find_mock_output<
-        I: PartialEq + Debug + Clone + Send + 'static,
-        O: Debug + Send + 'static,
+        I: PartialEq + std::fmt::Debug + Clone + Send + 'static,
+        O: std::fmt::Debug + Send + 'static,
     >(
         &self,
         _key: TypeId,
