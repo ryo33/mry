@@ -1,6 +1,6 @@
 [package]
 name = "mry"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "A simple but powerful mocking library that supports struct, trait, and function."
