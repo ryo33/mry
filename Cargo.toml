@@ -2,5 +2,5 @@
 
 resolver = "2"
 
-members = ["mry", "mry_macros", "mry/tests/serde"]
+members = ["mry", "mry_macros", "mry/tests/serde", "mry/tests/crate_bound"]
 default-members = ["mry", "mry_macros"]

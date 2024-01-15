@@ -49,21 +49,22 @@ pub(crate) fn transform(input: ItemTrait) -> TokenStream {
     quote! {
         #input
 
-        #[derive(Default, Clone, Debug)]
-        #vis struct #mry_ident {
-            pub mry: mry::Mry,
-        }
-
         // This cfg(debug_assertions) is needed because `panic!` with return position impl
         // trait is not supported yet in rustc. It is problem with using
         // `trait_variant::make` macro that desugars `async fn`.
         // See https://github.com/rust-lang/rust/issues/35121
+        #[cfg(debug_assertions)]
+        #[derive(Default, Clone, Debug)]
+        #vis struct #mry_ident {
+            pub mry: mry::Mry,
+        }
         #[cfg(debug_assertions)]
         #async_trait_or_blank
         impl #generics #trait_ident for #mry_ident {
             #(#items)*
         }
 
+        #[cfg(debug_assertions)]
         impl #mry_ident {
             #(#impl_items)*
         }
@@ -93,6 +94,7 @@ mod test {
                     fn meow(&self, count: usize) -> String;
                 }
 
+                #[cfg(debug_assertions)]
                 #[derive(Default, Clone, Debug)]
                 struct MockCat {
                     pub mry : mry::Mry,
@@ -109,6 +111,7 @@ mod test {
                     }
                 }
 
+                #[cfg(debug_assertions)]
                 impl MockCat {
                     #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
@@ -142,6 +145,7 @@ mod test {
                     fn meow(&self, count: usize) -> String;
                 }
 
+                #[cfg(debug_assertions)]
                 #[derive(Default, Clone, Debug)]
                 pub struct MockCat {
                     pub mry : mry::Mry,
@@ -158,6 +162,7 @@ mod test {
                     }
                 }
 
+                #[cfg(debug_assertions)]
                 impl MockCat {
                     #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
@@ -193,6 +198,7 @@ mod test {
                     async fn meow(&self, count: usize) -> String;
                 }
 
+                #[cfg(debug_assertions)]
                 #[derive(Default, Clone, Debug)]
                 struct MockCat {
                     pub mry : mry::Mry,
@@ -210,6 +216,7 @@ mod test {
                     }
                 }
 
+                #[cfg(debug_assertions)]
                 impl MockCat {
                     #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
@@ -243,6 +250,7 @@ mod test {
                     fn _meow(&self, count: usize) -> String;
                 }
 
+                #[cfg(debug_assertions)]
                 #[derive(Default, Clone, Debug)]
                 struct MockCat {
                     pub mry : mry::Mry,
@@ -259,6 +267,7 @@ mod test {
                     }
                 }
 
+                #[cfg(debug_assertions)]
                 impl MockCat {
                     #[cfg(debug_assertions)]
                     #[allow(non_snake_case)]
@@ -293,6 +302,7 @@ mod test {
                     async fn meow(&self, count: usize) -> String;
                 }
 
+                #[cfg(debug_assertions)]
                 #[derive(Default, Clone, Debug)]
                 struct MockCat {
                     pub mry : mry::Mry,
@@ -309,6 +319,7 @@ mod test {
                     }
                 }
 
+                #[cfg(debug_assertions)]
                 impl MockCat {
                     #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
