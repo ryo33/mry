@@ -144,7 +144,7 @@ pub(crate) fn transform(
                     #mocks_write_lock,
                     #key,
                     #name,
-                    Some((#(#mock_args_into,)*).into()),
+                    (#(#mock_args_into,)*).into(),
                 )
             }
         },
@@ -259,7 +259,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
-                        Some((count.into(),).into()),
+                        (count.into(),).into(),
                     )
                 }
             }
@@ -295,7 +295,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::_meow),
                         "Cat::_meow",
-                        Some((count.into(),).into()),
+                        (count.into(),).into(),
                     )
                 }
             }
@@ -330,7 +330,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
-                        Some(().into()),
+                        ().into(),
                     )
                 }
             }
@@ -365,7 +365,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
-                        Some((base.into(), count.into(),).into()),
+                        (base.into(), count.into(),).into(),
                     )
                 }
             }
@@ -401,7 +401,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
-                        Some((out.into(), base.into(), count.into(),).into()),
+                        (out.into(), base.into(), count.into(),).into(),
                     )
                 }
             }
@@ -436,7 +436,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
-                        Some((count.into(),).into()),
+                        (count.into(),).into(),
                     )
                 }
             }
@@ -473,7 +473,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
-                        Some((arg0.into(), count.into(), arg2.into(),).into()),
+                        (arg0.into(), count.into(), arg2.into(),).into(),
                     )
                 }
             }
@@ -534,7 +534,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::increment),
                         "Cat::increment",
-                        Some((count.into(),).into()),
+                        (count.into(),).into(),
                     )
                 }
             }
@@ -569,7 +569,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
-                        Some((a.into(),).into()),
+                        (a.into(),).into(),
                     )
                 }
             }
@@ -604,7 +604,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
-                        Some((count.into(),).into()),
+                        (count.into(),).into(),
                     )
                 }
             }
@@ -642,7 +642,7 @@ mod test {
                         self.mry.mocks_write(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
-                        Some((count.into(),).into()),
+                        (count.into(),).into(),
                     )
                 }
             }.to_string()

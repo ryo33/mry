@@ -58,7 +58,7 @@ mod test {
                         mry::STATIC_MOCKS.clone(),
                         std::any::Any::type_id(&meow),
                         "meow",
-                        Some((count.into(),).into()),
+                        (count.into(),).into(),
                     )
                 }
             }
@@ -96,7 +96,7 @@ mod test {
                         mry::STATIC_MOCKS.clone(),
                         std::any::Any::type_id(&_meow),
                         "_meow",
-                        Some((count.into(),).into()),
+                        (count.into(),).into(),
                     )
                 }
             }

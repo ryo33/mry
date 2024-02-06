@@ -1,4 +1,6 @@
+use parking_lot::Mutex;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 #[derive(Debug)]
 /// An enum shows what arguments are expected
@@ -11,6 +13,12 @@ pub enum Matcher<I> {
     Eq(I),
     /// Composite matcher
     Composite(Box<dyn CompositeMatcher<I> + Send>),
+}
+
+impl<I> Matcher<I> {
+    pub(crate) fn wrapped(self) -> Arc<Mutex<Matcher<I>>> {
+        Arc::new(Mutex::new(self))
+    }
 }
 
 #[doc(hidden)]
@@ -51,17 +59,7 @@ mry_macros::create_matchers!();
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use parking_lot::Mutex;
-
     use super::*;
-
-    impl<I> Matcher<I> {
-        pub(crate) fn wrapped(self) -> Arc<Mutex<Matcher<I>>> {
-            Arc::new(Mutex::new(self))
-        }
-    }
 
     #[test]
     fn from_str() {

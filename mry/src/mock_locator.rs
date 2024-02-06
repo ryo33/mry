@@ -27,14 +27,13 @@ impl<I, O, B> MockLocator<I, O, B> {
         mocks: Arc<Mutex<dyn MockGetter<I, O>>>,
         key: TypeId,
         name: &'static str,
-        // FIXME: No Option
-        matcher: Option<Matcher<I>>,
+        matcher: Matcher<I>,
     ) -> Self {
         Self {
             mocks,
             key,
             name,
-            matcher: Arc::new(Mutex::new(matcher.unwrap())),
+            matcher: matcher.wrapped(),
             logs: None,
             _phantom: Default::default(),
         }

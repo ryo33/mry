@@ -211,7 +211,7 @@ mod test {
                             self.mry.mocks_write(),
                             std::any::Any::type_id(&Cat::meow),
                             "Cat::meow",
-                            Some((count.into(),).into()),
+                            (count.into(),).into(),
                         )
                     }
                 }
@@ -252,7 +252,7 @@ mod test {
                             self.mry.mocks_write(),
                             std::any::Any::type_id(&Cat<'a, A>::meow),
                             "Cat<'a, A>::meow",
-                            Some((count.into(),).into()),
+                            (count.into(),).into(),
                         )
                     }
                 }
@@ -293,7 +293,7 @@ mod test {
                             self.mry.mocks_write(),
                             std::any::Any::type_id(&< Cat as Animal < A > >::name),
                             "<Cat as Animal<A>>::name",
-                            Some(().into()),
+                            ().into(),
                         )
                     }
                 }
@@ -336,7 +336,7 @@ mod test {
                             self.mry.mocks_write(),
                             std::any::Any::type_id(&<Cat as Iterator>::next),
                             "<Cat as Iterator>::next",
-                            Some(().into()),
+                            ().into(),
                         )
                     }
                 }
@@ -377,7 +377,7 @@ mod test {
                             mry::STATIC_MOCKS.clone(),
                             std::any::Any::type_id(&Cat::meow),
                             "Cat::meow",
-                            Some((count.into(), ).into()),
+                            (count.into(), ).into(),
                         )
                     }
                 }

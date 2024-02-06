@@ -120,7 +120,7 @@ mod test {
                             self.mry.mocks_write(),
                             std::any::Any::type_id(&<MockCat as Cat>::meow),
                             "Cat::meow",
-                            Some((count.into(),).into()),
+                            (count.into(),).into(),
                         )
                     }
                 }
@@ -171,7 +171,7 @@ mod test {
                             self.mry.mocks_write(),
                             std::any::Any::type_id(&<MockCat as Cat>::meow),
                             "Cat::meow",
-                            Some((count.into(),).into()),
+                            (count.into(),).into(),
                         )
                     }
                 }
@@ -225,7 +225,7 @@ mod test {
                             self.mry.mocks_write(),
                             std::any::Any::type_id(&<MockCat as Cat>::meow),
                             "Cat::meow",
-                            Some((count.into(),).into()),
+                            (count.into(),).into(),
                         )
                     }
                 }
@@ -277,7 +277,7 @@ mod test {
                             self.mry.mocks_write(),
                             std::any::Any::type_id(&<MockCat as Cat>::_meow),
                             "Cat::_meow",
-                            Some((count.into(),).into()),
+                            (count.into(),).into(),
                         )
                     }
                 }
@@ -328,7 +328,7 @@ mod test {
                             self.mry.mocks_write(),
                             std::any::Any::type_id(&<MockCat as Cat>::meow),
                             "Cat::meow",
-                            Some((count.into(),).into()),
+                            (count.into(),).into(),
                         )
                     }
                 }
