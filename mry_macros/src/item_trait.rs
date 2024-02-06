@@ -29,7 +29,7 @@ pub(crate) fn transform(input: ItemTrait) -> TokenStream {
         .iter()
         .map(|item| match item {
             syn::TraitItem::Fn(method) => method::transform(
-                quote![self.mry.mocks_write()],
+                quote![self.mry.mocks()],
                 quote![<#mry_ident as #trait_ident>::],
                 &(trait_ident.to_string() + "::"),
                 quote![self.mry.record_call_and_find_mock_output],
@@ -117,7 +117,7 @@ mod test {
                     #[must_use]
                     pub fn mock_meow(&mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
-                            self.mry.mocks_write(),
+                            self.mry.mocks(),
                             std::any::Any::type_id(&<MockCat as Cat>::meow),
                             "Cat::meow",
                             (count.into(),).into(),
@@ -168,7 +168,7 @@ mod test {
                     #[must_use]
                     pub fn mock_meow(&mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
-                            self.mry.mocks_write(),
+                            self.mry.mocks(),
                             std::any::Any::type_id(&<MockCat as Cat>::meow),
                             "Cat::meow",
                             (count.into(),).into(),
@@ -222,7 +222,7 @@ mod test {
                     #[must_use]
                     pub fn mock_meow(&mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
-                            self.mry.mocks_write(),
+                            self.mry.mocks(),
                             std::any::Any::type_id(&<MockCat as Cat>::meow),
                             "Cat::meow",
                             (count.into(),).into(),
@@ -274,7 +274,7 @@ mod test {
                     #[must_use]
                     pub fn mock__meow(&mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
-                            self.mry.mocks_write(),
+                            self.mry.mocks(),
                             std::any::Any::type_id(&<MockCat as Cat>::_meow),
                             "Cat::_meow",
                             (count.into(),).into(),
@@ -325,7 +325,7 @@ mod test {
                     #[must_use]
                     pub fn mock_meow(&mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
-                            self.mry.mocks_write(),
+                            self.mry.mocks(),
                             std::any::Any::type_id(&<MockCat as Cat>::meow),
                             "Cat::meow",
                             (count.into(),).into(),

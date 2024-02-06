@@ -78,7 +78,7 @@ impl Mry {
 
     #[doc(hidden)]
     #[cfg(debug_assertions)]
-    pub fn mocks_write<I: Send + 'static, O: Send + 'static>(
+    pub fn mocks<I: Send + 'static, O: Send + 'static>(
         &mut self,
     ) -> Arc<Mutex<dyn MockGetter<I, O>>> {
         self.generate().mocks.as_ref().unwrap().clone()
@@ -242,7 +242,7 @@ mod test {
     fn inner_called_forwards_to_mock() {
         let mut mry = Mry::default();
 
-        mry.mocks_write()
+        mry.mocks()
             .lock()
             .get_mut_or_create(TypeId::of::<usize>(), "name")
             .returns(Matcher::Eq(1u8).wrapped(), 1u8);

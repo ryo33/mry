@@ -112,7 +112,7 @@ pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
             if let ImplItem::Fn(method) = item {
                 if let Some(FnArg::Receiver(_)) = method.sig.inputs.first() {
                     method::transform(
-                        quote![self.mry.mocks_write()],
+                        quote![self.mry.mocks()],
                         quote![#qualified_type::],
                         &(type_name.clone() + "::"),
                         quote![self.mry.record_call_and_find_mock_output],
@@ -208,7 +208,7 @@ mod test {
                     #[must_use]
                     pub fn mock_meow(&mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
-                            self.mry.mocks_write(),
+                            self.mry.mocks(),
                             std::any::Any::type_id(&Cat::meow),
                             "Cat::meow",
                             (count.into(),).into(),
@@ -249,7 +249,7 @@ mod test {
                     #[must_use]
                     pub fn mock_meow(&mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), B, mry::Behavior1<(usize), B> > {
                         mry::MockLocator::new(
-                            self.mry.mocks_write(),
+                            self.mry.mocks(),
                             std::any::Any::type_id(&Cat<'a, A>::meow),
                             "Cat<'a, A>::meow",
                             (count.into(),).into(),
@@ -290,7 +290,7 @@ mod test {
                     #[must_use]
                     pub fn mock_name(&mut self,) -> mry::MockLocator<(), String, mry::Behavior0<(), String> > {
                         mry::MockLocator::new(
-                            self.mry.mocks_write(),
+                            self.mry.mocks(),
                             std::any::Any::type_id(&< Cat as Animal < A > >::name),
                             "<Cat as Animal<A>>::name",
                             ().into(),
@@ -333,7 +333,7 @@ mod test {
                     #[must_use]
                     pub fn mock_next(&mut self,) -> mry::MockLocator<(), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
                         mry::MockLocator::new(
-                            self.mry.mocks_write(),
+                            self.mry.mocks(),
                             std::any::Any::type_id(&<Cat as Iterator>::next),
                             "<Cat as Iterator>::next",
                             ().into(),
