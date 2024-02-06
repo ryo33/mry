@@ -52,6 +52,7 @@ mod test {
                 }
 
                 #[cfg(debug_assertions)]
+                #[must_use]
                 pub fn mock_meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     mry::MockLocator::new(
                         Box::new(mry::STATIC_MOCKS.lock()),
@@ -89,6 +90,7 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[allow(non_snake_case)]
+                #[must_use]
                 pub fn mock__meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                     mry::MockLocator::new(
                         Box::new(mry::STATIC_MOCKS.lock()),

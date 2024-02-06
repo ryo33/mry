@@ -114,6 +114,7 @@ mod test {
                 #[cfg(debug_assertions)]
                 impl MockCat {
                     #[cfg(debug_assertions)]
+                    #[must_use]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks_write(),
@@ -164,6 +165,7 @@ mod test {
                 #[cfg(debug_assertions)]
                 impl MockCat {
                     #[cfg(debug_assertions)]
+                    #[must_use]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks_write(),
@@ -217,6 +219,7 @@ mod test {
                 #[cfg(debug_assertions)]
                 impl MockCat {
                     #[cfg(debug_assertions)]
+                    #[must_use]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks_write(),
@@ -268,6 +271,7 @@ mod test {
                 impl MockCat {
                     #[cfg(debug_assertions)]
                     #[allow(non_snake_case)]
+                    #[must_use]
                     pub fn mock__meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks_write(),
@@ -318,6 +322,7 @@ mod test {
                 #[cfg(debug_assertions)]
                 impl MockCat {
                     #[cfg(debug_assertions)]
+                    #[must_use]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks_write(),

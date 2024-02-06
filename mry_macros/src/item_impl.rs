@@ -205,6 +205,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(debug_assertions)]
+                    #[must_use]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks_write(),
@@ -245,6 +246,7 @@ mod test {
 
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(debug_assertions)]
+                    #[must_use]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
                         mry::MockLocator::new(
                             self.mry.mocks_write(),
@@ -285,6 +287,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(debug_assertions)]
+                    #[must_use]
                     pub fn mock_name<'mry>(&'mry mut self,) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks_write(),
@@ -327,6 +330,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(debug_assertions)]
+                    #[must_use]
                     pub fn mock_next<'mry>(&'mry mut self,) -> mry::MockLocator<'mry, (), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
                         mry::MockLocator::new(
                             self.mry.mocks_write(),
@@ -367,6 +371,7 @@ mod test {
 
                 impl Cat {
                     #[cfg(debug_assertions)]
+                    #[must_use]
                     pub fn mock_meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
                         mry::MockLocator::new(
                             Box::new(mry::STATIC_MOCKS.lock()),
