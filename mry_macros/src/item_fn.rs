@@ -53,13 +53,12 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 pub fn mock_meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                    mry::MockLocator {
-                        mocks: Box::new(mry::STATIC_MOCKS.lock()),
-                        key: std::any::Any::type_id(&meow),
-                        name: "meow",
-                        matcher: Some((count.into(),).into()),
-                        _phantom: Default::default(),
-                    }
+                    mry::MockLocator::new(
+                        Box::new(mry::STATIC_MOCKS.lock()),
+                        std::any::Any::type_id(&meow),
+                        "meow",
+                        Some((count.into(),).into()),
+                    )
                 }
             }
             .to_string()
@@ -91,13 +90,12 @@ mod test {
                 #[cfg(debug_assertions)]
                 #[allow(non_snake_case)]
                 pub fn mock__meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                    mry::MockLocator {
-                        mocks: Box::new(mry::STATIC_MOCKS.lock()),
-                        key: std::any::Any::type_id(&_meow),
-                        name: "_meow",
-                        matcher: Some((count.into(),).into()),
-                        _phantom: Default::default(),
-                    }
+                    mry::MockLocator::new(
+                        Box::new(mry::STATIC_MOCKS.lock()),
+                        std::any::Any::type_id(&_meow),
+                        "_meow",
+                        Some((count.into(),).into()),
+                    )
                 }
             }
             .to_string()

@@ -206,13 +206,12 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                        mry::MockLocator {
-                            mocks: self.mry.mocks_write(),
-                            key: std::any::Any::type_id(&Cat::meow),
-                            name: "Cat::meow",
-                            matcher: Some((count.into(),).into()),
-                            _phantom: Default::default(),
-                        }
+                        mry::MockLocator::new(
+                            self.mry.mocks_write(),
+                            std::any::Any::type_id(&Cat::meow),
+                            "Cat::meow",
+                            Some((count.into(),).into()),
+                        )
                     }
                 }
             }
@@ -247,13 +246,12 @@ mod test {
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(&'mry mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), B, mry::Behavior1<(usize), B> > {
-                        mry::MockLocator {
-                            mocks: self.mry.mocks_write(),
-                            key: std::any::Any::type_id(&Cat<'a, A>::meow),
-                            name: "Cat<'a, A>::meow",
-                            matcher: Some((count.into(),).into()),
-                            _phantom: Default::default(),
-                        }
+                        mry::MockLocator::new(
+                            self.mry.mocks_write(),
+                            std::any::Any::type_id(&Cat<'a, A>::meow),
+                            "Cat<'a, A>::meow",
+                            Some((count.into(),).into()),
+                        )
                     }
                 }
             }
@@ -288,13 +286,12 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     pub fn mock_name<'mry>(&'mry mut self,) -> mry::MockLocator<'mry, (), String, mry::Behavior0<(), String> > {
-                        mry::MockLocator {
-                            mocks: self.mry.mocks_write(),
-                            key: std::any::Any::type_id(&< Cat as Animal < A > >::name),
-                            name: "<Cat as Animal<A>>::name",
-                            matcher: Some(().into()),
-                            _phantom: Default::default(),
-                        }
+                        mry::MockLocator::new(
+                            self.mry.mocks_write(),
+                            std::any::Any::type_id(&< Cat as Animal < A > >::name),
+                            "<Cat as Animal<A>>::name",
+                            Some(().into()),
+                        )
                     }
                 }
             }
@@ -331,13 +328,12 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     pub fn mock_next<'mry>(&'mry mut self,) -> mry::MockLocator<'mry, (), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
-                        mry::MockLocator {
-                            mocks: self.mry.mocks_write(),
-                            key: std::any::Any::type_id(&<Cat as Iterator>::next),
-                            name: "<Cat as Iterator>::next",
-                            matcher: Some(().into()),
-                            _phantom: Default::default(),
-                        }
+                        mry::MockLocator::new(
+                            self.mry.mocks_write(),
+                            std::any::Any::type_id(&<Cat as Iterator>::next),
+                            "<Cat as Iterator>::next",
+                            Some(().into()),
+                        )
                     }
                 }
             }
@@ -372,13 +368,12 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     pub fn mock_meow<'mry>(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<'mry, (usize), String, mry::Behavior1<(usize), String> > {
-                        mry::MockLocator {
-                            mocks: Box::new(mry::STATIC_MOCKS.lock()),
-                            key: std::any::Any::type_id(&Cat::meow),
-                            name: "Cat::meow",
-                            matcher: Some((count.into(), ).into()),
-                            _phantom: Default::default(),
-                        }
+                        mry::MockLocator::new(
+                            Box::new(mry::STATIC_MOCKS.lock()),
+                            std::any::Any::type_id(&Cat::meow),
+                            "Cat::meow",
+                            Some((count.into(), ).into()),
+                        )
                     }
                 }
             }

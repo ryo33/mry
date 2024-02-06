@@ -10,17 +10,30 @@ use self::times::Times;
 
 /// Mock locator returned by mock_* methods
 pub struct MockLocator<'a, I, O, B> {
-    #[doc(hidden)]
-    pub mocks: Box<dyn MockGetter<I, O> + 'a>,
-    #[doc(hidden)]
-    pub key: TypeId,
-    #[doc(hidden)]
-    pub name: &'static str,
-    #[doc(hidden)]
-    pub matcher: Option<Matcher<I>>,
-    #[doc(hidden)]
+    pub(crate) mocks: Box<dyn MockGetter<I, O> + 'a>,
+    pub(crate) key: TypeId,
+    pub(crate) name: &'static str,
+    pub(crate) matcher: Option<Matcher<I>>,
     #[allow(clippy::type_complexity)]
-    pub _phantom: PhantomData<fn() -> (I, O, B)>,
+    _phantom: PhantomData<fn() -> (I, O, B)>,
+}
+
+impl<'a, I, O, B> MockLocator<'a, I, O, B> {
+    #[doc(hidden)]
+    pub fn new(
+        mocks: Box<dyn MockGetter<I, O> + 'a>,
+        key: TypeId,
+        name: &'static str,
+        matcher: Option<Matcher<I>>,
+    ) -> Self {
+        Self {
+            mocks,
+            key,
+            name,
+            matcher,
+            _phantom: Default::default(),
+        }
+    }
 }
 
 impl<'a, I, O, B> MockLocator<'a, I, O, B>
