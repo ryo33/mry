@@ -2,41 +2,56 @@ pub mod times;
 
 use std::any::TypeId;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
-use crate::mock::Mock;
-use crate::{Behavior, Matcher, MockGetter};
+use parking_lot::Mutex;
+
+use crate::{mock::Logs, Behavior, Matcher, MockGetter};
 
 use self::times::Times;
 
 /// Mock locator returned by mock_* methods
-pub struct MockLocator<'a, I, O, B> {
-    pub(crate) mocks: Box<dyn MockGetter<I, O> + 'a>,
+pub struct MockLocator<I, O, B> {
+    pub(crate) mocks: Arc<Mutex<dyn MockGetter<I, O>>>,
     pub(crate) key: TypeId,
     pub(crate) name: &'static str,
-    pub(crate) matcher: Option<Matcher<I>>,
+    pub(crate) matcher: Arc<Mutex<Matcher<I>>>,
+    pub(crate) logs: Option<Arc<Mutex<Logs<I>>>>,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (I, O, B)>,
 }
 
-impl<'a, I, O, B> MockLocator<'a, I, O, B> {
+impl<I, O, B> MockLocator<I, O, B> {
     #[doc(hidden)]
     pub fn new(
-        mocks: Box<dyn MockGetter<I, O> + 'a>,
+        mocks: Arc<Mutex<dyn MockGetter<I, O>>>,
         key: TypeId,
         name: &'static str,
+        // FIXME: No Option
         matcher: Option<Matcher<I>>,
     ) -> Self {
         Self {
             mocks,
             key,
             name,
-            matcher,
+            matcher: Arc::new(Mutex::new(matcher.unwrap())),
+            logs: None,
             _phantom: Default::default(),
         }
     }
 }
 
-impl<'a, I, O, B> MockLocator<'a, I, O, B>
+macro_rules! get_mut_or_default {
+    ($self:ident, $mock:ident) => {
+        let mut lock = $self.mocks.lock();
+        let $mock = lock.get_mut_or_create($self.key, $self.name);
+        if $self.logs.is_none() {
+            $self.logs = Some($mock.logs.clone());
+        }
+    };
+}
+
+impl<I, O, B> MockLocator<I, O, B>
 where
     I: Clone + PartialEq + Send + 'static,
     O: Send + 'static,
@@ -45,39 +60,41 @@ where
     /// Returns value with using a closure.
     /// Arguments of a method call are passed to the given closure.
     pub fn returns_with<T: Into<B>>(&mut self, behavior: T) {
-        let matcher = self.matcher();
-        self.get_mut_or_default()
-            .returns_with(matcher, behavior.into().into());
+        get_mut_or_default!(self, mock);
+        mock.returns_with(self.matcher.clone(), behavior.into().into());
     }
 
     /// Returns value once. After that, it panics.
     pub fn returns_once(&mut self, ret: O) {
-        let matcher = self.matcher();
-        self.get_mut_or_default().returns_once(matcher, ret);
+        get_mut_or_default!(self, mock);
+        mock.returns_once(self.matcher.clone(), ret);
     }
 }
 
-impl<'a, I, O, B> MockLocator<'a, I, O, B>
+impl<I, O, B> MockLocator<I, O, B>
 where
     I: Clone + PartialEq + Send + 'static,
     O: Send + 'static,
 {
     /// This make the mock calls real impl. This is used for partial mocking.
     pub fn calls_real_impl(&mut self) {
-        let matcher = self.matcher();
-        self.get_mut_or_default().calls_real_impl(matcher);
+        get_mut_or_default!(self, mock);
+        mock.calls_real_impl(self.matcher.clone());
     }
 
     /// Assert the mock is called.
     /// Returns `MockResult` allows to call `times(n)`
     /// Panics if not called
-    pub fn assert_called(&mut self, times: impl Into<Times>) -> Vec<I> {
-        let matcher = self.matcher.take().unwrap();
-        self.get_or_error().assert_called(matcher, times.into()).0
+    pub fn assert_called(&mut self, times: impl Into<Times>) {
+        self.mocks
+            .lock()
+            .get(&self.key, self.name)
+            .unwrap_or_else(|| panic!("no mock is found for {}", self.name))
+            .assert_called(&self.matcher.lock(), times.into());
     }
 }
 
-impl<'a, I, O, B> MockLocator<'a, I, O, B>
+impl<I, O, B> MockLocator<I, O, B>
 where
     I: Clone + PartialEq + Send + 'static,
     O: Clone + Send + 'static,
@@ -85,13 +102,13 @@ where
     /// This makes the mock returns the given constant value.
     /// This requires `Clone`. For returning not clone value, use `returns_with`.
     pub fn returns(&mut self, ret: O) {
-        let matcher = self.matcher();
-        self.get_mut_or_default().returns(matcher, ret);
+        get_mut_or_default!(self, mock);
+        mock.returns(self.matcher.clone(), ret);
     }
 }
 
-impl<'a, I, B, R>
-    MockLocator<'a, I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
+impl<I, B, R>
+    MockLocator<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
 where
     I: Clone + PartialEq + Send + 'static,
     R: Clone + Send + 'static,
@@ -99,13 +116,13 @@ where
     /// This makes the mock returns the given constant value with `std::future::ready`.
     /// This requires `Clone`. For returning not clone value, use `returns_with`.
     pub fn returns_ready(&mut self, ret: R) {
-        let matcher = self.matcher();
-        self.get_mut_or_default().returns_ready(matcher, ret);
+        get_mut_or_default!(self, mock);
+        mock.returns_ready(self.matcher.clone(), ret);
     }
 }
 
-impl<'a, I, B, R>
-    MockLocator<'a, I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
+impl<I, B, R>
+    MockLocator<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
 where
     I: Clone + PartialEq + Send + 'static,
     R: Send + 'static,
@@ -113,32 +130,7 @@ where
     /// This makes the mock returns the given constant value with `std::future::ready`.
     /// This requires `Clone`. For returning not clone value, use `returns_with`.
     pub fn returns_ready_once(&mut self, ret: R) {
-        let matcher = self.matcher();
-        self.get_mut_or_default().returns_ready_once(matcher, ret);
-    }
-}
-
-impl<'a, I, O, B> MockLocator<'a, I, O, B>
-where
-    I: Send + 'static,
-    O: Send + 'static,
-{
-    fn get_mut_or_default(&mut self) -> &mut Mock<I, O> {
-        self.mocks.get_mut_or_create(self.key, self.name)
-    }
-}
-impl<'a, I, O, B> MockLocator<'a, I, O, B>
-where
-    I: Send + 'static,
-    O: Send + 'static,
-{
-    fn get_or_error(&self) -> &Mock<I, O> {
-        self.mocks
-            .get(&self.key, self.name)
-            .unwrap_or_else(|| panic!("no mock is found for {}", self.name))
-    }
-
-    fn matcher(&mut self) -> Matcher<I> {
-        self.matcher.take().unwrap()
+        get_mut_or_default!(self, mock);
+        mock.returns_ready_once(self.matcher.clone(), ret);
     }
 }

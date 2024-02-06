@@ -51,7 +51,17 @@ mry_macros::create_matchers!();
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use parking_lot::Mutex;
+
     use super::*;
+
+    impl<I> Matcher<I> {
+        pub(crate) fn wrapped(self) -> Arc<Mutex<Matcher<I>>> {
+            Arc::new(Mutex::new(self))
+        }
+    }
 
     #[test]
     fn from_str() {

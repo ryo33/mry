@@ -104,7 +104,10 @@ mod test {
     fn get_mut_or_create_returns_an_item() {
         let mut mock_data = Mocks::default();
         let mut mock = Mock::<u8, u8>::new("a");
-        mock.returns_with(Matcher::Any, Behavior::Function(Box::new(|_| 4u8)));
+        mock.returns_with(
+            Matcher::Any.wrapped(),
+            Behavior::Function(Box::new(|_| 4u8)),
+        );
         mock_data.insert(TypeId::of::<usize>(), mock);
         assert_eq!(
             mock_data

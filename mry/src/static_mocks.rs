@@ -6,8 +6,8 @@ use std::{
     any::TypeId, collections::HashMap, fmt::Debug, future::Future, ops::Deref, pin::Pin, sync::Arc,
 };
 
-pub static STATIC_MOCKS: Lazy<Mutex<StaticMocks>> =
-    Lazy::new(|| Mutex::new(StaticMocks::default()));
+pub static STATIC_MOCKS: Lazy<Arc<Mutex<StaticMocks>>> =
+    Lazy::new(|| Arc::new(Mutex::new(StaticMocks::default())));
 
 pub static STATIC_MOCK_LOCKS: Lazy<Mutex<HashMap<TypeId, Arc<Mutex<()>>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -165,7 +165,7 @@ mod tests {
         let mut mocks = Mocks::default();
         mocks
             .get_mut_or_create(returns_some_if_mocked.type_id(), "meow")
-            .returns(Matcher::Eq(()), ());
+            .returns(Matcher::Eq(()).wrapped(), ());
         let mut static_mocks = StaticMocks(mocks);
 
         let mutex = Arc::new(Mutex::default());

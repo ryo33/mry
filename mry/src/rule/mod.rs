@@ -1,18 +1,21 @@
 mod behavior;
 mod matcher;
 
+use std::sync::Arc;
+
 pub use behavior::*;
 pub use matcher::*;
+use parking_lot::Mutex;
 
 #[derive(Debug)]
 pub(crate) struct Rule<I, O> {
-    pub matcher: Matcher<I>,
+    pub matcher: Arc<Mutex<Matcher<I>>>,
     pub behavior: Behavior<I, O>,
 }
 
 impl<I: PartialEq + Clone, O> Rule<I, O> {
     pub fn called(&mut self, input: &I) -> Output<O> {
-        if self.matcher.matches(input) {
+        if self.matcher.lock().matches(input) {
             return self.behavior.called(input);
         }
         Output::NotMatches
@@ -27,7 +30,7 @@ mod test {
     #[test]
     fn called_returns_none() {
         let mut rule: Rule<u8, u8> = Rule {
-            matcher: Matcher::Never,
+            matcher: Arc::new(Mutex::new(Matcher::Never)),
             behavior: Behavior1::from(|_| panic!("should not be called!")).into(),
         };
 
@@ -37,7 +40,7 @@ mod test {
     #[test]
     fn called_returns_some() {
         let mut rule: Rule<u8, u8> = Rule {
-            matcher: Matcher::Any,
+            matcher: Arc::new(Mutex::new(Matcher::Any)),
             behavior: Behavior1::from(|u| u + 1).into(),
         };
 

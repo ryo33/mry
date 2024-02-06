@@ -160,3 +160,18 @@ fn returns_once_not_clone_value() {
     cat.meow(0);
     cat.mock_meow(0).assert_called(1);
 }
+
+#[test]
+fn reuse_locator() {
+    let mut cat = Cat {
+        name: "Tama".into(),
+        ..Default::default()
+    };
+
+    let mut locator = cat.mock_meow(Any);
+    locator.returns("Called".into());
+
+    cat.meow(2);
+
+    locator.assert_called(1);
+}

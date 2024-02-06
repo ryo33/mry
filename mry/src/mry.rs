@@ -78,10 +78,10 @@ impl Mry {
 
     #[doc(hidden)]
     #[cfg(debug_assertions)]
-    pub fn mocks_write<'a, I: Send + 'static, O: Send + 'static>(
-        &'a mut self,
-    ) -> Box<dyn MockGetter<I, O> + 'a> {
-        Box::new(self.generate().mocks.as_ref().unwrap().lock())
+    pub fn mocks_write<I: Send + 'static, O: Send + 'static>(
+        &mut self,
+    ) -> Arc<Mutex<dyn MockGetter<I, O>>> {
+        self.generate().mocks.as_ref().unwrap().clone()
     }
 }
 
@@ -243,8 +243,9 @@ mod test {
         let mut mry = Mry::default();
 
         mry.mocks_write()
+            .lock()
             .get_mut_or_create(TypeId::of::<usize>(), "name")
-            .returns(Matcher::Eq(1u8), 1u8);
+            .returns(Matcher::Eq(1u8).wrapped(), 1u8);
 
         assert_eq!(
             mry.record_call_and_find_mock_output::<u8, u8>(TypeId::of::<usize>(), "name", 1u8),

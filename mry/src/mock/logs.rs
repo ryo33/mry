@@ -1,4 +1,4 @@
-use crate::Matcher;
+use crate::{times::Times, Matcher};
 
 #[derive(Debug, PartialEq)]
 pub struct Logs<I>(pub Vec<I>);
@@ -16,6 +16,14 @@ impl<I: PartialEq + Clone> Logs<I> {
                 .cloned()
                 .collect(),
         )
+    }
+
+    pub(crate) fn assert_called(&self, name: &str, matcher: &Matcher<I>, times: Times) -> Logs<I> {
+        let logs = self.filter_matches(matcher);
+        if !times.contains(&logs.0.len()) {
+            panic!("{} was not called", name)
+        }
+        logs
     }
 }
 
