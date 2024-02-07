@@ -5,7 +5,7 @@ use syn::{Ident, Index};
 use crate::alphabets::alphabets;
 
 pub(crate) fn create() -> TokenStream {
-    let items = alphabets(2..6).map(|args| {
+    let items = alphabets(0..6).map(|args| {
         let (args, types): (Vec<_>, Vec<_>) = args
             .iter()
             .map(|name| {
@@ -15,32 +15,24 @@ pub(crate) fn create() -> TokenStream {
                 )
             })
             .unzip();
-        let matcher_name = Ident::new(&format!("Matcher{}", args.len()), Span::call_site());
-        let matchers: Vec<_> = types.iter().map(|ty| quote![Matcher<#ty>]).collect();
-        let trait_bounds: Vec<_> = types
-            .iter()
-            .map(|ty| quote![#ty: PartialEq + Debug + Send + 'static])
-            .collect();
-        let types = quote![#(#types),*];
+        let matchers: Vec<_> = types.iter().map(|ty| quote![ArgMatcher<#ty>]).collect();
+        let trait_bounds: Vec<_> = types.iter().map(|ty| quote![#ty: Send + 'static]).collect();
         let matchers = quote![#(#matchers,)*];
         let matches = args.iter().enumerate().map(|(index, arg)| {
             let index = Index::from(index);
             quote![self.#index.matches(#arg)]
         });
-        let args = quote![#(#args),*];
+        let args = quote![#(#args,)*];
         quote! {
-            #[derive(Debug)]
-            struct #matcher_name<#(#trait_bounds),*>(#matchers);
-
-            impl<#(#trait_bounds),*> CompositeMatcher<(#types)> for #matcher_name<#types> {
-                fn matches(&self, (#args): &(#types)) -> bool {
-                    #(#matches)&&*
+            impl<#(#trait_bounds),*> Match<(#(#types,)*)> for (#matchers) {
+                fn matches(&self, (#args): &(#(#types,)*)) -> bool {
+                    #(#matches &&)* true
                 }
             }
 
-            impl<#(#trait_bounds),*> From<(#matchers)> for Matcher<(#types)> {
+            impl<#(#trait_bounds),*> From<(#matchers)> for Matcher<(#(#types,)*)> {
                 fn from((#args): (#matchers)) -> Self {
-                    Matcher::Composite(Box::new(#matcher_name(#args)))
+                    Matcher(Box::new((#args)))
                 }
             }
         }

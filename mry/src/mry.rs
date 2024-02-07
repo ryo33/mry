@@ -47,10 +47,7 @@ impl Mry {
 
     #[doc(hidden)]
     #[cfg(debug_assertions)]
-    pub fn record_call_and_find_mock_output<
-        I: PartialEq + Clone + Send + 'static,
-        O: Send + 'static,
-    >(
+    pub fn record_call_and_find_mock_output<I: Send + 'static, O: Send + 'static>(
         &self,
         key: TypeId,
         name: &'static str,
@@ -245,7 +242,7 @@ mod test {
         mry.mocks()
             .lock()
             .get_mut_or_create(TypeId::of::<usize>(), "name")
-            .returns(Matcher::Eq(1u8).wrapped(), 1u8);
+            .returns(Matcher::new_eq(1u8).wrapped(), 1u8);
 
         assert_eq!(
             mry.record_call_and_find_mock_output::<u8, u8>(TypeId::of::<usize>(), "name", 1u8),

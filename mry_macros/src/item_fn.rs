@@ -43,7 +43,7 @@ mod test {
             quote! {
                 fn meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = mry::STATIC_MOCKS.lock().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&meow), "meow", (count.clone())) {
+                    if let Some(out) = mry::STATIC_MOCKS.lock().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&meow), "meow", (count.to_owned(),)) {
                         return out;
                     }
                     {
@@ -53,7 +53,7 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
+                pub fn mock_meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         mry::STATIC_MOCKS.clone(),
                         std::any::Any::type_id(&meow),
@@ -80,7 +80,7 @@ mod test {
             quote! {
                 fn _meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = mry::STATIC_MOCKS.lock().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&_meow), "_meow", (count.clone())) {
+                    if let Some(out) = mry::STATIC_MOCKS.lock().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&_meow), "_meow", (count.to_owned(),)) {
                         return out;
                     }
                     {
@@ -91,7 +91,7 @@ mod test {
                 #[cfg(debug_assertions)]
                 #[allow(non_snake_case)]
                 #[must_use]
-                pub fn mock__meow(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
+                pub fn mock__meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         mry::STATIC_MOCKS.clone(),
                         std::any::Any::type_id(&_meow),

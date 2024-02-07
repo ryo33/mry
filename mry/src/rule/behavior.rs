@@ -4,7 +4,6 @@ use parking_lot::Mutex;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum Output<O> {
-    NotMatches,
     CallsRealImpl,
     /// called once already called
     ErrorCalledOnce,
@@ -40,10 +39,10 @@ impl<I: Debug, O: Debug> std::fmt::Debug for Behavior<I, O> {
     }
 }
 
-impl<I: Clone, O> Behavior<I, O> {
-    pub(crate) fn called(&mut self, input: &I) -> Output<O> {
+impl<I, O> Behavior<I, O> {
+    pub(crate) fn called(&mut self, input: I) -> Output<O> {
         match self {
-            Behavior::Function(function) => Output::Found(function(input.clone())),
+            Behavior::Function(function) => Output::Found(function(input)),
             Behavior::Const(cons) => Output::Found(cons.get_mut().next().unwrap()),
             Behavior::Once(once) => {
                 if let Some(ret) = once.lock().take() {
@@ -68,7 +67,7 @@ mod tests {
     #[test]
     fn function() {
         assert_eq!(
-            Behavior::Function(Box::new(|()| "aaa")).called(&()),
+            Behavior::Function(Box::new(|()| "aaa")).called(()),
             Output::Found("aaa")
         );
     }

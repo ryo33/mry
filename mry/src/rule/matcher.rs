@@ -1,57 +1,87 @@
 use parking_lot::Mutex;
-use std::fmt::Debug;
 use std::sync::Arc;
 
-#[derive(Debug)]
-/// An enum shows what arguments are expected
-pub enum Matcher<I> {
-    /// Any value
-    Any,
-    /// Never matches
-    Never,
-    /// Equal to the value
-    Eq(I),
-    /// Composite matcher
-    Composite(Box<dyn CompositeMatcher<I> + Send>),
-}
+/// An enum describes what arguments are expected
+pub struct Matcher<I>(Box<dyn Match<I> + Send>);
 
 impl<I> Matcher<I> {
     pub(crate) fn wrapped(self) -> Arc<Mutex<Matcher<I>>> {
         Arc::new(Mutex::new(self))
     }
+
+    pub(crate) fn matches(&self, input: &I) -> bool {
+        self.0.matches(input)
+    }
 }
 
-#[doc(hidden)]
-pub trait CompositeMatcher<I>: Debug {
+#[cfg(test)]
+impl<I> Matcher<I> {
+    pub(crate) fn from_match(matcher: impl Match<I> + Send + 'static) -> Self {
+        Self(Box::new(matcher))
+    }
+
+    pub(crate) fn any() -> Self {
+        struct Any;
+        impl<I> Match<I> for Any {
+            fn matches(&self, _: &I) -> bool {
+                true
+            }
+        }
+        Self::from_match(Any)
+    }
+
+    pub(crate) fn never() -> Self {
+        struct Never;
+        impl<I> Match<I> for Never {
+            fn matches(&self, _: &I) -> bool {
+                false
+            }
+        }
+        Self::from_match(Never)
+    }
+}
+
+pub trait Match<I> {
     fn matches(&self, input: &I) -> bool;
 }
 
-impl<I: PartialEq> Matcher<I> {
+pub enum ArgMatcher<I> {
+    Fn(Box<dyn Fn(&I) -> bool + Send + 'static>),
+    Eq {
+        value: I,
+        partial_eq: fn(&I, &I) -> bool,
+    },
+    Any,
+    Never,
+}
+
+impl<I> ArgMatcher<I> {
+    pub(crate) fn new_eq(value: I) -> Self
+    where
+        I: PartialEq + Send + 'static,
+    {
+        ArgMatcher::Fn(Box::new(move |input| *input == value))
+    }
+
     pub(crate) fn matches(&self, input: &I) -> bool {
         match self {
-            Matcher::Any => true,
-            Matcher::Never => false,
-            Matcher::Eq(value) => value == input,
-            Matcher::Composite(matcher) => matcher.matches(input),
+            ArgMatcher::Fn(f) => f(input),
+            ArgMatcher::Eq { value, partial_eq } => partial_eq(value, input),
+            ArgMatcher::Any => true,
+            ArgMatcher::Never => false,
         }
     }
 }
 
-impl<T: PartialEq> From<T> for Matcher<T> {
-    fn from(from: T) -> Self {
-        Self::Eq(from)
+impl<I: PartialEq + Send + 'static> From<I> for ArgMatcher<I> {
+    fn from(value: I) -> Self {
+        ArgMatcher::new_eq(value)
     }
 }
 
-impl From<&str> for Matcher<String> {
-    fn from(from: &str) -> Self {
-        Matcher::Eq(from.to_string())
-    }
-}
-
-impl<I: PartialEq> From<(Matcher<I>,)> for Matcher<I> {
-    fn from(val: (Matcher<I>,)) -> Self {
-        val.0
+impl From<&str> for ArgMatcher<String> {
+    fn from(value: &str) -> Self {
+        ArgMatcher::new_eq(value.to_string())
     }
 }
 
@@ -61,25 +91,30 @@ mry_macros::create_matchers!();
 mod tests {
     use super::*;
 
-    #[test]
-    fn from_str() {
-        assert_eq!(
-            format!("{:?}", Matcher::<String>::from("A")),
-            format!("{:?}", Matcher::Eq("A".to_string()))
-        );
+    struct EqMatcher<T>(T);
+
+    impl<T: PartialEq> Match<T> for EqMatcher<T> {
+        fn matches(&self, input: &T) -> bool {
+            self.0 == *input
+        }
+    }
+
+    impl<T: PartialEq + Send + 'static> Matcher<T> {
+        pub(crate) fn new_eq(value: T) -> Self {
+            Self(Box::new(EqMatcher(value)))
+        }
     }
 
     #[test]
-    fn to_owned() {
-        assert_eq!(
-            format!("{:?}", Matcher::<String>::from("A")),
-            format!("{:?}", Matcher::Eq("A".to_string()))
-        );
+    fn from_str() {
+        let matcher: ArgMatcher<String> = "A".to_string().into();
+        assert!(matcher.matches(&"A".to_string()));
+        assert!(!matcher.matches(&"B".to_string()));
     }
 
     #[test]
     fn matcher_two_values() {
-        let matcher: Matcher<(u8, u16)> = (Matcher::Eq(3u8), Matcher::Eq(2u16)).into();
+        let matcher: Matcher<(u8, u16)> = Matcher::from_match((3u8.into(), 2u16.into()));
         assert!(matcher.matches(&(3, 2)));
         assert!(!matcher.matches(&(3, 1)));
         assert!(!matcher.matches(&(1, 2)));

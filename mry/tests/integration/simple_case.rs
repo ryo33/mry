@@ -55,11 +55,11 @@ fn assert_called() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_meow(Any).returns("Called".into());
+    let meow = cat.mock_meow(Any).returns("Called".into());
 
     cat.meow(2);
 
-    cat.mock_meow(Any).assert_called(1);
+    meow.assert_called(1);
 }
 
 #[test]
@@ -68,8 +68,8 @@ fn assert_called_0_times() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_meow(Any).returns("Called".into());
-    cat.mock_meow(Any).assert_called(0);
+    let meow = cat.mock_meow(Any).returns("Called".into());
+    meow.assert_called(0);
 }
 
 #[test]
@@ -81,10 +81,11 @@ fn assert_called_fails() {
     };
     cat.mock_meow(3usize)
         .returns_with(|count| format!("Called with {}", count));
+    let meow = cat.mock_meow(2).returns("Called".into());
 
     cat.meow(3);
 
-    cat.mock_meow(2).assert_called(1);
+    meow.assert_called(1);
 }
 
 #[test]
@@ -115,10 +116,10 @@ fn times() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_meow(Any).returns("Called".into());
+    let meow = cat.mock_meow(Any).returns("Called".into());
     cat.meow(2);
     cat.meow(2);
-    cat.mock_meow(2).assert_called(2);
+    meow.assert_called(2);
 }
 
 #[test]
@@ -127,11 +128,11 @@ fn times_within() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_just_meow().returns("Called".to_string());
+    let meow = cat.mock_just_meow().returns("Called".to_string());
     cat.just_meow();
     cat.just_meow();
 
-    cat.mock_just_meow().assert_called(2..3);
+    meow.assert_called(2..3);
 }
 
 #[test]
@@ -155,10 +156,10 @@ fn returns_once_not_clone_value() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_meow(0).returns_once(NotClone);
+    let meow = cat.mock_meow(0).returns_once(NotClone);
 
     cat.meow(0);
-    cat.mock_meow(0).assert_called(1);
+    meow.assert_called(1);
 }
 
 #[test]
@@ -168,8 +169,7 @@ fn reuse_locator() {
         ..Default::default()
     };
 
-    let mut locator = cat.mock_meow(Any);
-    locator.returns("Called".into());
+    let locator = cat.mock_meow(Any).returns("Called".into());
 
     cat.meow(2);
 

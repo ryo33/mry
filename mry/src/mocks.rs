@@ -50,10 +50,7 @@ impl<I: Send + 'static, O: Send + 'static> MockGetter<I, O> for Mocks {
 
 impl Mocks {
     #[doc(hidden)]
-    pub fn record_call_and_find_mock_output<
-        I: PartialEq + Clone + Send + 'static,
-        O: Send + 'static,
-    >(
+    pub fn record_call_and_find_mock_output<I: Send + 'static, O: Send + 'static>(
         &mut self,
         key: TypeId,
         name: &'static str,
@@ -105,7 +102,7 @@ mod test {
         let mut mock_data = Mocks::default();
         let mut mock = Mock::<u8, u8>::new("a");
         mock.returns_with(
-            Matcher::Any.wrapped(),
+            Matcher::any().wrapped(),
             Behavior::Function(Box::new(|_| 4u8)),
         );
         mock_data.insert(TypeId::of::<usize>(), mock);

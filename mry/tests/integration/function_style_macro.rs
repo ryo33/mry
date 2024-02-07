@@ -29,10 +29,11 @@ fn assert_called() {
         name: "Tama".into(),
         ..Default::default()
     };
-    cat.mock_meow(2)
+    let meow = cat
+        .mock_meow(2)
         .returns_with(|count| format!("Called with {}", count));
 
     cat.meow(2);
 
-    cat.mock_meow(2).assert_called(1..=1);
+    meow.assert_called(1..=1);
 }

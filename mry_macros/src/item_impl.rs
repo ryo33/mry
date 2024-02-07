@@ -196,7 +196,7 @@ mod test {
                     #[meow]
                     fn meow(#[a] &self, #[b] count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.to_owned(),)) {
                             return out;
                         }
                         "meow".repeat(count)
@@ -206,7 +206,7 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     #[must_use]
-                    pub fn mock_meow(&mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
+                    pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks(),
                             std::any::Any::type_id(&Cat::meow),
@@ -237,7 +237,7 @@ mod test {
                 impl<'a, A: Clone> Cat<'a, A> {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, B>(std::any::Any::type_id(&Cat<'a, A>::meow), "Cat<'a, A>::meow", (count.clone())) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, B>(std::any::Any::type_id(&Cat<'a, A>::meow), "Cat<'a, A>::meow", (count.to_owned(),)) {
                             return out;
                         }
                         "meow".repeat(count)
@@ -247,7 +247,7 @@ mod test {
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(debug_assertions)]
                     #[must_use]
-                    pub fn mock_meow(&mut self, count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), B, mry::Behavior1<(usize), B> > {
+                    pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), B, mry::Behavior1<(usize,), B> > {
                         mry::MockLocator::new(
                             self.mry.mocks(),
                             std::any::Any::type_id(&Cat<'a, A>::meow),
@@ -362,7 +362,7 @@ mod test {
                 impl Cat {
                     fn meow(count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = mry::STATIC_MOCKS.lock().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.clone())) {
+                        if let Some(out) = mry::STATIC_MOCKS.lock().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Cat::meow), "Cat::meow", (count.to_owned(),)) {
                             return out;
                         }
                         "meow".repeat(count)
@@ -372,7 +372,7 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     #[must_use]
-                    pub fn mock_meow(count: impl Into<mry::Matcher<usize>>) -> mry::MockLocator<(usize), String, mry::Behavior1<(usize), String> > {
+                    pub fn mock_meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
                         mry::MockLocator::new(
                             mry::STATIC_MOCKS.clone(),
                             std::any::Any::type_id(&Cat::meow),

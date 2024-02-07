@@ -1,3 +1,4 @@
+mod callback;
 mod mock;
 mod mock_locator;
 mod mocks;
@@ -11,4 +12,5 @@ pub use mocks::*;
 pub use mry_macros::{lock, m, mry, new};
 pub use rule::*;
 pub use static_mocks::*;
-pub use Matcher::Any;
+
+pub use rule::ArgMatcher::Any;

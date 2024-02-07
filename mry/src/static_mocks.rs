@@ -2,9 +2,7 @@ use crate::{mock::Mock, MockGetter, Mocks};
 use async_recursion::async_recursion;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use std::{
-    any::TypeId, collections::HashMap, fmt::Debug, future::Future, ops::Deref, pin::Pin, sync::Arc,
-};
+use std::{any::TypeId, collections::HashMap, future::Future, ops::Deref, pin::Pin, sync::Arc};
 
 pub static STATIC_MOCKS: Lazy<Arc<Mutex<StaticMocks>>> =
     Lazy::new(|| Arc::new(Mutex::new(StaticMocks::default())));
@@ -67,10 +65,7 @@ impl<I: Send + 'static, O: Send + 'static> MockGetter<I, O> for StaticMocks {
 }
 
 impl StaticMocks {
-    pub fn record_call_and_find_mock_output<
-        I: PartialEq + Debug + Clone + Send + 'static,
-        O: Debug + Send + 'static,
-    >(
+    pub fn record_call_and_find_mock_output<I: Send + 'static, O: Send + 'static>(
         &mut self,
         key: TypeId,
         name: &'static str,
@@ -165,7 +160,7 @@ mod tests {
         let mut mocks = Mocks::default();
         mocks
             .get_mut_or_create(returns_some_if_mocked.type_id(), "meow")
-            .returns(Matcher::Eq(()).wrapped(), ());
+            .returns(Matcher::new_eq(()).wrapped(), ());
         let mut static_mocks = StaticMocks(mocks);
 
         let mutex = Arc::new(Mutex::default());

@@ -20,12 +20,12 @@ pub fn create() -> TokenStream {
             #[doc(hidden)]
             pub struct #behavior_name<I, O>(Box<dyn FnMut(I) -> O + Send + 'static>);
 
-            impl<Fn, O, #(#types),*> From<Fn> for #behavior_name<(#(#types),*), O>
+            impl<Fn, O, #(#types),*> From<Fn> for #behavior_name<(#(#types,)*), O>
             where
                 Fn: FnMut(#(#types),*) -> O + Send + 'static,
             {
                 fn from(mut function: Fn) -> Self {
-                    #behavior_name(Box::new(move |(#(#args),*)| function(#(#args),*)))
+                    #behavior_name(Box::new(move |(#(#args,)*)| function(#(#args),*)))
                 }
             }
 
