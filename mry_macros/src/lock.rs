@@ -16,6 +16,32 @@ impl syn::parse::Parse for LockPaths {
 }
 
 pub(crate) fn transform(args: LockPaths, mut input: ItemFn) -> TokenStream {
+    if let Some((attr, paths)) = input
+        .attrs
+        .iter_mut()
+        .find(|attr| {
+            let path = attr.path();
+            if path.segments.len() == 1 && path.segments[0].ident == "lock" {
+                return true;
+            }
+            if path.segments.len() == 2
+                && path.segments[0].ident == "mry"
+                && path.segments[1].ident == "lock"
+            {
+                return true;
+            }
+            false
+        })
+        .and_then(|attr| {
+            attr.parse_args::<LockPaths>()
+                .ok()
+                .map(|paths| (attr, paths))
+        })
+    {
+        let paths = args.0.iter().chain(paths.0.iter());
+        *attr = parse_quote!(#[mry::lock(#(#paths),*)]);
+        return input.into_token_stream();
+    }
     let args = args.0.into_iter().map(|arg| {
         let name = arg.to_token_stream().to_string().replace(' ', "");
         quote![(std::any::Any::type_id(&#arg), #name.to_string())]
@@ -70,6 +96,31 @@ mod test {
                     ]), move | | {
                         assert!(true);
                     })
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn concats_multiple_locks() {
+        let args = LockPaths(vec![parse_str("a::a").unwrap(), parse_str("b::b").unwrap()]);
+        let input: ItemFn = parse2(quote! {
+            #[mry::lock(c::c)]
+            #[test]
+            fn test_meow() {
+                assert!(true);
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(args, input).to_string(),
+            quote! {
+                #[mry::lock(a::a, b::b, c::c)]
+                #[test]
+                fn test_meow() {
+                    assert!(true);
                 }
             }
             .to_string()
