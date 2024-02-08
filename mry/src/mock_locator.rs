@@ -55,7 +55,7 @@ macro_rules! get_mut_or_default {
 
 impl<I, O, B> MockLocator<I, O, B>
 where
-    I: Clone + PartialEq + Send + 'static,
+    I: Send + 'static,
     O: Send + 'static,
     B: Into<Behavior<I, O>>,
 {
@@ -75,7 +75,7 @@ where
 
 impl<I, O, B> MockLocator<I, O, B>
 where
-    I: Clone + PartialEq + Send + 'static,
+    I: Send + 'static,
     O: Send + 'static,
 {
     /// This make the mock calls real impl. This is used for partial mocking.
@@ -103,7 +103,7 @@ where
 
 impl<I, O, B> MockLocator<I, O, B>
 where
-    I: Clone + PartialEq + Send + 'static,
+    I: Send + 'static,
     O: Clone + Send + 'static,
 {
     /// This makes the mock returns the given constant value.
@@ -117,7 +117,7 @@ where
 impl<I, B, R>
     MockLocator<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
 where
-    I: Clone + PartialEq + Send + 'static,
+    I: Send + 'static,
     R: Clone + Send + 'static,
 {
     /// This makes the mock returns the given constant value with `std::future::ready`.
@@ -131,7 +131,7 @@ where
 impl<I, B, R>
     MockLocator<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
 where
-    I: Clone + PartialEq + Send + 'static,
+    I: Send + 'static,
     R: Send + 'static,
 {
     /// This makes the mock returns the given constant value with `std::future::ready`.

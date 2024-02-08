@@ -71,7 +71,7 @@ impl<I, O> Mock<I, O> {
 
 impl<I, O> Mock<I, O>
 where
-    I: Clone + PartialEq + Send + 'static,
+    I: Send + 'static,
     O: Clone + Send + 'static,
 {
     pub(crate) fn returns(&mut self, matcher: Arc<Mutex<Matcher<I>>>, ret: O) {
@@ -81,7 +81,7 @@ where
 
 impl<I, R> Mock<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>>
 where
-    I: Clone + PartialEq + Send + 'static,
+    I: Send + 'static,
     R: Clone + Send + 'static,
 {
     pub(crate) fn returns_ready(&mut self, matcher: Arc<Mutex<Matcher<I>>>, ret: R) {
@@ -96,7 +96,7 @@ where
 
 impl<I, R> Mock<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>>
 where
-    I: Clone + PartialEq + Send + 'static,
+    I: Send + 'static,
     R: Send + 'static,
 {
     pub(crate) fn returns_ready_once(&mut self, matcher: Arc<Mutex<Matcher<I>>>, ret: R) {
