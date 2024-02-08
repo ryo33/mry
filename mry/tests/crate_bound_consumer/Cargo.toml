@@ -1,5 +1,5 @@
 [package]
-name = "crate_bound_consumer"
+name = "mry_crate_bound_consumer"
 version = "0.4.7"
 edition = "2021"
 
@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 mry = { path = "../.." }
-crate_bound = { path = "../crate_bound" }
+mry_crate_bound = { path = "../crate_bound" }

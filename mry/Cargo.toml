@@ -24,3 +24,6 @@ serde = { version = "1.0", optional = true }
 async-std = { version = "1.9", features = ["attributes"] }
 async-trait = "0.1"
 trait-variant = "0.1"
+mry_crate_bound = { path = "tests/crate_bound" }
+mry_crate_bound_consumer = { path = "tests/crate_bound_consumer" }
+mry-test-serde = { path = "tests/serde" }
