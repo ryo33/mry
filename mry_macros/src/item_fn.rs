@@ -6,10 +6,10 @@ use crate::method;
 
 pub(crate) fn transform(input: ItemFn) -> TokenStream {
     let (original, mock) = method::transform(
-        quote![mry::STATIC_MOCKS.clone()],
+        quote![mry::get_static_mocks()],
         Default::default(),
         "",
-        quote![mry::STATIC_MOCKS.lock().record_call_and_find_mock_output],
+        quote![mry::static_record_call_and_find_mock_output],
         Some(&input.vis),
         &input.attrs,
         &input.sig,
@@ -43,7 +43,7 @@ mod test {
             quote! {
                 fn meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = mry::STATIC_MOCKS.lock().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&meow), "meow", (count.to_owned(),)) {
+                    if let Some(out) = mry::static_record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&meow), "meow", (count.to_owned(),)) {
                         return out;
                     }
                     {
@@ -55,7 +55,7 @@ mod test {
                 #[must_use]
                 pub fn mock_meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
-                        mry::STATIC_MOCKS.clone(),
+                        mry::get_static_mocks(),
                         std::any::Any::type_id(&meow),
                         "meow",
                         (count.into(),).into(),
@@ -80,7 +80,7 @@ mod test {
             quote! {
                 fn _meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = mry::STATIC_MOCKS.lock().record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&_meow), "_meow", (count.to_owned(),)) {
+                    if let Some(out) = mry::static_record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&_meow), "_meow", (count.to_owned(),)) {
                         return out;
                     }
                     {
@@ -93,7 +93,7 @@ mod test {
                 #[must_use]
                 pub fn mock__meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
-                        mry::STATIC_MOCKS.clone(),
+                        mry::get_static_mocks(),
                         std::any::Any::type_id(&_meow),
                         "_meow",
                         (count.into(),).into(),
