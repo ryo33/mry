@@ -12,26 +12,26 @@ A simple but powerful mocking library for **structs**, **traits**, and **functio
 
 * A really simple and easy API
 * Supports mock of structs, traits, and functions.
-* No need of switching between mock objects and real objects.
+* No need to switch between mock objects and real objects.
 * Supports partial mocking.
 
 ## Compared to [mockall](https://github.com/asomers/mockall)
 
-The clear difference of mry is that the API is simple and small, and since it is still being developed, you would find some behaviors that are not yet supported.
-Also, based on the priciple of least astonishment, mry solves several problems of mockall by the simplest way.
+The clear difference between mry is that the API is simple and small, and since it is still being developed, you would find some behaviors that are not yet supported.
+Also, based on the principle of least astonishment, mry solves several problems of mockall in the simplest way.
 
 **Mry is cfg-free**
 
 In mockall, `#[double]` is used to switch real and mocked structs.
 The problem is that `#[double]` makes mocked structs to be used for all test cases, so it will be complicated when some test case needs the real structs, especially for testing the struct itself.
 
-In mry, no `#[double]` or complex use strategy is required. 
+In mry, no `#[double]` or complex `use` strategy is required. 
 
 **Mry doesn't cause data races**
 
-In mockall, you need a manual synchronization with mock of static functions and methods. The problem is that the result will be unpredicted and hard to debug when you forget to have a lock.
+In mockall, you need a manual synchronization with a mock of static functions and methods. The problem is that the result will be unpredictable and hard to debug when you forget to have a lock.
 
-In mry, there is a managed synchronization, and when you forget it, you can get an error that tells it is required.
+In mry, there is a managed synchronization, and when you forget it, you can get an error that tells you it is required.
 
 ## Example
 
@@ -60,11 +60,11 @@ fn meow_returns() {
 }
 ```
 
-## mock APIs
+## How to mock a method or function
 
 ### Step1. Creating a pattern for a method or function
 
-If you have a mock object `cat`, you can create a pattern for a method called `meow` by calling `cat.mock_meow` with a matcher for each argument.
+a. If you have a mock object `cat`: you can create a pattern for a method called `meow` by calling `cat.mock_meow` with a matcher for each argument.
 
 ```rust
 // If you mock a struct called `Cat`
@@ -76,22 +76,23 @@ cat.mock_meow(mry::Any) // Any value can be matched
 cat.mock_meow(3) // matched with 3
 ```
 
-If you mock a function called `hello`, you can create a pattern with `mock_hello`.
-
-```rust
-mock_hello(3) // matched with 3
-```
-
-If you mock an associated function called `new` for a struct `Cat`, you can create a pattern with `Cat::mock_new`.
+b. If you mock an associated function called `new` in a struct `Cat`, you can create a pattern with `Cat::mock_new`.
 
 ```rust
 Cat::mock_new(mry::Any)
 ```
 
+c. If you mock a function called `hello`, you can create a pattern with `mock_hello`.
+
+```rust
+mock_hello(mry::Any)
+```
+
+
 > [!NOTE]
 > You can create multiple patterns for the same method or function, and they are matched in the order they are created.
 
-### Step2. Setting a expected behavior for the pattern
+### Step 2. Setting an expected behavior for the pattern
 
 Followed by the pattern, you can chain one of the following to set the expected behavior.
 
@@ -103,12 +104,12 @@ Followed by the pattern, you can chain one of the following to set the expected 
 - `calls_real_impl()` - Calls the real implementation of the method or function. Used for partial mocking.
 
 > [!NOTE]
-> `returns_ready` and `returns_ready_once` is not for `async fn`, but for methods that returns a boxed future or trait methods with return-position `impl Future`.
+> `returns_ready` and `returns_ready_once` is not for `async fn`, but for methods that return a boxed future or trait methods with return-position `impl Future`.
 
 ```rust
 cat.mock_meow(3).returns("Called with 3".into());
-mock_hello(3).returns("Called with 3".into());
 Cat::mock_new(mry::Any).returns(cat);
+mock_hello(mry::Any).returns("World".into());
 ```
 
 ### (Optional) Step3. Asserting the pattern is called as expected times
@@ -124,10 +125,10 @@ assert_eq!(cat.meow(3), "Returns this string when called with 3".to_string());
 mock_meow.assert_called(1);
 ```
 
-Also you can count for a pattern without setting a behavior.
+Also, you can count for a specific pattern without setting a behavior.
 
 ```rust
-// You must create a pattern before `cat.meow` would called.
+// You must create a pattern before `cat.meow` would be called.
 let mock_meow_for_2 = cat.mock_meow(2);
 
 let mock_meow_for_any = cat.mock_meow(mry::Any).returns("Called".into());
@@ -144,7 +145,7 @@ mock_meow_for_any.assert_called(3);
 
 ### Mocking a struct
 
-We need to add an attribute `#[mry::mry]` in the front of struct definition and impl block to mock them.
+We need to add an attribute `#[mry::mry]` in the front of the struct definition and the impl block to mock them.
 
 ```rust
 #[mry::mry] // This
@@ -179,11 +180,11 @@ Cat { name: "Tama", ..Default::default() };
 ```
 
 > [!IMPORTANT]
-> When release build, the `mry` field of your struct will be zero size, and `mock_*` functions will be unavailable.
+> When release build, the `mry` field of your struct will be zero sized, and `mock_*` functions will be unavailable.
 
 ### Partial mocks
 
-You can do partial mocking with using `calls_real_impl()`.
+You can do partial mocking by using `calls_real_impl()`.
 
 ```rust
 #[mry::mry]
@@ -247,7 +248,7 @@ fn hello(count: usize) -> String {
 }
 ```
 
-We need to acquire a lock of the function by using `#[mry::lock(hello)]` because mocking of static function uses global state.
+We need to acquire a lock of the function by using `#[mry::lock(hello)]` because mocking of the static function uses a global state.
 
 ```rust
 #[test]
@@ -276,7 +277,7 @@ impl Cat {
 }
 ```
 
-We need to acquire a lock for the same reason in mocking function above.
+We need to acquire a lock for the same reason in the mocking function above.
 
 ```rust
 #[test]
@@ -325,7 +326,7 @@ cat.mock_meow().returns_ready("Called".to_string());
 ```
 
 > [!IMPORTANT]
-> You must use `returns_ready` for the generated one instead of `returns` for original one. 
+> You must use `returns_ready` for the generated one instead of `returns` for the original one. 
 > Because the generated one is not `async fn` but `impl Future` in return position, and mry expects a boxed future for returning as `impl Future`.
 
 ### async_trait
