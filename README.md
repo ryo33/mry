@@ -52,13 +52,97 @@ impl Cat {
 fn meow_returns() {
     let mut cat = mry::new!(Cat { name: "Tama".into() });
 
-    cat.mock_meow(mry::Any).returns("Called".to_string());
+    let mock_meow = cat.mock_meow(mry::Any).returns("Called".to_string());
 
     assert_eq!(cat.meow(2), "Called".to_string());
+
+    mock_meow.assert_called(1);
 }
 ```
 
-## Mocking a struct
+## mock APIs
+
+### Step1. Creating a pattern for a method or function
+
+If you have a mock object `cat`, you can create a pattern for a method called `meow` by calling `cat.mock_meow` with a matcher for each argument.
+
+```rust
+// If you mock a struct called `Cat`
+let mut cat = mry::new!(Cat { name: "Tama".into() });
+// If you mock a trait called `Cat`
+let mut cat = MockCat::default();
+
+cat.mock_meow(mry::Any) // Any value can be matched
+cat.mock_meow(3) // matched with 3
+```
+
+If you mock a function called `hello`, you can create a pattern with `mock_hello`.
+
+```rust
+mock_hello(3) // matched with 3
+```
+
+If you mock an associated function called `new` for a struct `Cat`, you can create a pattern with `Cat::mock_new`.
+
+```rust
+Cat::mock_new(mry::Any)
+```
+
+> [!NOTE]
+> You can create multiple patterns for the same method or function, and they are matched in the order they are created.
+
+### Step2. Setting a expected behavior for the pattern
+
+Followed by the pattern, you can chain one of the following to set the expected behavior.
+
+- `returns(value)` - Returns a value always. The value must implement `Clone` for returning it multiple times.
+- `returns_once(value)` - Returns a value only once. No need to implement `Clone`.
+- `returns_with(closure)` - Returns a dynamic value by a closure that takes the arguments. No need to implement `Clone` for the output.
+- `returns_ready(value)` - Returns a boxed future every time with cloning the value.
+- `returns_ready_once(value)` - Shortcut for `returns_once(Box::new(async { value }))`.
+- `calls_real_impl()` - Calls the real implementation of the method or function. Used for partial mocking.
+
+> [!NOTE]
+> `returns_ready` and `returns_ready_once` is not for `async fn`, but for methods that returns a boxed future or trait methods with return-position `impl Future`.
+
+```rust
+cat.mock_meow(3).returns("Called with 3".into());
+mock_hello(3).returns("Called with 3".into());
+Cat::mock_new(mry::Any).returns(cat);
+```
+
+### (Optional) Step3. Asserting the pattern is called as expected times
+
+You can call `assert_called` for asserting the pattern is called as expected times.
+
+```rust
+// You need to bind the mock object to a variable to call `assert_called`.
+let mock_meow = cat.mock_meow(3).returns("Returns this string when called with 3".into());
+
+assert_eq!(cat.meow(3), "Returns this string when called with 3".to_string());
+
+mock_meow.assert_called(1);
+```
+
+Also you can count for a pattern without setting a behavior.
+
+```rust
+// You must create a pattern before `cat.meow` would called.
+let mock_meow_for_2 = cat.mock_meow(2);
+
+let mock_meow_for_any = cat.mock_meow(mry::Any).returns("Called".into());
+
+assert_eq!(cat.meow(1), "Called".to_string());
+assert_eq!(cat.meow(2), "Called".to_string());
+assert_eq!(cat.meow(3), "Called".to_string());
+
+mock_meow_for_2.assert_called(1);
+mock_meow_for_any.assert_called(3);
+```
+
+## Basic Usages
+
+### Mocking a struct
 
 We need to add an attribute `#[mry::mry]` in the front of struct definition and impl block to mock them.
 
@@ -94,44 +178,10 @@ Cat::default();
 Cat { name: "Tama", ..Default::default() };
 ```
 
-Now you can mock it by using following functions:
+> [!IMPORTANT]
+> When release build, the `mry` field of your struct will be zero size, and `mock_*` functions will be unavailable.
 
-- `mock_*(...).returns(...)`: Makes a mock to return a constant value.
-- `mock_*(...).returns_with(|arg| ...)`: Makes a mock to return a value with a closure (This is allowed to return `!Clone` unlike `returns` cannot).
-- `mock_*(...).assert_called(...)`: Asserts that a mock was called with correct arguments and times, and returns call logs.
-
-### Examples
-
-```rust
-cat.mock_meow(3).returns("Returns this string when called with 3".into());
-cat.mock_meow(mry::Any).returns("This string is returned for any value".into());
-cat.mock_meow(mry::Any).returns_with(|count| format!("Called with {}", count)); // return a dynamic value
-```
-
-```rust
-cat.mock_meow(3).assert_called(1); // Assert called exactly 1 time with 3
-cat.mock_meow(mry::Any).assert_called(1); // Assert called with any value
-cat.mock_meow(3).assert_called(0..100); // or within the range
-```
-
-## Release build
-
-When release build, the `mry` field of your struct will be zero size, and `mock_*` functions will be unavailable.
-
-## impl Trait for Struct
-
-Also, mocking of impl trait is supported in the same API.
-
-```rust
-#[mry::mry]
-impl Into<&'static str> for Cat {
-    fn into(self) -> &'static str {
-        self.name
-    }
-}
-```
-
-## Partial mocks
+### Partial mocks
 
 You can do partial mocking with using `calls_real_impl()`.
 
@@ -163,9 +213,9 @@ fn partial_mock() {
 }
 ```
 
-## Mocking a trait
+### Mocking a trait
 
-Just add `#[mry::mry]` as before;
+Just add `#[mry::mry]` to the trait definition.
 
 ```rust
 #[mry::mry]
@@ -186,38 +236,7 @@ cat.mock_meow(2).returns("Called with 2".into());
 assert_eq!(cat.meow(2), "Called with 2".to_string());
 ```
 
-We can also mock a trait by manually creating a mock struct.
-If the trait has a generics or associated type, we need to use this way.
-
-```rust
-#[mry::mry]
-#[derive(Default)]
-struct MockIterator {
-}
-
-#[mry::mry]
-impl Iterator for MockIterator {
-    type Item = u8;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!()
-    }
-}
-```
-
-## async_trait
-
-Add `#[mry::mry]` with the async_trait attribute underneath.
-
-```rust
-#[mry::mry]
-#[async_trait::async_trait]
-pub trait Cat {
-    async fn meow(&self, count: usize) -> String;
-}
-```
-
-## Mocking a function
+### Mocking a function
 
 Add `#[mry::mry]` to the function definition.
 
@@ -241,11 +260,12 @@ fn function_keeps_original_function() {
 }
 ```
 
-## Mocking an associated function (static function)
+### Mocking an associated function (static function)
 
 Include your associated function into the impl block with `#[mry::mry]`.
 
 ```rust
+#[mry::mry]
 struct Cat {}
 
 #[mry::mry]
@@ -270,3 +290,89 @@ fn meow_returns() {
 ```
 
 To lock multiple static functions simultaneously, list the functions in a comma-separated format: `#[mry::lock(function_a, function_b, function_c)]`. This approach automatically prevents deadlocks by sorting the functions before locking.
+
+## Advanced Usages
+
+### `async fn` in trait (1.75.0 or later)
+
+Add `#[mry::mry]` to the trait definition.
+
+```rust
+#[mry::mry]
+pub trait Cat {
+    async fn meow(&self, count: usize) -> String;
+}
+```
+
+You can do `cat.mock_meow().returns("Called".to_string())` as the same as sync methods.
+
+### trait_variant::make with `async fn` (1.75.0 or later)
+
+If you use `trait_variant::make` attribute, you must put `#[mry::mry]` under the `#[trait_variant::make(Cat: Send)]`.
+
+```rust
+#[trait_variant::make(Cat: Send)]
+#[mry::mry]
+pub trait LocalCat {
+    async fn meow(&self) -> String;
+}
+
+let mut cat = MockLocalCat::default();
+cat.mock_meow().returns("Called".to_string());
+
+let mut cat = MockCat::default();
+cat.mock_meow().returns_ready("Called".to_string());
+```
+
+> [!IMPORTANT]
+> You must use `returns_ready` for the generated one instead of `returns` for original one. 
+> Because the generated one is not `async fn` but `impl Future` in return position, and mry expects a boxed future for returning as `impl Future`.
+
+### async_trait
+
+If you use `async_trait` crate, you must put `#[async_trait]` under the `#[mry::mry]`.
+
+```rust
+#[mry::mry]
+#[async_trait::async_trait]
+pub trait Cat {
+    async fn meow(&self, count: usize) -> String;
+}
+```
+
+You can do `cat.mock_meow().returns("Called".to_string())` as the same as sync methods.
+
+### impl Trait for Struct
+
+Mocking of impl trait is supported in the same API.
+
+```rust
+#[mry::mry]
+impl Into<&'static str> for Cat {
+    fn into(self) -> &'static str {
+        self.name
+    }
+}
+```
+
+You can do `cat.mock_into()` as well as `cat.mock_meow()`.
+
+### Mocking a trait with generics or associated type
+
+We can also mock a trait by manually creating a mock struct.
+If the trait has a generics or associated type, we need to use this way for now.
+
+```rust
+#[mry::mry]
+#[derive(Default)]
+struct MockIterator {}
+
+#[mry::mry]
+impl Iterator for MockIterator {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
+}
+```

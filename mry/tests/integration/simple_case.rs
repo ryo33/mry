@@ -163,15 +163,38 @@ fn returns_once_not_clone_value() {
 }
 
 #[test]
-fn reuse_locator() {
+fn assert_called_for_specific_case() {
     let mut cat = Cat {
         name: "Tama".into(),
         ..Default::default()
     };
 
-    let locator = cat.mock_meow(Any).returns("Called".into());
+    let any_locator = cat.mock_meow(Any).returns("Called".into());
+    let specific_locator = cat.mock_meow(3);
 
-    cat.meow(2);
+    assert_eq!(cat.meow(2), "Called".to_string());
+    assert_eq!(cat.meow(3), "Called".to_string());
+    assert_eq!(cat.meow(4), "Called".to_string());
 
-    locator.assert_called(1);
+    any_locator.assert_called(3);
+    specific_locator.assert_called(1);
+}
+
+#[test]
+fn assert_called_for_any_case() {
+    let mut cat = Cat {
+        name: "Tama".into(),
+        ..Default::default()
+    };
+
+    let any_locator = cat.mock_meow(Any);
+    let locator2 = cat.mock_meow(2).returns("Called with 2".into());
+    let locator3 = cat.mock_meow(3).returns("Called with 3".into());
+
+    assert_eq!(cat.meow(2), "Called with 2".to_string());
+    assert_eq!(cat.meow(3), "Called with 3".to_string());
+
+    any_locator.assert_called(2);
+    locator2.assert_called(1);
+    locator3.assert_called(1);
 }
