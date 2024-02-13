@@ -117,28 +117,35 @@ mock_hello(mry::Any).returns("World".into());
 You can call `assert_called` for asserting the pattern is called as expected times.
 
 ```rust
-// You need to bind the mock object to a variable to call `assert_called`.
-let mock_meow = cat.mock_meow(3).returns("Returns this string when called with 3".into());
+cat.mock_meow(3).returns("Returns this string when called with 3".into());
 
 assert_eq!(cat.meow(3), "Returns this string when called with 3".to_string());
 
-mock_meow.assert_called(1);
+cat.mock_meow(3).assert_called(1);
 ```
 
-Also, you can count for a specific pattern without setting a behavior.
+Also, you can count for a specific pattern.
 
 ```rust
-// You must create a pattern before `cat.meow` would be called.
-let mock_meow_for_2 = cat.mock_meow(2);
-
-let mock_meow_for_any = cat.mock_meow(mry::Any).returns("Called".into());
+cat.mock_meow(mry::Any).returns("Called".into());
 
 assert_eq!(cat.meow(1), "Called".to_string());
 assert_eq!(cat.meow(2), "Called".to_string());
 assert_eq!(cat.meow(3), "Called".to_string());
 
-mock_meow_for_2.assert_called(1);
-mock_meow_for_any.assert_called(3);
+cat.mock_meow(mry::Any)..assert_called(3);
+// specific pattern
+cat.mock_meow(2).assert_called(1);
+```
+
+If you want to assert the same pattern as the behavior setting, you can bind the result of the setting and call `assert_called` on it.
+
+```rust
+let mock_meow = cat.mock_meow(3).returns("Called".to_string());
+
+assert_eq!(cat.meow(3), "Called".to_string());
+
+mock_meow.assert_called(1);
 ```
 
 ## Basic Usages
