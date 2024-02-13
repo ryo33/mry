@@ -82,34 +82,6 @@ where
     }
 }
 
-impl<I, R> Mock<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>>
-where
-    I: 'static,
-    R: Clone + Send + 'static,
-{
-    pub(crate) fn returns_ready(&mut self, matcher: Arc<Mutex<Matcher<I>>>, ret: R) {
-        self.returns_with(
-            matcher,
-            Behavior::Const(Mutex::new(Box::new(
-                repeat(ret).map(|r| Box::pin(std::future::ready(r)) as _),
-            ))),
-        )
-    }
-}
-
-impl<I, R> Mock<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>>
-where
-    I: 'static,
-    R: Send + 'static,
-{
-    pub(crate) fn returns_ready_once(&mut self, matcher: Arc<Mutex<Matcher<I>>>, ret: R) {
-        self.returns_with(
-            matcher,
-            Behavior::Once(Mutex::new(Some(Box::pin(std::future::ready(ret))))),
-        )
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;

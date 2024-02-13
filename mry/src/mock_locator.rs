@@ -95,30 +95,3 @@ where
         self
     }
 }
-
-impl<I, B, R>
-    MockLocator<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
-where
-    I: 'static,
-    R: Clone + Send + 'static,
-{
-    /// This makes the mock returns the given constant value with `std::future::ready`.
-    /// This requires `Clone`. For returning not clone value, use `returns_ready_once`.
-    pub fn returns_ready(self, ret: R) -> Self {
-        get_mut_or_default!(self).returns_ready(self.matcher.clone(), ret);
-        self
-    }
-}
-
-impl<I, B, R>
-    MockLocator<I, std::pin::Pin<Box<dyn std::future::Future<Output = R> + Send + 'static>>, B>
-where
-    I: 'static,
-    R: Send + 'static,
-{
-    /// This makes the mock returns the given constant value with `std::future::ready`.
-    pub fn returns_ready_once(self, ret: R) -> Self {
-        get_mut_or_default!(self).returns_ready_once(self.matcher.clone(), ret);
-        self
-    }
-}

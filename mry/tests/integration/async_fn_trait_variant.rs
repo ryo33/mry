@@ -11,7 +11,7 @@ pub struct NonClone;
 async fn meow_called() {
     let mut cat = MockCat::default();
 
-    cat.mock_meow(2).returns_ready("Called");
+    cat.mock_meow(2).returns("Called");
 
     assert_eq!(Cat::meow(&cat, 2).await, "Called");
 }
@@ -20,7 +20,7 @@ async fn meow_called() {
 async fn meow_called2() {
     let mut cat = MockCat::default();
 
-    cat.mock_meow2(2).returns_ready_once(NonClone);
+    cat.mock_meow2(2).returns_once(NonClone);
 
     let _ = Cat::meow2(&cat, 2).await;
 }

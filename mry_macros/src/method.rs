@@ -61,9 +61,17 @@ pub(crate) fn transform(
             }
         })
         .collect();
+    let mut is_impl_future = false;
     let static_output_type = match &sig.output {
         ReturnType::Default => quote!(()),
-        ReturnType::Type(_, ty) => make_static_type(ty),
+        ReturnType::Type(_, ty) => {
+            if let Some(output) = impl_future(ty) {
+                is_impl_future = true;
+                make_static_type(output)
+            } else {
+                make_static_type(ty)
+            }
+        }
     };
     let ident = sig.ident.clone();
     let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
@@ -136,13 +144,22 @@ pub(crate) fn transform(
             .into_iter()
             .chain(args_without_receiver.iter().cloned().map(FnArg::Typed)),
     );
+    let return_out = if is_impl_future {
+        quote! {
+            return async move { out };
+        }
+    } else {
+        quote! {
+            return out;
+        }
+    };
     (
         quote! {
             #(#attrs)*
             #vis #sig {
                 #[cfg(debug_assertions)]
                 if let Some(out) = #record_call_and_find_mock_output::<_, #static_output_type>(#key, #name, (#(#owned_args,)*)) {
-                    return out;
+                    #return_out
                 }
                 #(#bindings)*
                 #body
@@ -174,6 +191,29 @@ pub fn make_owned_type(ty: &Type) -> Option<Type> {
     }
 }
 
+pub fn impl_future(ty: &Type) -> Option<&Type> {
+    let syn::Type::ImplTrait(impl_trait) = ty else {
+        return None;
+    };
+    let syn::TypeParamBound::Trait(bound) = &impl_trait.bounds[0] else {
+        return None;
+    };
+    let last = bound.path.segments.last().unwrap();
+    if last.ident != "Future" {
+        return None;
+    }
+    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
+        return None;
+    };
+    let syn::GenericArgument::AssocType(assoc) = &args.args[0] else {
+        return None;
+    };
+    if assoc.ident != "Output" {
+        return None;
+    }
+    Some(&assoc.ty)
+}
+
 pub fn make_static_type(ty: &Type) -> TokenStream {
     match &ty {
         Type::Reference(ty) => {
@@ -182,7 +222,7 @@ pub fn make_static_type(ty: &Type) -> TokenStream {
         }
         Type::ImplTrait(impl_trait) => {
             let bounds = &impl_trait.bounds;
-            quote!(::core::pin::Pin<Box<dyn #bounds>>)
+            quote!(Box<dyn #bounds>)
         }
         ty => quote!(#ty),
     }
@@ -637,8 +677,8 @@ mod test {
                 quote! {
                 fn meow(&self, count: usize) -> impl std::future::Future<Output = String> + Send {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, ::core::pin::Pin<Box<dyn std::future::Future<Output = String> + Send>>>(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.to_owned(),)) {
-                        return out;
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.to_owned(),)) {
+                        return async move { out };
                     }
                     async move {
                         "meow".repeat(count)
@@ -647,7 +687,7 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), ::core::pin::Pin<Box<dyn std::future::Future<Output = String> + Send>>, mry::Behavior1<(usize,), ::core::pin::Pin<Box<dyn std::future::Future<Output = String> + Send>>> > {
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
