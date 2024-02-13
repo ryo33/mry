@@ -99,12 +99,7 @@ Followed by the pattern, you can chain one of the following to set the expected 
 - `returns(value)` - Returns a value always. The value must implement `Clone` for returning it multiple times.
 - `returns_once(value)` - Returns a value only once. No need to implement `Clone`.
 - `returns_with(closure)` - Returns a dynamic value by a closure that takes the arguments. No need to implement `Clone` for the output.
-- `returns_ready(value)` - Returns a boxed future every time with cloning the value.
-- `returns_ready_once(value)` - Shortcut for `returns_once(Box::new(async { value }))`.
 - `calls_real_impl()` - Calls the real implementation of the method or function. Used for partial mocking.
-
-> [!NOTE]
-> `returns_ready` and `returns_ready_once` is not for `async fn`, but for methods that return a boxed future or trait methods with return-position `impl Future`.
 
 ```rust
 cat.mock_meow(3).returns("Called with 3".into());
@@ -329,12 +324,8 @@ let mut cat = MockLocalCat::default();
 cat.mock_meow().returns("Called".to_string());
 
 let mut cat = MockCat::default();
-cat.mock_meow().returns_ready("Called".to_string());
+cat.mock_meow().returns("Called".to_string());
 ```
-
-> [!IMPORTANT]
-> You must use `returns_ready` for the generated one instead of `returns` for the original one. 
-> Because the generated one is not `async fn` but `impl Future` in return position, and mry expects a boxed future for returning as `impl Future`.
 
 ### async_trait
 
