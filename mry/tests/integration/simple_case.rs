@@ -116,10 +116,10 @@ fn times() {
         name: "Tama".into(),
         ..Default::default()
     };
-    let meow = cat.mock_meow(Any).returns("Called".into());
+    cat.mock_meow(Any).returns("Called".into());
     cat.meow(2);
     cat.meow(2);
-    meow.assert_called(2);
+    cat.mock_meow(Any).assert_called(2);
 }
 
 #[test]
@@ -128,11 +128,11 @@ fn times_within() {
         name: "Tama".into(),
         ..Default::default()
     };
-    let meow = cat.mock_just_meow().returns("Called".to_string());
+    cat.mock_just_meow().returns("Called".to_string());
     cat.just_meow();
     cat.just_meow();
 
-    meow.assert_called(2..3);
+    cat.mock_just_meow().assert_called(2..3);
 }
 
 #[test]
@@ -156,10 +156,11 @@ fn returns_once_not_clone_value() {
         name: "Tama".into(),
         ..Default::default()
     };
-    let meow = cat.mock_meow(0).returns_once(NotClone);
+    cat.mock_meow(0).returns_once(NotClone);
 
     cat.meow(0);
-    meow.assert_called(1);
+
+    cat.mock_meow(0).assert_called(1);
 }
 
 #[test]
@@ -169,15 +170,14 @@ fn assert_called_for_specific_case() {
         ..Default::default()
     };
 
-    let any_locator = cat.mock_meow(Any).returns("Called".into());
-    let specific_locator = cat.mock_meow(3);
+    cat.mock_meow(Any).returns("Called".into());
 
     assert_eq!(cat.meow(2), "Called".to_string());
     assert_eq!(cat.meow(3), "Called".to_string());
     assert_eq!(cat.meow(4), "Called".to_string());
 
-    any_locator.assert_called(3);
-    specific_locator.assert_called(1);
+    cat.mock_meow(Any).assert_called(3);
+    cat.mock_meow(3).assert_called(1);
 }
 
 #[test]
@@ -187,14 +187,13 @@ fn assert_called_for_any_case() {
         ..Default::default()
     };
 
-    let any_locator = cat.mock_meow(Any);
-    let locator2 = cat.mock_meow(2).returns("Called with 2".into());
-    let locator3 = cat.mock_meow(3).returns("Called with 3".into());
+    cat.mock_meow(2).returns("Called with 2".into());
+    cat.mock_meow(3).returns("Called with 3".into());
 
     assert_eq!(cat.meow(2), "Called with 2".to_string());
     assert_eq!(cat.meow(3), "Called with 3".to_string());
 
-    any_locator.assert_called(2);
-    locator2.assert_called(1);
-    locator3.assert_called(1);
+    cat.mock_meow(Any).assert_called(2);
+    cat.mock_meow(2).assert_called(1);
+    cat.mock_meow(3).assert_called(1);
 }

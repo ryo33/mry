@@ -13,7 +13,10 @@ pub(crate) enum Output<O> {
 /// Behavior of mock
 pub enum Behavior<I, O> {
     /// Behaves with a function
-    Function(Box<dyn FnMut(I) -> O + Send + 'static>),
+    Function {
+        clone: fn(&I) -> I,
+        call: Box<dyn FnMut(I) -> O + Send + 'static>,
+    },
     /// Returns a constant value
     Const(Mutex<Box<dyn Iterator<Item = O> + Send + 'static>>),
     /// Once
@@ -25,7 +28,7 @@ pub enum Behavior<I, O> {
 impl<I: Debug, O: Debug> std::fmt::Debug for Behavior<I, O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Function(_) => f.debug_tuple("Function(_)").finish(),
+            Self::Function { .. } => f.debug_tuple("Function(_)").finish(),
             Self::Const(cons) => f
                 .debug_tuple("Const")
                 .field(&cons.lock().next().unwrap())
@@ -40,9 +43,9 @@ impl<I: Debug, O: Debug> std::fmt::Debug for Behavior<I, O> {
 }
 
 impl<I, O> Behavior<I, O> {
-    pub(crate) fn called(&mut self, input: I) -> Output<O> {
+    pub(crate) fn called(&mut self, input: &I) -> Output<O> {
         match self {
-            Behavior::Function(function) => Output::Found(function(input)),
+            Behavior::Function { clone, call } => Output::Found(call(clone(input))),
             Behavior::Const(cons) => Output::Found(cons.get_mut().next().unwrap()),
             Behavior::Once(once) => {
                 if let Some(ret) = once.lock().take() {
@@ -67,7 +70,11 @@ mod tests {
     #[test]
     fn function() {
         assert_eq!(
-            Behavior::Function(Box::new(|()| "aaa")).called(()),
+            Behavior::Function {
+                call: Box::new(|()| "aaa"),
+                clone: Clone::clone
+            }
+            .called(&()),
             Output::Found("aaa")
         );
     }
@@ -110,7 +117,13 @@ mod tests {
     #[test]
     fn debug_function() {
         assert_eq!(
-            format!("{:?}", Behavior::<u8, u8>::Function(Box::new(|_| 42))),
+            format!(
+                "{:?}",
+                Behavior::<u8, u8>::Function {
+                    clone: Clone::clone,
+                    call: Box::new(|a| a)
+                }
+            ),
             "Function(_)".to_string()
         )
     }

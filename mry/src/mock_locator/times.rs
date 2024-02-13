@@ -3,12 +3,12 @@ use std::ops::{Bound, Range, RangeBounds, RangeFrom, RangeInclusive, RangeTo};
 #[doc(hidden)]
 #[derive(Debug)]
 pub enum Times {
-    Exact(u64),
-    Range((Bound<u64>, Bound<u64>)),
+    Exact(usize),
+    Range((Bound<usize>, Bound<usize>)),
 }
 
 impl Times {
-    pub(crate) fn contains(&self, count: &u64) -> bool {
+    pub(crate) fn contains(&self, count: &usize) -> bool {
         match self {
             Times::Exact(n) => count == n,
             Times::Range(range) => range.contains(count),
@@ -16,32 +16,32 @@ impl Times {
     }
 }
 
-impl From<u64> for Times {
-    fn from(times: u64) -> Self {
+impl From<usize> for Times {
+    fn from(times: usize) -> Self {
         Times::Exact(times)
     }
 }
 
-impl From<Range<u64>> for Times {
-    fn from(range: Range<u64>) -> Self {
+impl From<Range<usize>> for Times {
+    fn from(range: Range<usize>) -> Self {
         Times::Range((range.start_bound().cloned(), range.end_bound().cloned()))
     }
 }
 
-impl From<RangeFrom<u64>> for Times {
-    fn from(range: RangeFrom<u64>) -> Self {
+impl From<RangeFrom<usize>> for Times {
+    fn from(range: RangeFrom<usize>) -> Self {
         Times::Range((range.start_bound().cloned(), range.end_bound().cloned()))
     }
 }
 
-impl From<RangeTo<u64>> for Times {
-    fn from(range: RangeTo<u64>) -> Self {
+impl From<RangeTo<usize>> for Times {
+    fn from(range: RangeTo<usize>) -> Self {
         Times::Range((range.start_bound().cloned(), range.end_bound().cloned()))
     }
 }
 
-impl From<RangeInclusive<u64>> for Times {
-    fn from(range: RangeInclusive<u64>) -> Self {
+impl From<RangeInclusive<usize>> for Times {
+    fn from(range: RangeInclusive<usize>) -> Self {
         Times::Range((range.start_bound().cloned(), range.end_bound().cloned()))
     }
 }

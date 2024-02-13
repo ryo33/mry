@@ -1,6 +1,9 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 
 use crate::mock::Mock;
 
@@ -56,8 +59,10 @@ impl Mocks {
         name: &'static str,
         input: I,
     ) -> Option<O> {
-        self.get_mut_or_create(key, name)
-            .record_call_and_find_mock_output(input)
+        let mock = self.get_mut_or_create(key, name);
+        let result = mock.find_mock_output(&input);
+        mock.record_call(Arc::new(Mutex::new(input)));
+        result
     }
 
     #[cfg(test)]
@@ -103,13 +108,16 @@ mod test {
         let mut mock = Mock::<u8, u8>::new("a");
         mock.returns_with(
             Matcher::any().wrapped(),
-            Behavior::Function(Box::new(|_| 4u8)),
+            Behavior::Function {
+                call: Box::new(|_| 4u8),
+                clone: Clone::clone,
+            },
         );
         mock_data.insert(TypeId::of::<usize>(), mock);
         assert_eq!(
             mock_data
                 .get_mut_or_create(TypeId::of::<usize>(), "meow")
-                .record_call_and_find_mock_output(1u8),
+                .find_mock_output(&1u8),
             Some(4u8)
         );
     }

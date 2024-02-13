@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use crate::mock::{Counter, Logger};
 use crate::{Behavior, Matcher, MockGetter};
 
 use self::times::Times;
@@ -17,7 +16,6 @@ pub struct MockLocator<I, O, B> {
     pub(crate) key: TypeId,
     pub(crate) name: &'static str,
     pub(crate) matcher: Arc<Mutex<Matcher<I>>>,
-    pub(crate) counter: Counter,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (I, O, B)>,
 }
@@ -30,18 +28,11 @@ impl<I, O, B> MockLocator<I, O, B> {
         name: &'static str,
         matcher: Matcher<I>,
     ) -> Self {
-        let matcher = matcher.wrapped();
-        let counter = Counter::new();
-        mocks
-            .lock()
-            .get_mut_or_create(key, name)
-            .register_logger(Logger::new(matcher.clone(), counter.clone()));
         Self {
             mocks,
             key,
             name,
-            matcher,
-            counter,
+            matcher: Arc::new(Mutex::new(matcher)),
             _phantom: Default::default(),
         }
     }
@@ -88,16 +79,7 @@ where
     /// Returns `MockResult` allows to call `times(n)`
     /// Panics if not called
     pub fn assert_called(&self, times: impl Into<Times>) {
-        let times = times.into();
-        if times.contains(&self.counter.get()) {
-            return;
-        }
-        panic!(
-            "Expected {} to be called {} times, but it was called {} times",
-            self.name,
-            times,
-            self.counter.get()
-        );
+        get_mut_or_default!(self).assert_called(&self.matcher.lock(), times.into());
     }
 }
 

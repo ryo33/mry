@@ -29,9 +29,12 @@ pub fn create() -> TokenStream {
                 }
             }
 
-            impl<I, O> Into<Behavior<I, O>> for #behavior_name<I, O> {
+            impl<I: Clone, O> Into<Behavior<I, O>> for #behavior_name<I, O> {
                 fn into(self) -> Behavior<I, O> {
-                    Behavior::Function(self.0)
+                    Behavior::Function {
+                        clone: Clone::clone,
+                        call: self.0,
+                    }
                 }
             }
         }

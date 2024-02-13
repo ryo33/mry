@@ -1,15 +1,15 @@
-mod logger;
+mod log;
 use std::{iter::repeat, sync::Arc};
 
-pub use logger::*;
+pub use log::*;
 
 use parking_lot::Mutex;
 
-use crate::{Behavior, Matcher, Output, Rule};
+use crate::{times::Times, Behavior, Matcher, Output, Rule};
 
 pub struct Mock<I, O> {
     pub name: &'static str,
-    pub loggers: Vec<Logger<I>>,
+    pub log: Logs<I>,
     rules: Vec<Rule<I, O>>,
 }
 
@@ -17,13 +17,9 @@ impl<I, O> Mock<I, O> {
     pub fn new(name: &'static str) -> Self {
         Self {
             name,
-            loggers: Default::default(),
+            log: Default::default(),
             rules: Default::default(),
         }
-    }
-
-    pub fn register_logger(&mut self, logger: Logger<I>) {
-        self.loggers.push(logger);
     }
 }
 
@@ -48,13 +44,20 @@ impl<I, O> Mock<I, O> {
     }
 }
 
+impl<I: 'static, O> Mock<I, O> {
+    pub(crate) fn assert_called(&self, matcher: &Matcher<I>, times: Times) {
+        self.log.assert_called(self.name, matcher, times);
+    }
+
+    pub(crate) fn record_call(&mut self, input: Arc<Mutex<I>>) {
+        self.log.push(input);
+    }
+}
+
 impl<I, O> Mock<I, O> {
-    pub(crate) fn record_call_and_find_mock_output(&mut self, input: I) -> Option<O> {
-        for logger in &self.loggers {
-            logger.log(&input);
-        }
+    pub(crate) fn find_mock_output(&mut self, input: &I) -> Option<O> {
         for rule in &mut self.rules {
-            if !rule.matches(&input) {
+            if !rule.matches(input) {
                 continue;
             }
             return match rule.call_behavior(input) {
@@ -109,10 +112,8 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::sync::atomic::{AtomicU8, Ordering};
-
     use super::*;
-    use crate::{callback::Call, Behavior1};
+    use crate::Behavior1;
 
     #[test]
     fn returns_with() {
@@ -122,10 +123,7 @@ mod test {
             Behavior1::from(|a| "a".repeat(a)).into(),
         );
 
-        assert_eq!(
-            mock.record_call_and_find_mock_output((3,)),
-            "aaa".to_string().into()
-        );
+        assert_eq!(mock.find_mock_output(&(3,)), "aaa".to_string().into());
     }
 
     #[test]
@@ -133,16 +131,10 @@ mod test {
         let mut mock = Mock::<(usize,), String>::new("a");
         mock.returns(Matcher::any().wrapped(), "a".repeat(3));
 
-        assert_eq!(
-            mock.record_call_and_find_mock_output((3,)),
-            "aaa".to_string().into()
-        );
+        assert_eq!(mock.find_mock_output(&(3,)), "aaa".to_string().into());
 
         // allows called multiple times
-        assert_eq!(
-            mock.record_call_and_find_mock_output((3,)),
-            "aaa".to_string().into()
-        );
+        assert_eq!(mock.find_mock_output(&(3,)), "aaa".to_string().into());
     }
 
     #[test]
@@ -154,7 +146,7 @@ mod test {
             Behavior1::from(|a| "a".repeat(a)).into(),
         );
 
-        mock.record_call_and_find_mock_output((3,));
+        mock.find_mock_output(&(3,));
     }
 
     #[test]
@@ -165,10 +157,7 @@ mod test {
             Behavior1::from(|a| "a".repeat(a)).into(),
         );
 
-        assert_eq!(
-            mock.record_call_and_find_mock_output((3,)),
-            "aaa".to_string().into()
-        );
+        assert_eq!(mock.find_mock_output(&(3,)), "aaa".to_string().into());
     }
 
     #[test]
@@ -177,7 +166,7 @@ mod test {
         let mut mock = Mock::<(usize,), String>::new("a");
         mock.returns(Matcher::never().wrapped(), "a".repeat(3));
 
-        mock.record_call_and_find_mock_output((3,));
+        mock.find_mock_output(&(3,));
     }
 
     #[test]
@@ -185,10 +174,7 @@ mod test {
         let mut mock = Mock::<(usize,), String>::new("a");
         mock.returns(Matcher::any().wrapped(), "a".repeat(3));
 
-        assert_eq!(
-            mock.record_call_and_find_mock_output((3,)),
-            "aaa".to_string().into()
-        );
+        assert_eq!(mock.find_mock_output(&(3,)), "aaa".to_string().into());
     }
 
     #[test]
@@ -196,7 +182,7 @@ mod test {
         let mut mock = Mock::<(usize,), String>::new("a");
         mock.calls_real_impl(Arc::new(Mutex::new(Matcher::new_eq((3,)))));
 
-        assert_eq!(mock.record_call_and_find_mock_output((3,)), None);
+        assert_eq!(mock.find_mock_output(&(3,)), None);
     }
 
     #[test]
@@ -205,62 +191,7 @@ mod test {
         let mut mock = Mock::<(usize,), String>::new("a");
         mock.calls_real_impl(Arc::new(Mutex::new(Matcher::new_eq((3,)))));
 
-        mock.record_call_and_find_mock_output((2,));
-    }
-
-    #[derive(Clone)]
-    struct AtomicLogger {
-        logs: Arc<AtomicU8>,
-    }
-
-    impl AtomicLogger {
-        fn new() -> Self {
-            Self {
-                logs: Arc::new(AtomicU8::new(0)),
-            }
-        }
-
-        fn load(&self) -> u8 {
-            self.logs.load(Ordering::SeqCst)
-        }
-    }
-
-    impl<I> Call<I, ()> for AtomicLogger {
-        fn call(&self, _: &I) {
-            self.logs.fetch_add(1, Ordering::SeqCst);
-        }
-    }
-
-    #[test]
-    fn logs() {
-        let mut mock = Mock::<(usize,), String>::new("a");
-        mock.returns_with(
-            Matcher::any().wrapped(),
-            Behavior1::from(|a| "a".repeat(a)).into(),
-        );
-
-        let logs = AtomicLogger::new();
-        mock.register_logger(Logger::new(Matcher::new_eq((3,)).wrapped(), logs.clone()));
-
-        mock.record_call_and_find_mock_output((3,));
-
-        assert_eq!(logs.load(), 1);
-    }
-
-    #[test]
-    fn assert_called_with_not_eq() {
-        let mut mock = Mock::<(usize,), String>::new("a");
-        mock.returns_with(
-            Matcher::any().wrapped(),
-            Behavior1::from(|a| "a".repeat(a)).into(),
-        );
-
-        let logs = AtomicLogger::new();
-        mock.register_logger(Logger::new(Matcher::new_eq((2,)).wrapped(), logs.clone()));
-
-        mock.record_call_and_find_mock_output((3,));
-
-        assert_eq!(logs.load(), 0);
+        mock.find_mock_output(&(2,));
     }
 
     #[test]
@@ -269,7 +200,7 @@ mod test {
         let mut mock = Mock::<(usize,), String>::new("a");
         mock.returns_once(Matcher::any().wrapped(), "a".repeat(3));
 
-        mock.record_call_and_find_mock_output((3,));
-        mock.record_call_and_find_mock_output((3,));
+        mock.find_mock_output(&(3,));
+        mock.find_mock_output(&(3,));
     }
 }

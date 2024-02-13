@@ -1,4 +1,3 @@
-mod callback;
 mod mock;
 mod mock_locator;
 mod mocks;

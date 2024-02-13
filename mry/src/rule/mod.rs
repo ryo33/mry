@@ -16,7 +16,7 @@ impl<I, O> Rule<I, O> {
     pub fn matches(&self, input: &I) -> bool {
         self.matcher.lock().matches(input)
     }
-    pub fn call_behavior(&mut self, input: I) -> Output<O> {
+    pub fn call_behavior(&mut self, input: &I) -> Output<O> {
         self.behavior.called(input)
     }
 }

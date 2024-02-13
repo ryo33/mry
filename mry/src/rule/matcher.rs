@@ -1,10 +1,13 @@
+#[cfg(test)]
 use parking_lot::Mutex;
+#[cfg(test)]
 use std::sync::Arc;
 
 /// An enum describes what arguments are expected
 pub struct Matcher<I>(Box<dyn Match<I> + Send>);
 
 impl<I> Matcher<I> {
+    #[cfg(test)]
     pub(crate) fn wrapped(self) -> Arc<Mutex<Matcher<I>>> {
         Arc::new(Mutex::new(self))
     }
