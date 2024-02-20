@@ -72,14 +72,20 @@ fn check_locked(key: &TypeId) -> bool {
 impl<I: Send + 'static, O: Send + 'static> MockGetter<I, O> for StaticMocks {
     fn get(&self, key: &TypeId, name: &'static str) -> Option<&Mock<I, O>> {
         if !check_locked(key) {
-            panic!("the lock of `{}` is not acquired. See `mry::lock`.", name);
+            panic!(
+                "the lock of `{name}` is not acquired. Try `mry::lock({name})`.",
+                name = name
+            );
         }
         self.0.get(key, name)
     }
 
     fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O> {
         if !check_locked(&key) {
-            panic!("the lock of `{}` is not acquired. See `mry::lock`.", name);
+            panic!(
+                "the lock of `{name}` is not acquired. Try `mry::lock({name})`.",
+                name = name
+            );
         }
         self.0.get_mut_or_create(key, name)
     }
