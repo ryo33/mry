@@ -84,6 +84,7 @@ pub(crate) fn transform(
     struct Arg {
         org_ty: Type,
         owned_ty: Option<Type>,
+        to_owned: TokenStream,
         name: Ident,
     }
     impl Arg {
@@ -101,10 +102,11 @@ pub(crate) fn transform(
             } else {
                 format_ident!("arg{}", index)
             };
-            let owned_ty = make_owned_type(&org_ty);
+            let (owned_ty, to_owned) = make_owned_type(&name, &org_ty);
             Arg {
                 org_ty,
                 owned_ty,
+                to_owned,
                 name,
             }
         })
@@ -125,8 +127,9 @@ pub(crate) fn transform(
     let input_types = args.iter().map(|arg| arg.ty()).collect::<Vec<_>>();
     let owned_args = args.iter().map(|arg| {
         let name = &arg.name;
+        let to_owned = &arg.to_owned;
         if arg.owned_ty.is_some() {
-            quote![#name.to_owned()]
+            quote![#to_owned]
         } else {
             quote![#name]
         }
@@ -181,14 +184,16 @@ pub(crate) fn transform(
     )
 }
 
-pub fn make_owned_type(ty: &Type) -> Option<Type> {
+pub fn make_owned_type(name: &Ident, ty: &Type) -> (Option<Type>, TokenStream) {
     if is_str(ty) {
-        return Some(parse_quote!(String));
+        return (Some(parse_quote!(String)), quote![#name.to_string()]);
     }
-    match ty {
+    let owned = match ty {
         Type::Reference(ty) => Some(ty.elem.as_ref().clone()),
         ty => Some(ty.clone()),
-    }
+    };
+    let cloned = quote![<#owned>::clone(&#name)];
+    (owned, cloned)
 }
 
 pub fn impl_future(ty: &Type) -> Option<&Type> {
@@ -296,7 +301,7 @@ mod test {
             quote! {
                 fn meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return out;
                     }
                     "meow".repeat(count)
@@ -331,7 +336,7 @@ mod test {
             quote! {
                 fn _meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::_meow), "Cat::_meow", (count.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::_meow), "Cat::_meow", (<usize>::clone(&count),)) {
                         return out;
                     }
                     "meow".repeat(count)
@@ -402,7 +407,7 @@ mod test {
             quote! {
                 fn meow(&self, base: String, count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (base.to_owned(), count.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<String>::clone(&base), <usize>::clone(&count),)) {
                         return out;
                     }
                     base.repeat(count)
@@ -437,7 +442,7 @@ mod test {
             quote! {
                 fn meow(&self, out: &'static mut String, base: &str, count: &usize) {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, ()>(std::any::Any::type_id(&Self::meow), "Cat::meow", (out.to_owned(), base.to_owned(), count.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, ()>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<String>::clone(&out), base.to_string(), <usize>::clone(&count),)) {
                         return out;
                     }
                     *out = base.repeat(count);
@@ -473,7 +478,7 @@ mod test {
             quote! {
                 async fn meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return out;
                     }
                     base().await.repeat(count);
@@ -508,7 +513,7 @@ mod test {
             quote! {
                 fn meow(&self, arg0: A, count: usize, arg2: String) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (arg0.to_owned(), count.to_owned(), arg2.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<A>::clone(&arg0), <usize>::clone(&count), <String>::clone(&arg2),)) {
                         return out;
                     }
                     let A { name } = arg0;
@@ -545,7 +550,7 @@ mod test {
             quote! {
                 pub fn meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return out;
                     }
                     "meow".repeat(count)
@@ -570,7 +575,7 @@ mod test {
             quote! {
                 fn increment(&self, mut count: usize) -> usize {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, usize>(std::any::Any::type_id(&Self::increment), "Cat::increment", (count.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, usize>(std::any::Any::type_id(&Self::increment), "Cat::increment", (<usize>::clone(&count),)) {
                         return out;
                     }
                     count += 1;
@@ -606,7 +611,7 @@ mod test {
             quote! {
                 fn meow<'a, T: Display, const A: usize>(&self, a: usize) -> &'a String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, &'static String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (a.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, &'static String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&a),)) {
                         return out;
                     }
                     todo!()
@@ -641,7 +646,7 @@ mod test {
             quote! {
                 async fn meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return out;
                     }
                     "meow".repeat(count)
@@ -677,7 +682,7 @@ mod test {
                 quote! {
                 fn meow(&self, count: usize) -> impl std::future::Future<Output = String> + Send {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (count.to_owned(),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return async move { out };
                     }
                     async move {

@@ -6,6 +6,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::mock::Mock;
+use crate::mockable::{MockableArg, MockableRet};
 
 type BoxAnySend = Box<dyn Any + Send>;
 
@@ -35,7 +36,7 @@ pub struct Mocks {
     pub(crate) mock_objects: HashMap<TypeId, BoxAnySend>,
 }
 
-impl<I: Send + 'static, O: Send + 'static> MockGetter<I, O> for Mocks {
+impl<I: MockableArg, O: MockableRet> MockGetter<I, O> for Mocks {
     fn get(&self, key: &TypeId, _name: &'static str) -> Option<&Mock<I, O>> {
         self.mock_objects
             .get(key)
@@ -53,7 +54,7 @@ impl<I: Send + 'static, O: Send + 'static> MockGetter<I, O> for Mocks {
 
 impl Mocks {
     #[doc(hidden)]
-    pub fn record_call_and_find_mock_output<I: Send + 'static, O: Send + 'static>(
+    pub fn record_call_and_find_mock_output<I: MockableArg, O: MockableRet>(
         &mut self,
         key: TypeId,
         name: &'static str,
@@ -66,11 +67,7 @@ impl Mocks {
     }
 
     #[cfg(test)]
-    pub(crate) fn insert<I: Send + 'static, O: Send + 'static>(
-        &mut self,
-        key: TypeId,
-        item: Mock<I, O>,
-    ) {
+    pub(crate) fn insert<I: MockableArg, O: MockableRet>(&mut self, key: TypeId, item: Mock<I, O>) {
         self.mock_objects.insert(key, Box::new(item));
     }
 

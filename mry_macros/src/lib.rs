@@ -7,6 +7,8 @@ mod item_trait;
 mod lock;
 mod method;
 mod new;
+use darling::ast::NestedMeta;
+use darling::FromMeta;
 use lock::LockPaths;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
@@ -21,8 +23,17 @@ enum TargetItem {
     Fn(ItemFn),
 }
 
+#[derive(FromMeta)]
+struct MryAttr {
+    debug: darling::util::Flag,
+}
+
 #[proc_macro_attribute]
-pub fn mry(_: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn mry(
+    attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let attr = MryAttr::from_list(&NestedMeta::parse_meta_list(attr.into()).unwrap()).unwrap();
     match parse(input.clone())
         .map(TargetItem::Struct)
         .or_else(|_| parse(input.clone()).map(TargetItem::Impl))
@@ -36,6 +47,9 @@ pub fn mry(_: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_m
                 TargetItem::Trait(target) => item_trait::transform(target),
                 TargetItem::Fn(target) => item_fn::transform(target),
             };
+            if attr.debug.is_present() {
+                println!("{}", token_stream);
+            }
             token_stream.into()
         }
         Err(err) => err.to_compile_error().into(),

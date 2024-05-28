@@ -3,6 +3,8 @@ use parking_lot::Mutex;
 #[cfg(test)]
 use std::sync::Arc;
 
+use crate::mockable::MockableArg;
+
 /// An enum describes what arguments are expected
 pub struct Matcher<I>(Box<dyn Match<I> + Send>);
 
@@ -61,7 +63,7 @@ pub enum ArgMatcher<I> {
 impl<I> ArgMatcher<I> {
     pub(crate) fn new_eq(value: I) -> Self
     where
-        I: PartialEq + Send + 'static,
+        I: PartialEq + MockableArg,
     {
         ArgMatcher::Fn(Box::new(move |input| *input == value))
     }
@@ -76,7 +78,7 @@ impl<I> ArgMatcher<I> {
     }
 }
 
-impl<I: PartialEq + Send + 'static> From<I> for ArgMatcher<I> {
+impl<I: PartialEq + MockableArg> From<I> for ArgMatcher<I> {
     fn from(value: I) -> Self {
         ArgMatcher::new_eq(value)
     }

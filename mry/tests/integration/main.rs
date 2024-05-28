@@ -4,6 +4,7 @@ mod async_method;
 mod async_trait;
 mod bounds;
 mod function_style_macro;
+mod generics;
 mod impl_trait;
 mod iterator;
 mod mock_trait;

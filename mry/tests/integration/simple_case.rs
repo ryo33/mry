@@ -15,6 +15,10 @@ impl Cat {
     fn just_meow(&self) -> String {
         format!("{}: meow", self.name)
     }
+
+    fn change_name_from_str(&mut self, name: &str) {
+        self.name = name.to_string();
+    }
 }
 
 #[test]
@@ -196,4 +200,17 @@ fn assert_called_for_any_case() {
     cat.mock_meow(Any).assert_called(2);
     cat.mock_meow(2).assert_called(1);
     cat.mock_meow(3).assert_called(1);
+}
+
+#[test]
+fn str_can_be_mockable_as_owned() {
+    let mut cat = Cat {
+        name: "Tama".into(),
+        ..Default::default()
+    };
+
+    cat.mock_change_name_from_str(Any).returns(());
+    cat.change_name_from_str("Kitty");
+
+    cat.mock_change_name_from_str(Any).assert_called(1);
 }

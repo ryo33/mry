@@ -43,7 +43,7 @@ mod test {
             quote! {
                 fn meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = mry::static_record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&meow), "meow", (count.to_owned(),)) {
+                    if let Some(out) = mry::static_record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&meow), "meow", (<usize>::clone(&count),)) {
                         return out;
                     }
                     {
@@ -80,7 +80,7 @@ mod test {
             quote! {
                 fn _meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = mry::static_record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&_meow), "_meow", (count.to_owned(),)) {
+                    if let Some(out) = mry::static_record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&_meow), "_meow", (<usize>::clone(&count),)) {
                         return out;
                     }
                     {

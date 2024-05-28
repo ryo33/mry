@@ -1,3 +1,5 @@
+use crate::mockable::MockableArg;
+use crate::mockable::MockableRet;
 #[cfg(debug_assertions)]
 use parking_lot::Mutex;
 use std::any::TypeId;
@@ -47,7 +49,7 @@ impl Mry {
 
     #[doc(hidden)]
     #[cfg(debug_assertions)]
-    pub fn record_call_and_find_mock_output<I: Send + 'static, O: Send + 'static>(
+    pub fn record_call_and_find_mock_output<I: MockableArg, O: MockableRet>(
         &self,
         key: TypeId,
         name: &'static str,
@@ -75,9 +77,7 @@ impl Mry {
 
     #[doc(hidden)]
     #[cfg(debug_assertions)]
-    pub fn mocks<I: Send + 'static, O: Send + 'static>(
-        &mut self,
-    ) -> Arc<Mutex<dyn MockGetter<I, O>>> {
+    pub fn mocks<I: MockableArg, O: MockableRet>(&mut self) -> Arc<Mutex<dyn MockGetter<I, O>>> {
         self.generate().mocks.as_ref().unwrap().clone()
     }
 }
@@ -185,6 +185,7 @@ mod test {
 
     #[test]
     fn mry_hash_returns_consistent_value() {
+        #[allow(clippy::mutable_key_type)]
         let mut set = HashSet::new();
         set.insert(Mry::default());
         set.insert(Mry::default());

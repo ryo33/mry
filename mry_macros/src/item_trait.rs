@@ -4,9 +4,6 @@ use syn::{Ident, ItemTrait};
 
 use crate::method;
 
-#[derive(Default)]
-struct AsyncTraitFindVisitor(bool);
-
 pub(crate) fn transform(input: ItemTrait) -> TokenStream {
     let async_trait_or_blank = if input.attrs.iter().any(|attr| {
         attr.path()
@@ -104,7 +101,7 @@ mod test {
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (count.to_owned(),)) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
                             return out;
                         }
                         panic!("mock not found for Cat")
@@ -155,7 +152,7 @@ mod test {
                 impl Cat for MockCat {
                     fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (count.to_owned(),)) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
                             return out;
                         }
                         panic!("mock not found for Cat")
@@ -209,7 +206,7 @@ mod test {
                 impl Cat for MockCat {
                     async fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (count.to_owned(),)) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
                             return out;
                         }
                         panic!("mock not found for Cat")
@@ -260,7 +257,7 @@ mod test {
                 impl Cat for MockCat {
                     fn _meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::_meow), "Cat::_meow", (count.to_owned(),)) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::_meow), "Cat::_meow", (<usize>::clone(&count),)) {
                             return out;
                         }
                         panic!("mock not found for Cat")
@@ -312,7 +309,7 @@ mod test {
                 impl Cat for MockCat {
                     async fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (count.to_owned(),)) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
                             return out;
                         }
                         panic!("mock not found for Cat")

@@ -5,7 +5,7 @@ pub use log::*;
 
 use parking_lot::Mutex;
 
-use crate::{times::Times, Behavior, Matcher, Output, Rule};
+use crate::{times::Times, Behavior, Matcher, MockableRet, Output, Rule};
 
 pub struct Mock<I, O> {
     pub name: &'static str,
@@ -75,7 +75,7 @@ impl<I, O> Mock<I, O> {
 impl<I, O> Mock<I, O>
 where
     I: 'static,
-    O: Clone + Send + 'static,
+    O: Clone + MockableRet,
 {
     pub(crate) fn returns(&mut self, matcher: Arc<Mutex<Matcher<I>>>, ret: O) {
         self.returns_with(matcher, Behavior::Const(Mutex::new(Box::new(repeat(ret)))))

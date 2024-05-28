@@ -1,4 +1,8 @@
-use crate::{mock::Mock, MockGetter, Mocks};
+use crate::{
+    mock::Mock,
+    mockable::{MockableArg, MockableRet},
+    MockGetter, Mocks,
+};
 use async_recursion::async_recursion;
 use parking_lot::Mutex;
 use std::{any::TypeId, collections::HashMap, future::Future, ops::Deref, pin::Pin, sync::Arc};
@@ -17,7 +21,7 @@ pub fn get_static_mocks() -> Arc<Mutex<StaticMocks>> {
 }
 
 #[doc(hidden)]
-pub fn static_record_call_and_find_mock_output<I: Send + 'static, O: Send + 'static>(
+pub fn static_record_call_and_find_mock_output<I: MockableArg, O: MockableRet>(
     key: TypeId,
     name: &'static str,
     input: I,
@@ -69,7 +73,7 @@ fn check_locked(key: &TypeId) -> bool {
     })
 }
 
-impl<I: Send + 'static, O: Send + 'static> MockGetter<I, O> for StaticMocks {
+impl<I: MockableArg, O: MockableRet> MockGetter<I, O> for StaticMocks {
     fn get(&self, key: &TypeId, name: &'static str) -> Option<&Mock<I, O>> {
         if !check_locked(key) {
             panic!(
@@ -92,7 +96,7 @@ impl<I: Send + 'static, O: Send + 'static> MockGetter<I, O> for StaticMocks {
 }
 
 impl StaticMocks {
-    pub fn record_call_and_find_mock_output<I: Send + 'static, O: Send + 'static>(
+    pub fn record_call_and_find_mock_output<I: MockableArg, O: MockableRet>(
         &mut self,
         key: TypeId,
         name: &'static str,
@@ -376,7 +380,7 @@ mod tests {
         assert!(MockGetter::<usize, usize>::get(&mocks.lock().0, &b.type_id(), "b").is_none());
     }
 
-    fn insert_mock<I: Send + 'static, O: Send + 'static>(key: TypeId, mock: Mock<I, O>) {
+    fn insert_mock<I: MockableArg, O: MockableRet>(key: TypeId, mock: Mock<I, O>) {
         STATIC_MOCKS.with(|mocks| mocks.lock().0.insert(key, mock));
     }
 

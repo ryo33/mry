@@ -1,5 +1,6 @@
 mod mock;
 mod mock_locator;
+mod mockable;
 mod mocks;
 mod mry;
 mod rule;
@@ -13,3 +14,5 @@ pub use rule::*;
 pub use static_mocks::*;
 
 pub use rule::ArgMatcher::Any;
+
+pub use mockable::*;

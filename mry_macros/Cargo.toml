@@ -11,9 +11,10 @@ keywords = ["mock", "mocking", "testing"]
 categories = ["development-tools"]
 
 [dependencies]
-proc-macro2 = "1.0"
-quote = "1.0"
-syn = { version = "2.0", features = ["visit", "visit-mut", "full", "parsing"] }
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["visit", "visit-mut", "full", "parsing"] }
+darling = "0.20"
 
 [lib]
 proc-macro = true

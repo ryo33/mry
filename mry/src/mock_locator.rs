@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use crate::{Behavior, Matcher, MockGetter};
+use crate::{mockable::MockableRet, Behavior, Matcher, MockGetter};
 
 use self::times::Times;
 
@@ -86,7 +86,7 @@ where
 impl<I, O, B> MockLocator<I, O, B>
 where
     I: 'static,
-    O: Clone + Send + 'static,
+    O: Clone + MockableRet,
 {
     /// This makes the mock returns the given constant value.
     /// This requires `Clone`. For returning not clone value, use `returns_once`.

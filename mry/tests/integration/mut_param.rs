@@ -4,6 +4,7 @@ struct Cat {
     name: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 struct A<T>(T);
 
