@@ -3,6 +3,7 @@ mod async_fn_trait_variant;
 mod async_method;
 mod async_trait;
 mod bounds;
+mod complex_clone;
 mod function_style_macro;
 mod generics;
 mod impl_trait;
