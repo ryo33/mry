@@ -2,16 +2,16 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{Ident, Index};
 
-use crate::alphabets::alphabets;
+use crate::MAX_ARGUMENT_COUNT;
 
 pub(crate) fn create() -> TokenStream {
-    let items = alphabets(0..6).map(|args| {
-        let (args, types): (Vec<_>, Vec<_>) = args
-            .iter()
-            .map(|name| {
+    let items = (0..=MAX_ARGUMENT_COUNT).map(|nargs| {
+        let (args, types): (Vec<_>, Vec<_>) = (1..=nargs)
+            .map(|i| {
+                let name = format!("Arg{i}");
                 (
                     Ident::new(&name.to_lowercase(), Span::call_site()),
-                    Ident::new(name, Span::call_site()),
+                    Ident::new(&name, Span::call_site()),
                 )
             })
             .unzip();

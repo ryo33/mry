@@ -13,8 +13,10 @@ use lock::LockPaths;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::visit_mut::VisitMut;
-mod alphabets;
 use syn::{parse, parse2, parse_macro_input, ExprStruct, ItemFn, ItemImpl, ItemStruct, ItemTrait};
+
+/// functions may not be instrumented if they take more than this number of arguments
+const MAX_ARGUMENT_COUNT: u32 = 10;
 
 enum TargetItem {
     Struct(ItemStruct),
