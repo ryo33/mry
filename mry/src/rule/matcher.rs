@@ -90,6 +90,30 @@ impl From<&str> for ArgMatcher<String> {
     }
 }
 
+impl<'a, O: PartialEq + MockableArg, I> From<&'a [I]> for ArgMatcher<Vec<O>>
+where
+    I: Into<ArgMatcher<O>> + Clone,
+{
+    fn from(value: &'a [I]) -> Self {
+        let cloned: Vec<ArgMatcher<O>> = value
+            .iter()
+            .map(|elem| -> ArgMatcher<O> { elem.clone().into() })
+            .collect();
+        let check = move |actual: &Vec<O>| {
+            if actual.len() != cloned.len() {
+                return false;
+            }
+            for (cloned_item, actual_item) in cloned.iter().zip(actual.iter()) {
+                if !cloned_item.matches(actual_item) {
+                    return false;
+                }
+            }
+            true
+        };
+        ArgMatcher::Fn(Box::new(check))
+    }
+}
+
 mry_macros::create_matchers!();
 
 #[cfg(test)]

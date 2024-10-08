@@ -105,7 +105,7 @@ pub(crate) fn transform(
             let (owned_ty, to_owned) = make_owned_type(&name, &org_ty);
             Arg {
                 org_ty,
-                owned_ty,
+                owned_ty: Some(owned_ty),
                 to_owned,
                 name,
             }
@@ -184,13 +184,25 @@ pub(crate) fn transform(
     )
 }
 
-pub fn make_owned_type(name: &Ident, ty: &Type) -> (Option<Type>, TokenStream) {
+pub fn make_owned_type(name: &Ident, ty: &Type) -> (Type, TokenStream) {
     if is_str(ty) {
-        return (Some(parse_quote!(String)), quote![#name.to_string()]);
+        return (parse_quote!(String), quote![#name.to_string()]);
     }
     let owned = match ty {
-        Type::Reference(ty) => Some(ty.elem.as_ref().clone()),
-        ty => Some(ty.clone()),
+        Type::Reference(ty) => {
+            match &*ty.elem {
+                Type::Slice(inner) => {
+                    let elt_type = &inner.elem;
+                    let map_ident = Ident::new("elem", Span::call_site());
+                    let (inner_owned, inner_clone) = make_owned_type(&map_ident, elt_type);
+                    let owned_ty = parse_quote!(Vec<#inner_owned>);
+                    let clone = quote![#name.iter().map(|#map_ident: &#elt_type| -> #inner_owned { #inner_clone }).collect::<Vec<_>>()];
+                    return (owned_ty, clone)
+                },
+                _ => ty.elem.as_ref().clone(),
+            }
+        },
+        ty => ty.clone(),
     };
     let cloned = quote![<#owned>::clone(&#name)];
     (owned, cloned)
@@ -285,6 +297,39 @@ mod test {
                     stream
                 }),
         )
+    }
+
+    fn remove_spaces(s: &str) -> String {
+        s.chars().filter(|s| !s.is_whitespace()).collect()
+    }
+
+    #[test]
+    fn test_make_owned_string() {
+        let ident = Ident::new("var", Span::call_site());
+        let str_t: Type = syn::parse_str("&str").unwrap();
+        let (owned_type, converter) = make_owned_type(&ident, &str_t);
+        assert_eq!(owned_type, parse_quote!(String));
+        assert_eq!(remove_spaces(&converter.to_string()), "var.to_string()");
+    }
+
+    #[test]
+    fn test_make_owned_slice() {
+        let ident = Ident::new("var", Span::call_site());
+        let slice_t: Type = syn::parse_str("&[String]").unwrap();
+        let (owned_type, converter) = make_owned_type(&ident, &slice_t);
+        dbg!(owned_type.to_token_stream().to_string());
+        assert_eq!(owned_type, parse_quote!(Vec<String>));
+        assert_eq!(remove_spaces(&converter.to_string()), "var.iter().map(|elem:String|->String{<String>::clone(&elem)}).collect::<Vec<_>>()");
+    }
+
+    #[test]
+    fn test_make_owned_slice_of_str() {
+        let ident = Ident::new("var", Span::call_site());
+        let slice_t: Type = syn::parse_str("&[&str]").unwrap();
+        let (owned_type, converter) = make_owned_type(&ident, &slice_t);
+        dbg!(owned_type.to_token_stream().to_string());
+        assert_eq!(owned_type, parse_quote!(Vec<String>));
+        assert_eq!(remove_spaces(&converter.to_string()), "var.iter().map(|elem:String|->String{elem.to_string()}).collect::<Vec<_>>()");
     }
 
     #[test]
