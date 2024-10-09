@@ -11,6 +11,7 @@ impl Struct {
         value.iter().map(|i| i.len()).sum()
     }
 }
+
 #[test]
 fn takes_slice_any() {
     let mut target = mry::new!(Struct {});
@@ -19,11 +20,26 @@ fn takes_slice_any() {
     assert_eq!(target.takes_slice(&["first arg".to_string()]), 1);
     mock.assert_called(1);
 }
+
 #[test]
 fn takes_slice_original_type_ok() {
     let mut target = mry::new!(Struct {});
     let mock = target
         .mock_takes_slice(&["first arg".to_string(), "second arg".to_string()][..])
+        .returns(1);
+
+    assert_eq!(
+        target.takes_slice(&["first arg".to_string(), "second arg".to_string()]),
+        1
+    );
+    mock.assert_called(1);
+}
+
+#[test]
+fn takes_slice_but_ref_of_array() {
+    let mut target = mry::new!(Struct {});
+    let mock = target
+        .mock_takes_slice(&["first arg".to_string(), "second arg".to_string()])
         .returns(1);
 
     assert_eq!(
@@ -56,11 +72,23 @@ fn takes_slice_str_any() {
     assert_eq!(target.takes_slice_str(&["first arg"]), 1);
     mock.assert_called(1);
 }
+
 #[test]
 fn takes_slice_str_original_type_ok() {
     let mut target = mry::new!(Struct {});
     let mock = target
         .mock_takes_slice_str(&["first arg", "second arg"][..])
+        .returns(1);
+
+    assert_eq!(target.takes_slice_str(&["first arg", "second arg"]), 1);
+    mock.assert_called(1);
+}
+
+#[test]
+fn takes_slice_str_original_type_ok_array() {
+    let mut target = mry::new!(Struct {});
+    let mock = target
+        .mock_takes_slice_str(&["first arg", "second arg"])
         .returns(1);
 
     assert_eq!(target.takes_slice_str(&["first arg", "second arg"]), 1);
