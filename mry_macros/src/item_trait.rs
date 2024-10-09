@@ -2,9 +2,9 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{Ident, ItemTrait};
 
-use crate::method;
+use crate::{method, Options};
 
-pub(crate) fn transform(input: ItemTrait) -> TokenStream {
+pub(crate) fn transform(options: &mut Options, input: ItemTrait) -> TokenStream {
     let async_trait_or_blank = if input.attrs.iter().any(|attr| {
         attr.path()
             .segments
@@ -26,6 +26,7 @@ pub(crate) fn transform(input: ItemTrait) -> TokenStream {
         .iter()
         .map(|item| match item {
             syn::TraitItem::Fn(method) => method::transform(
+                options,
                 quote![self.mry.mocks()],
                 quote![<#mry_ident as #trait_ident>::],
                 &(trait_ident.to_string() + "::"),
@@ -85,7 +86,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 trait Cat {
                     fn meow(&self, count: usize) -> String;
@@ -136,7 +137,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 pub trait Cat {
                     fn meow(&self, count: usize) -> String;
@@ -188,7 +189,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 #[async_trait::async_trait]
                 trait Cat {
@@ -241,7 +242,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 trait Cat {
                     fn _meow(&self, count: usize) -> String;
@@ -293,7 +294,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 trait Cat {
                     async fn meow(&self, count: usize) -> String;

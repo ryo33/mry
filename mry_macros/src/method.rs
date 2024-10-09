@@ -5,8 +5,11 @@ use syn::{
     Signature, Type, Visibility,
 };
 
+use crate::Options;
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn transform(
+    options: &mut Options,
     mocks_tokens: TokenStream,  // `MOCKS.lock()`
     method_prefix: TokenStream, // `Self::`
     method_debug_prefix: &str,  // "Cat::"
@@ -269,6 +272,7 @@ mod test {
 
     fn t(method: &ImplItemFn) -> (TokenStream, TokenStream) {
         transform(
+            &mut Default::default(),
             quote![self.mry.mocks()],
             quote![Self::],
             "Cat::",

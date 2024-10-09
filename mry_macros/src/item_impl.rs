@@ -1,4 +1,4 @@
-use crate::method;
+use crate::{method, options::Options};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
@@ -49,7 +49,7 @@ impl VisitMut for QualifiesAssociatedTypes {
     }
 }
 
-pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
+pub(crate) fn transform(options: &mut Options, mut input: ItemImpl) -> TokenStream {
     if let Some((_, path, _)) = input.trait_.clone() {
         let ty = path.clone();
         let associated_types: Vec<_> = input
@@ -129,6 +129,7 @@ pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
             if let ImplItem::Fn(method) = item {
                 if let Some(FnArg::Receiver(_)) = method.sig.inputs.first() {
                     method::transform(
+                        options,
                         quote![self.mry.mocks()],
                         quote![#qualified_type::],
                         &(type_name.clone() + "::"),
@@ -146,6 +147,7 @@ pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
                     )
                 } else {
                     method::transform(
+                        options,
                         quote![mry::get_static_mocks()],
                         quote![#qualified_type::],
                         &(type_name.clone() + "::"),
@@ -188,7 +190,9 @@ pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
-    use syn::parse2;
+    use syn::{parse2, parse_quote};
+
+    use crate::options::Skip;
 
     use super::*;
 
@@ -206,7 +210,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 impl Cat {
                     #[meow]
@@ -249,7 +253,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 impl<'a, A: Clone> Cat<'a, A> {
                     fn meow<'a, B>(&'a self, count: usize) -> B {
@@ -290,7 +294,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 impl<A: Clone> Animal<A> for Cat {
                     fn name(&self) -> String {
@@ -332,7 +336,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 impl Iterator for Cat {
                     type Item = String;
@@ -374,7 +378,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 impl Cat {
                     fn meow(count: usize) -> String {
@@ -401,5 +405,52 @@ mod test {
             }
             .to_string()
         );
+    }
+
+    #[test]
+    fn skip() {
+        let input: ItemImpl = parse2(quote! {
+            impl Cat {
+                fn meow(&self, count: usize, skip: Skip) -> String {
+                    "meow".repeat(count, skip)
+                }
+            }
+        })
+        .unwrap();
+
+        let mut options = Options {
+            skip: vec![Skip::new("Skip")],
+        };
+
+        assert_eq!(
+            transform(&mut options, input).to_string(),
+            quote! {
+                impl Cat {
+                    fn meow(&self, count: usize, skip: Skip) -> String {
+                        #[cfg(debug_assertions)]
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
+                            return out;
+                        }
+                        "meow".repeat(count, skip)
+                    }
+                }
+
+                impl Cat {
+                    #[cfg(debug_assertions)]
+                    #[must_use]
+                    pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>, _skip: mry::Any) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                        mry::MockLocator::new(
+                            self.mry.mocks(),
+                            std::any::Any::type_id(&<Cat>::meow),
+                            "Cat::meow",
+                            (count.into(),).into(),
+                        )
+                    }
+                }
+            }
+            .to_string()
+        );
+
+        assert!(options.validate().is_ok());
     }
 }

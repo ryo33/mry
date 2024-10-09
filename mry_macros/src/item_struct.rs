@@ -4,7 +4,9 @@ use quote::quote;
 use quote::ToTokens;
 use syn::ItemStruct;
 
-pub(crate) fn transform(input: ItemStruct) -> TokenStream {
+use crate::Options;
+
+pub(crate) fn transform(_options: &mut Options, input: ItemStruct) -> TokenStream {
     let vis = &input.vis;
     let struct_name = &input.ident;
 
@@ -85,7 +87,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 struct Cat {
                     name: String,
@@ -108,7 +110,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 #[derive(Clone, Default)]
                 struct Cat {
@@ -131,7 +133,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 pub struct Cat {
                     pub name: String,
@@ -152,7 +154,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 pub struct Cat<'a, A> {
                     pub name: &'a A,
@@ -172,7 +174,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 struct Cat {
                     pub mry : mry::Mry,
@@ -193,7 +195,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 #[derive(Debug, Clone, PartialEq, Serialize)]
                 struct Cat {
@@ -217,7 +219,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&mut Default::default(), input).to_string(),
             quote! {
                 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]
                 struct Cat {
