@@ -189,18 +189,16 @@ pub fn make_owned_type(name: &Ident, ty: &Type) -> (Type, TokenStream) {
         return (parse_quote!(String), quote![#name.to_string()]);
     }
     let owned = match ty {
-        Type::Reference(ty) => {
-            match &*ty.elem {
-                Type::Slice(inner) => {
-                    let elt_type = &inner.elem;
-                    let map_ident = Ident::new("elem", Span::call_site());
-                    let (inner_owned, inner_clone) = make_owned_type(&map_ident, elt_type);
-                    let owned_ty = parse_quote!(Vec<#inner_owned>);
-                    let clone = quote![#name.iter().map(|#map_ident: &#elt_type| -> #inner_owned { #inner_clone }).collect::<Vec<_>>()];
-                    return (owned_ty, clone)
-                },
-                _ => ty.elem.as_ref().clone(),
+        Type::Reference(ty) => match &*ty.elem {
+            Type::Slice(inner) => {
+                let elt_type = &inner.elem;
+                let map_ident = Ident::new("elem", Span::call_site());
+                let (inner_owned, inner_clone) = make_owned_type(&map_ident, elt_type);
+                let owned_ty = parse_quote!(Vec<#inner_owned>);
+                let clone = quote![#name.iter().map(|#map_ident: &#elt_type| -> #inner_owned { #inner_clone }).collect::<Vec<_>>()];
+                return (owned_ty, clone);
             }
+            _ => ty.elem.as_ref().clone(),
         },
         ty => ty.clone(),
     };
@@ -319,7 +317,10 @@ mod test {
         let (owned_type, converter) = make_owned_type(&ident, &slice_t);
         dbg!(owned_type.to_token_stream().to_string());
         assert_eq!(owned_type, parse_quote!(Vec<String>));
-        assert_eq!(remove_spaces(&converter.to_string()), "var.iter().map(|elem:String|->String{<String>::clone(&elem)}).collect::<Vec<_>>()");
+        assert_eq!(
+            remove_spaces(&converter.to_string()),
+            "var.iter().map(|elem:&String|->String{<String>::clone(&elem)}).collect::<Vec<_>>()"
+        );
     }
 
     #[test]
@@ -329,7 +330,10 @@ mod test {
         let (owned_type, converter) = make_owned_type(&ident, &slice_t);
         dbg!(owned_type.to_token_stream().to_string());
         assert_eq!(owned_type, parse_quote!(Vec<String>));
-        assert_eq!(remove_spaces(&converter.to_string()), "var.iter().map(|elem:String|->String{elem.to_string()}).collect::<Vec<_>>()");
+        assert_eq!(
+            remove_spaces(&converter.to_string()),
+            "var.iter().map(|elem:&&str|->String{elem.to_string()}).collect::<Vec<_>>()"
+        );
     }
 
     #[test]
