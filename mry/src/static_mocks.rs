@@ -47,7 +47,7 @@ pub struct StaticMockLock<'a> {
     pub lock: Box<dyn Deref<Target = ()> + 'a>,
 }
 
-impl<'a> Drop for StaticMockLock<'a> {
+impl Drop for StaticMockLock<'_> {
     fn drop(&mut self) {
         let mocks = STATIC_MOCKS.with(Clone::clone);
         if mocks.lock().0.remove(&self.key).is_none() {
@@ -77,7 +77,7 @@ impl<I: MockableArg, O: MockableRet> MockGetter<I, O> for StaticMocks {
     fn get(&self, key: &TypeId, name: &'static str) -> Option<&Mock<I, O>> {
         if !check_locked(key) {
             panic!(
-                "the lock of `{name}` is not acquired. Try `mry::lock({name})`.",
+                "the lock of `{name}` is not acquired. Try `#[mry::lock({name})]`",
                 name = name
             );
         }
@@ -87,7 +87,7 @@ impl<I: MockableArg, O: MockableRet> MockGetter<I, O> for StaticMocks {
     fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O> {
         if !check_locked(&key) {
             panic!(
-                "the lock of `{name}` is not acquired. Try `mry::lock({name})`.",
+                "the lock of `{name}` is not acquired. Try `#[mry::lock({name})]`",
                 name = name
             );
         }

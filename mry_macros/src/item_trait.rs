@@ -25,20 +25,37 @@ pub(crate) fn transform(input: ItemTrait) -> TokenStream {
         .items
         .iter()
         .map(|item| match item {
-            syn::TraitItem::Fn(method) => method::transform(
-                quote![self.mry.mocks()],
-                quote![<#mry_ident as #trait_ident>::],
-                &(trait_ident.to_string() + "::"),
-                quote![self.mry.record_call_and_find_mock_output],
-                None,
-                &method.attrs,
-                &method.sig,
-                &method
+            syn::TraitItem::Fn(method) => {
+                let method_prefix = quote![<#mry_ident as #trait_ident>::];
+                let body = &method
                     .default
                     .as_ref()
                     .map(|default| default.to_token_stream())
-                    .unwrap_or(quote![panic!(#panic_message)]),
-            ),
+                    .unwrap_or(quote![panic!(#panic_message)]);
+                if method.sig.receiver().is_none() {
+                    method::transform(
+                        quote![mry::get_static_mocks()],
+                        method_prefix,
+                        &format!("<{} as {}>::", mry_ident, trait_ident),
+                        quote![mry::static_record_call_and_find_mock_output],
+                        None,
+                        &method.attrs,
+                        &method.sig,
+                        body,
+                    )
+                } else {
+                    method::transform(
+                        quote![self.mry.mocks()],
+                        method_prefix,
+                        &(trait_ident.to_string() + "::"),
+                        quote![self.mry.record_call_and_find_mock_output],
+                        None,
+                        &method.attrs,
+                        &method.sig,
+                        body,
+                    )
+                }
+            }
             _item => todo!(),
         })
         .unzip();
@@ -71,7 +88,7 @@ pub(crate) fn transform(input: ItemTrait) -> TokenStream {
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
-    use syn::parse2;
+    use syn::{parse2, parse_quote};
 
     use super::*;
 
@@ -332,5 +349,51 @@ mod test {
             }
             .to_string()
         );
+    }
+
+    #[test]
+    fn new_method() {
+        let input: ItemTrait = parse_quote! {
+            trait Cat {
+                fn new(name: String) -> Self;
+            }
+        };
+
+        assert_eq!(transform(input).to_string(), quote! {
+            trait Cat {
+                fn new(name: String) -> Self;
+            }
+
+            #[cfg(debug_assertions)]
+            #[derive(Default, Clone, Debug)]
+            struct MockCat {
+                pub mry : mry::Mry,
+            }
+
+            #[cfg(debug_assertions)]
+            impl Cat for MockCat {
+                fn new(name: String) -> Self {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = mry::static_record_call_and_find_mock_output::<_, Self>(std::any::Any::type_id(&<MockCat as Cat>::new), "<MockCat as Cat>::new", (<String>::clone(&name),)) {
+                        return out;
+                    }
+                    panic!("mock not found for Cat")
+                }
+            }
+
+            #[cfg(debug_assertions)]
+            impl MockCat {
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_new(name: impl Into<mry::ArgMatcher<String>>) -> mry::MockLocator<(String,), Self, mry::Behavior1<(String,), Self> > {
+                    mry::MockLocator::new(
+                        mry::get_static_mocks(),
+                        std::any::Any::type_id(&<MockCat as Cat>::new),
+                        "<MockCat as Cat>::new",
+                        (name.into(),).into(),
+                    )
+                }
+            }
+        }.to_string());
     }
 }
