@@ -2,6 +2,7 @@
 name = "mry_crate_bound"
 version = "0.5.0"
 edition = "2021"
+publish = false
 
 [dependencies]
 mry = { path = "../.." }

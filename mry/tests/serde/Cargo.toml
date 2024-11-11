@@ -2,6 +2,7 @@
 name = "mry-test-serde"
 version = "0.4.4"
 edition = "2021"
+publish = false
 
 [dependencies]
 mry = { path = "../..", features = ["serde"] }
