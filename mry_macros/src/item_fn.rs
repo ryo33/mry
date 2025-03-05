@@ -22,6 +22,24 @@ pub(crate) fn transform(input: ItemFn) -> TokenStream {
     }
 }
 
+pub(crate) fn unsafe_transform(input: ItemFn) -> TokenStream {
+    let (original, mock) = method::unsafe_transform(
+        quote![mry::unsafe_mocks::get_static_mocks()],
+        Default::default(),
+        "",
+        quote![mry::unsafe_mocks::static_record_call_and_find_mock_output],
+        Some(&input.vis),
+        &input.attrs,
+        &input.sig,
+        &input.block.to_token_stream(),
+    );
+
+    quote! {
+        #original
+        #mock
+    }
+}
+
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;

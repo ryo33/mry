@@ -257,6 +257,186 @@ pub fn is_str(ty: &Type) -> bool {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn unsafe_transform(
+    mocks_tokens: TokenStream,  // `MOCKS.lock()`
+    method_prefix: TokenStream, // `Self::`
+    method_debug_prefix: &str,  // "Cat::"
+    record_call_and_find_mock_output: TokenStream,
+    vis: Option<&Visibility>,
+    attrs: &[Attribute],
+    sig: &Signature,
+    body: &TokenStream,
+) -> (TokenStream, TokenStream) {
+    // Split into receiver and other inputs
+    let mut receiver = None;
+    let mut mock_receiver = None;
+    let mut inputs = sig.inputs.iter().peekable();
+    // If receiver exists
+    if let Some(FnArg::Receiver(rec)) = inputs.peek() {
+        receiver = Some(FnArg::Receiver(rec.clone()));
+        mock_receiver = Some(quote![&mut self,]);
+        // Skip the receiver
+        inputs.next();
+    }
+    let inputs_without_receiver: Vec<_> = inputs
+        .map(|input| {
+            if let FnArg::Typed(typed_arg) = input {
+                typed_arg.clone()
+            } else {
+                panic!("multiple receiver?");
+            }
+        })
+        .collect();
+    let mut bindings = Vec::new();
+
+    let args_without_receiver: Vec<_> = inputs_without_receiver
+        .iter()
+        .enumerate()
+        .map(|(i, input)| {
+            if let Pat::Ident(_) = *input.pat {
+                input.clone()
+            } else {
+                let pat = input.pat.clone();
+                let arg_name = Ident::new(&format!("arg{}", i), Span::call_site());
+                bindings.push((pat, arg_name.clone()));
+                let ident = Pat::Ident(PatIdent {
+                    attrs: Default::default(),
+                    by_ref: Default::default(),
+                    mutability: Default::default(),
+                    ident: arg_name,
+                    subpat: Default::default(),
+                });
+                let mut arg_with_type = (*input).clone();
+                arg_with_type.pat = Box::new(ident.clone());
+                arg_with_type
+            }
+        })
+        .collect();
+    let mut is_impl_future = false;
+    let static_output_type = match &sig.output {
+        ReturnType::Default => quote!(()),
+        ReturnType::Type(_, ty) => {
+            if let Some(output) = impl_future(ty) {
+                is_impl_future = true;
+                make_static_type(output)
+            } else {
+                make_static_type(ty)
+            }
+        }
+    };
+    let ident = sig.ident.clone();
+    let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
+    let name = format!("{}{}", method_debug_prefix, ident);
+    let bindings = bindings.iter().map(|(pat, arg)| quote![let #pat = #arg;]);
+    let behavior_name = Ident::new(
+        &format!("UnsafeBehavior{}", inputs_without_receiver.len()),
+        Span::call_site(),
+    );
+    struct Arg {
+        org_ty: Type,
+        owned_ty: Option<Type>,
+        to_owned: TokenStream,
+        name: Ident,
+    }
+    impl Arg {
+        fn ty(&self) -> &Type {
+            self.owned_ty.as_ref().unwrap_or(&self.org_ty)
+        }
+    }
+    let args: Vec<Arg> = inputs_without_receiver
+        .iter()
+        .enumerate()
+        .map(|(index, input)| {
+            let org_ty = input.ty.as_ref().clone();
+            let name = if let Pat::Ident(ident) = &*input.pat {
+                ident.ident.clone()
+            } else {
+                format_ident!("arg{}", index)
+            };
+            let (owned_ty, to_owned) = make_owned_type(&name, &org_ty);
+            Arg {
+                org_ty,
+                owned_ty: Some(owned_ty),
+                to_owned,
+                name,
+            }
+        })
+        .collect();
+    let mock_args = args.iter().map(|arg| {
+        let name = &arg.name;
+        let ty = arg.ty().clone();
+        quote! {
+            #name: impl Into<mry::unsafe_mocks::UnsafeArgMatcher<#ty>>
+        }
+    });
+    let into_matchers = args.iter().map(|arg| {
+        let name = &arg.name;
+        quote! {
+            #name.into()
+        }
+    });
+    let input_types = args.iter().map(|arg| arg.ty()).collect::<Vec<_>>();
+    let owned_args = args.iter().map(|arg| {
+        let name = &arg.name;
+        let to_owned = &arg.to_owned;
+        if arg.owned_ty.is_some() {
+            quote![#to_owned]
+        } else {
+            quote![#name]
+        }
+    });
+    let behavior_type =
+        quote![mry::unsafe_mocks::#behavior_name<(#(#input_types,)*), #static_output_type>];
+    let allow_non_snake_case_or_blank = if ident.to_string().starts_with('_') {
+        quote!(#[allow(non_snake_case)])
+    } else {
+        TokenStream::default()
+    };
+    let key = quote![std::any::Any::type_id(&#method_prefix #ident)];
+    let mut sig = sig.clone();
+    sig.inputs = Punctuated::from_iter(
+        receiver
+            .into_iter()
+            .chain(args_without_receiver.iter().cloned().map(FnArg::Typed)),
+    );
+    let return_out = if is_impl_future {
+        quote! {
+            return async move { out };
+        }
+    } else {
+        quote! {
+            return out;
+        }
+    };
+    (
+        quote! {
+            #(#attrs)*
+            #vis #sig {
+                #[cfg(debug_assertions)]
+                if let Some(out) = #record_call_and_find_mock_output::<_, #static_output_type>(#key, #name, (#(#owned_args,)*)) {
+                    #return_out
+                }
+                #(#bindings)*
+                #body
+            }
+        },
+        quote! {
+            #[cfg(debug_assertions)]
+            #allow_non_snake_case_or_blank
+            #[must_use]
+            pub fn #mock_ident (#mock_receiver #(#mock_args),*) -> mry::unsafe_mocks::UnsafeMockLocator<(#(#input_types,)*), #static_output_type, #behavior_type> {
+                mry::unsafe_mocks::UnsafeMockLocator::new(
+                    #mocks_tokens,
+                    #key,
+                    #name,
+                    (#(#into_matchers,)*).into(),
+                )
+            }
+        },
+    )
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

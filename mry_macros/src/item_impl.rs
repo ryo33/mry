@@ -185,6 +185,142 @@ pub(crate) fn transform(mut input: ItemImpl) -> TokenStream {
     }
 }
 
+pub(crate) fn unsafe_transform(mut input: ItemImpl) -> TokenStream {
+    if let Some((_, path, _)) = input.trait_.clone() {
+        let ty = path.clone();
+        let associated_types: Vec<_> = input
+            .items
+            .iter()
+            .filter_map(|item| {
+                if let ImplItem::Type(associated_type) = item {
+                    Some(associated_type.ident.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        QualifiesAssociatedTypes(ty, associated_types).visit_item_impl_mut(&mut input);
+    }
+    let generics = &input.generics;
+    let mut type_params = TypeParameterVisitor::default();
+    type_params.visit_type(&input.self_ty);
+    let impl_generics: Vec<_> = input
+        .generics
+        .params
+        .iter()
+        .filter(|param| {
+            let ident = match param {
+                syn::GenericParam::Type(ty) => &ty.ident,
+                syn::GenericParam::Lifetime(lifetime) => &lifetime.lifetime.ident,
+                syn::GenericParam::Const(cons) => &cons.ident,
+            };
+            type_params.0.contains(&ident.to_string())
+        })
+        .collect();
+    let struct_type = &input.self_ty;
+    let mut trait_name = None;
+    let trait_ = match &input.trait_ {
+        Some((bang, path, for_)) => {
+            trait_name = Some(path);
+            quote! {
+                #bang #path #for_
+            }
+        }
+        None => TokenStream::default(),
+    };
+
+    struct LifetimeAnonymizer;
+    impl VisitMut for LifetimeAnonymizer {
+        fn visit_lifetime_mut(&mut self, lifetime: &mut syn::Lifetime) {
+            lifetime.ident = Ident::new("_", lifetime.ident.span());
+        }
+    }
+
+    let mut anonimized_struct = struct_type.clone();
+    LifetimeAnonymizer.visit_type_mut(&mut anonimized_struct);
+
+    let type_name;
+    let qualified_type = if let Some(trait_name) = trait_name {
+        let mut trait_name = trait_name.clone();
+        LifetimeAnonymizer.visit_path_mut(&mut trait_name);
+        let tokens = quote![<#anonimized_struct as #trait_name>];
+        type_name = tokens.to_string();
+        tokens
+    } else {
+        type_name = struct_type.to_token_stream().to_string();
+        quote![<#anonimized_struct>]
+    };
+
+    // Pretty print type name
+    let type_name = type_name
+        .replace(" ,", ",")
+        .replace(" >", ">")
+        .replace(" <", "<")
+        .replace("< ", "<");
+
+    let (members, impl_members): (Vec<_>, Vec<_>) = input
+        .items
+        .iter()
+        .map(|item| {
+            if let ImplItem::Fn(method) = item {
+                if let Some(FnArg::Receiver(_)) = method.sig.inputs.first() {
+                    method::unsafe_transform(
+                        quote![self.mry.mocks()],
+                        quote![#qualified_type::],
+                        &(type_name.clone() + "::"),
+                        quote![self.mry.record_call_and_find_mock_output],
+                        Some(&method.vis),
+                        &method.attrs,
+                        &method.sig,
+                        &method.block.stmts.iter().fold(
+                            TokenStream::default(),
+                            |mut stream, item| {
+                                item.to_tokens(&mut stream);
+                                stream
+                            },
+                        ),
+                    )
+                } else {
+                    method::unsafe_transform(
+                        quote![mry::unsafe_mocks::get_static_mocks()],
+                        quote![#qualified_type::],
+                        &(type_name.clone() + "::"),
+                        quote![mry::unsafe_mocks::static_record_call_and_find_mock_output],
+                        Some(&method.vis),
+                        &method.attrs,
+                        &method.sig,
+                        &method.block.stmts.iter().fold(
+                            TokenStream::default(),
+                            |mut stream, item| {
+                                item.to_tokens(&mut stream);
+                                stream
+                            },
+                        ),
+                    )
+                }
+            } else {
+                (item.to_token_stream(), TokenStream::default())
+            }
+        })
+        .unzip();
+
+    let impl_generics = if impl_generics.is_empty() {
+        TokenStream::default()
+    } else {
+        quote!( <#(#impl_generics),*>)
+    };
+
+    quote! {
+        impl #generics #trait_ #struct_type {
+            #(#members)*
+        }
+
+        impl #impl_generics #struct_type {
+            #(#impl_members)*
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;

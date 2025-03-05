@@ -72,6 +72,61 @@ pub(crate) fn transform(args: LockPaths, mut input: ItemFn) -> TokenStream {
     input.into_token_stream()
 }
 
+pub(crate) fn unsafe_transform(args: LockPaths, mut input: ItemFn) -> TokenStream {
+    if let Some((attr, paths)) = input
+        .attrs
+        .iter_mut()
+        .find(|attr| {
+            let path = attr.path();
+            if path.segments.len() == 1 && path.segments[0].ident == "unsafe_lock" {
+                return true;
+            }
+            if path.segments.len() == 2
+                && path.segments[0].ident == "mry"
+                && path.segments[1].ident == "unsafe_lock"
+            {
+                return true;
+            }
+            false
+        })
+        .and_then(|attr| {
+            attr.parse_args::<LockPaths>()
+                .ok()
+                .map(|paths| (attr, paths))
+        })
+    {
+        let paths = args.0.iter().chain(paths.0.iter());
+        *attr = parse_quote!(#[mry::unsafe_lock(#(#paths),*)]);
+        return input.into_token_stream();
+    }
+    let args = args.0.into_iter().map(|arg| {
+        let name = arg
+            .to_token_stream()
+            .to_string()
+            .replace(" :: ", "::")
+            .replace("< ", "<")
+            .replace(" >", ">");
+        quote![(std::any::Any::type_id(&#arg), #name.to_string())]
+    });
+    let block = input.block.clone();
+    input.block.stmts.clear();
+    let mutexes = quote![mry::unsafe_mocks::__mutexes(vec![#(#args,)*])];
+    input.block.stmts.insert(
+        0,
+        syn::Stmt::Expr(
+            if input.sig.asyncness.is_some() {
+                panic!("async signature is not supported by unsafe mocks.")
+            } else {
+                parse_quote! {
+                    mry::unsafe_mocks::__lock_and_run(#mutexes, move || #block)
+                }
+            },
+            None,
+        ),
+    );
+    input.into_token_stream()
+}
+
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
