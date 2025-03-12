@@ -16,3 +16,6 @@ pub use static_mocks::*;
 pub use rule::ArgMatcher::Any;
 
 pub use mockable::*;
+
+#[cfg(feature = "send_wrapper")]
+pub use send_wrapper;

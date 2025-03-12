@@ -17,3 +17,6 @@ mod partial_mock;
 mod reference_and_pattern;
 mod simple_case;
 mod static_function;
+
+#[cfg(feature = "send_wrapper")]
+mod raw_pointer;

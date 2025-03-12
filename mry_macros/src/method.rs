@@ -200,6 +200,11 @@ pub fn make_owned_type(name: &Ident, ty: &Type) -> (Type, TokenStream) {
             }
             _ => ty.elem.as_ref().clone(),
         },
+        Type::Ptr(_) => {
+            let owned_ty = parse_quote!(mry::send_wrapper::SendWrapper<#ty>);
+            let clone = quote![mry::send_wrapper::SendWrapper::new(#name)];
+            return (owned_ty, clone);
+        }
         ty => ty.clone(),
     };
     let cloned = quote![<#owned>::clone(&#name)];
@@ -333,6 +338,22 @@ mod test {
         assert_eq!(
             remove_spaces(&converter.to_string()),
             "var.iter().map(|elem:&&str|->String{elem.to_string()}).collect::<Vec<_>>()"
+        );
+    }
+
+    #[test]
+    fn test_make_owned_raw_pointer() {
+        let ident = Ident::new("var", Span::call_site());
+        let ptr_t: Type = syn::parse_str("*mut String").unwrap();
+        let (owned_type, converter) = make_owned_type(&ident, &ptr_t);
+
+        assert_eq!(
+            owned_type,
+            parse_quote!(mry::send_wrapper::SendWrapper<*mut String>)
+        );
+        assert_eq!(
+            remove_spaces(&converter.to_string()),
+            "mry::send_wrapper::SendWrapper::new(var)"
         );
     }
 

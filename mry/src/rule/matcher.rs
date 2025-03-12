@@ -123,6 +123,14 @@ where
     }
 }
 
+#[cfg(feature = "send_wrapper")]
+impl<T: PartialEq + 'static> From<T> for ArgMatcher<send_wrapper::SendWrapper<T>> {
+    fn from(value: T) -> Self {
+        let value = send_wrapper::SendWrapper::new(value);
+        ArgMatcher::Fn(Box::new(move |input| **input == *value))
+    }
+}
+
 mry_macros::create_matchers!();
 
 #[cfg(test)]

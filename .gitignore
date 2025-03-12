@@ -1,3 +1,12 @@
+*
+!*/
+
+!Cargo.toml
+!*.rs
+!.gitignore
+!README.md
+!.github/*.yml
+
 /target
 .vscode
 Cargo.lock

@@ -11,13 +11,15 @@ keywords = ["mock", "mocking", "testing"]
 categories = ["development-tools"]
 
 [features]
-default = []
+default = ["send_wrapper"]
 serde = ["dep:serde"]
+send_wrapper = ["dep:send_wrapper", "mry_macros/send_wrapper"]
 
 [dependencies]
 async-recursion = "1.0"
 mry_macros = { package = "mry_macros", path = "../mry_macros", version = "0.10.0" }
 parking_lot = { version = "0.12" }
+send_wrapper = { version = "0.6.0", optional = true }
 serde = { version = "1.0", optional = true }
 
 [dev-dependencies]
