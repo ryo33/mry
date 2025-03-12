@@ -13,7 +13,7 @@ categories = ["development-tools"]
 [features]
 default = ["send_wrapper"]
 serde = ["dep:serde"]
-send_wrapper = ["dep:send_wrapper", "mry_macros/send_wrapper"]
+send_wrapper = ["dep:send_wrapper"]
 
 [dependencies]
 async-recursion = "1.0"
