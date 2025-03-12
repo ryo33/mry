@@ -5,7 +5,7 @@
 !*.rs
 !.gitignore
 !README.md
-!.github/*.yml
+!.github/**/*.yml
 
 /target
 .vscode
