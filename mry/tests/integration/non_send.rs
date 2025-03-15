@@ -12,7 +12,7 @@ struct Cat {
     name: String,
 }
 
-#[mry::mry(not_send(A, Rc))]
+#[mry::mry(non_send(A, Rc))]
 impl Cat {
     fn meow_a(&self, a: A) -> String {
         "meow".to_string()

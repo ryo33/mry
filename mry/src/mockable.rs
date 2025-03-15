@@ -1,12 +1,12 @@
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not mockable argument because it is not `Send + 'static`",
-    note = "Consider `#[mry::mry(not_send(Rc, YourNotSendType))]`"
+    note = "Consider `#[mry::mry(non_send(Rc, YourNotSendType))]`"
 )]
 pub trait MockableArg: Send + 'static {}
 
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not mockable output because it is not `Send + 'static`",
-    note = "Consider `#[mry::mry(not_send(Rc, YourNotSendType))]`"
+    note = "Consider `#[mry::mry(non_send(Rc, YourNotSendType))]`"
 )]
 pub trait MockableRet: Send + 'static {}
 

@@ -428,9 +428,9 @@ mod test {
     }
 
     #[test]
-    fn test_make_owned_with_not_send() {
+    fn test_make_owned_with_non_send() {
         let attr = MryAttr {
-            not_send: Some(NotSend(vec![parse_quote!(A::B), parse_quote!(C)])),
+            non_send: Some(NotSend(vec![parse_quote!(A::B), parse_quote!(C)])),
             ..Default::default()
         };
         let ident = Ident::new("var", Span::call_site());
@@ -459,7 +459,7 @@ mod test {
     #[test]
     fn test_make_owned_slice_of_non_send() {
         let attr = MryAttr {
-            not_send: Some(NotSend(vec![parse_quote!(A)])),
+            non_send: Some(NotSend(vec![parse_quote!(A)])),
             ..Default::default()
         };
         let ident = Ident::new("var", Span::call_site());
@@ -527,9 +527,9 @@ mod test {
     }
 
     #[test]
-    fn test_make_static_with_not_send() {
+    fn test_make_static_with_non_send() {
         let attr = MryAttr {
-            not_send: Some(NotSend(vec![parse_quote!(A::B), parse_quote!(C)])),
+            non_send: Some(NotSend(vec![parse_quote!(A::B), parse_quote!(C)])),
             ..Default::default()
         };
         let a: Type = parse_quote!(A);
@@ -556,7 +556,7 @@ mod test {
     #[test]
     fn test_non_send_ref() {
         let attr = MryAttr {
-            not_send: Some(NotSend(vec![parse_quote!(A)])),
+            non_send: Some(NotSend(vec![parse_quote!(A)])),
             ..Default::default()
         };
         let a: Type = parse_quote!(&A);
@@ -1067,9 +1067,9 @@ mod test {
     }
 
     #[test]
-    fn not_send_output() {
+    fn non_send_output() {
         let attr = parse_quote! {
-            mry(not_send(T))
+            mry(non_send(T))
         };
         let input: ImplItemFn = parse_quote! {
             fn meow(&self, count: usize) -> T {
@@ -1105,9 +1105,9 @@ mod test {
     }
 
     #[test]
-    fn not_send_input() {
+    fn non_send_input() {
         let attr = parse_quote! {
-            mry(not_send(T))
+            mry(non_send(T))
         };
         let input: ImplItemFn = parse_quote! {
             fn meow(&self, count: T) -> usize {

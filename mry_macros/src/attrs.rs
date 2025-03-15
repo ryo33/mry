@@ -4,7 +4,7 @@ use syn::{visit::Visit, Meta};
 #[derive(FromMeta, Default)]
 pub(crate) struct MryAttr {
     pub debug: darling::util::Flag,
-    pub not_send: Option<NotSend>,
+    pub non_send: Option<NotSend>,
 }
 
 pub(crate) struct NotSend(pub Vec<syn::Path>);
@@ -15,7 +15,7 @@ impl FromMeta for NotSend {
             .map(|meta| match meta {
                 NestedMeta::Meta(Meta::Path(path)) => Ok(path.clone()),
                 _ => Err(darling::Error::custom(
-                    "expected a list of types like not_send(T, U)",
+                    "expected a list of types like non_send(T, U)",
                 )),
             })
             .collect::<Result<Vec<_>, _>>()
@@ -25,11 +25,11 @@ impl FromMeta for NotSend {
 
 impl MryAttr {
     pub fn test_non_send(&self, ty: &syn::Type) -> bool {
-        let Some(not_send) = &self.not_send else {
+        let Some(non_send) = &self.non_send else {
             return false;
         };
         struct Visitor<'a> {
-            not_send: &'a NotSend,
+            non_send: &'a NotSend,
             found: bool,
         }
         impl Visit<'_> for Visitor<'_> {
@@ -37,7 +37,7 @@ impl MryAttr {
                 if self.found {
                     return;
                 }
-                if self.not_send.0.iter().any(|p| p == path) {
+                if self.non_send.0.iter().any(|p| p == path) {
                     self.found = true;
                     return;
                 }
@@ -49,13 +49,13 @@ impl MryAttr {
                 if self.found {
                     return;
                 }
-                if self.not_send.0.iter().any(|p| p.is_ident(ident)) {
+                if self.non_send.0.iter().any(|p| p.is_ident(ident)) {
                     self.found = true;
                 }
             }
         }
         let mut visitor = Visitor {
-            not_send,
+            non_send,
             found: false,
         };
         visitor.visit_type(ty);
@@ -82,25 +82,25 @@ mod tests {
     }
 
     #[test]
-    fn test_not_send() {
+    fn test_non_send() {
         let attr = MryAttr::from_list(
             &NestedMeta::parse_meta_list(parse_quote! {
-                debug,not_send(T, U)
+                debug,non_send(T, U)
             })
             .unwrap(),
         )
         .unwrap();
-        let lists = attr.not_send.unwrap().0;
+        let lists = attr.non_send.unwrap().0;
         assert_eq!(lists.len(), 2);
         assert_eq!(lists[0], parse_quote!(T));
         assert_eq!(lists[1], parse_quote!(U));
     }
 
     #[test]
-    fn test_not_send_path() {
+    fn test_non_send_path() {
         let attr = MryAttr::from_list(
             &NestedMeta::parse_meta_list(parse_quote! {
-                debug,not_send(A::B)
+                debug,non_send(A::B)
             })
             .unwrap(),
         )
@@ -111,10 +111,10 @@ mod tests {
     }
 
     #[test]
-    fn test_not_send_rc() {
+    fn test_non_send_rc() {
         let attr = MryAttr::from_list(
             &NestedMeta::parse_meta_list(parse_quote! {
-                debug,not_send(Rc)
+                debug,non_send(Rc)
             })
             .unwrap(),
         )
