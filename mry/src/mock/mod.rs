@@ -44,7 +44,7 @@ impl<I, O> Mock<I, O> {
     }
 }
 
-impl<I: 'static, O> Mock<I, O> {
+impl<I, O> Mock<I, O> {
     pub(crate) fn assert_called(&self, matcher: &Matcher<I>, times: Times) {
         self.log.assert_called(self.name, matcher, times);
     }
@@ -74,8 +74,7 @@ impl<I, O> Mock<I, O> {
 
 impl<I, O> Mock<I, O>
 where
-    I: 'static,
-    O: Clone + MockableRet,
+    O: MockableRet + Clone,
 {
     pub(crate) fn returns(&mut self, matcher: Arc<Mutex<Matcher<I>>>, ret: O) {
         self.returns_with(matcher, Behavior::Const(Mutex::new(Box::new(repeat(ret)))))

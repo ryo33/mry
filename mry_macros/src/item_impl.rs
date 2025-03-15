@@ -223,12 +223,13 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     #[must_use]
-                    pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                    pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks(),
                             std::any::Any::type_id(&<Cat>::meow),
                             "Cat::meow",
                             (count.into(),).into(),
+                            std::convert::identity,
                         )
                     }
                 }
@@ -264,12 +265,13 @@ mod test {
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(debug_assertions)]
                     #[must_use]
-                    pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), B, mry::Behavior1<(usize,), B> > {
+                    pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), B, B, mry::Behavior1<(usize,), B> > {
                         mry::MockLocator::new(
                             self.mry.mocks(),
                             std::any::Any::type_id(&<Cat<'_, A> >::meow),
                             "Cat<'a, A>::meow",
                             (count.into(),).into(),
+                            std::convert::identity,
                         )
                     }
                 }
@@ -305,12 +307,13 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     #[must_use]
-                    pub fn mock_name(&mut self,) -> mry::MockLocator<(), String, mry::Behavior0<(), String> > {
+                    pub fn mock_name(&mut self,) -> mry::MockLocator<(), String, String, mry::Behavior0<(), String> > {
                         mry::MockLocator::new(
                             self.mry.mocks(),
                             std::any::Any::type_id(&< Cat as Animal < A > >::name),
                             "<Cat as Animal<A>>::name",
                             ().into(),
+                            std::convert::identity,
                         )
                     }
                 }
@@ -348,12 +351,13 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     #[must_use]
-                    pub fn mock_next(&mut self,) -> mry::MockLocator<(), Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
+                    pub fn mock_next(&mut self,) -> mry::MockLocator<(), Option< <Self as Iterator>::Item >, Option< <Self as Iterator>::Item >, mry::Behavior0<(), Option< <Self as Iterator>::Item> > > {
                         mry::MockLocator::new(
                             self.mry.mocks(),
                             std::any::Any::type_id(&<Cat as Iterator>::next),
                             "<Cat as Iterator>::next",
                             ().into(),
+                            std::convert::identity,
                         )
                     }
                 }
@@ -389,12 +393,13 @@ mod test {
                 impl Cat {
                     #[cfg(debug_assertions)]
                     #[must_use]
-                    pub fn mock_meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                    pub fn mock_meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
                         mry::MockLocator::new(
                             mry::get_static_mocks(),
                             std::any::Any::type_id(&<Cat>::meow),
                             "Cat::meow",
-                            (count.into(), ).into(),
+                            (count.into(),).into(),
+                            std::convert::identity,
                         )
                     }
                 }

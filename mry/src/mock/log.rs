@@ -6,7 +6,7 @@ use crate::{times::Times, Matcher};
 
 pub struct Logs<I>(Vec<Arc<Mutex<I>>>);
 
-impl<I: 'static> Logs<I> {
+impl<I> Logs<I> {
     pub(crate) fn push(&mut self, item: Arc<Mutex<I>>) {
         self.0.push(item);
     }

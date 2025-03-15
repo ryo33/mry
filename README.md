@@ -20,14 +20,14 @@ A simple but powerful mocking library for **structs**, **traits**, and **functio
 The clear difference between mry is that the API is simple and small, and since it is still being developed, you would find some behaviors that are not yet supported.
 Also, based on the principle of least astonishment, mry solves several problems of mockall in the simplest way.
 
-**Mry is cfg-free**
+### Mry is cfg-free
 
 In mockall, `#[double]` is used to switch real and mocked structs.
 The problem is that `#[double]` makes mocked structs to be used for all test cases, so it will be complicated when some test case needs the real structs, especially for testing the struct itself.
 
-In mry, no `#[double]` or complex `use` strategy is required. 
+In mry, no `#[double]` or complex `use` strategy is required.
 
-**Mry doesn't cause data races**
+### Mry doesn't cause data races
 
 In mockall, you need a manual synchronization with a mock of static functions and methods. The problem is that the result will be unpredictable and hard to debug when you forget to have a lock.
 
