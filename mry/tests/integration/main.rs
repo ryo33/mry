@@ -15,6 +15,7 @@ mod nested_mock;
 mod not_clone;
 mod partial_mock;
 mod reference_and_pattern;
+mod returns_with_recursive_call;
 mod simple_case;
 mod static_function;
 

@@ -5,14 +5,18 @@ use crate::{
 };
 use async_recursion::async_recursion;
 use parking_lot::Mutex;
-use std::{any::TypeId, collections::HashMap, future::Future, ops::Deref, pin::Pin, sync::Arc};
+use std::{
+    any::TypeId, cell::RefCell, collections::HashMap, future::Future, ops::Deref, pin::Pin,
+    sync::Arc,
+};
 
+// This cannot be `Rc<RefCell<>>` because `MockLocator` expects `Arc<Mutex<>>`.
 thread_local! {
     pub static STATIC_MOCKS: Arc<Mutex<StaticMocks>> = Arc::new(Mutex::new(StaticMocks::default()));
 }
 
 thread_local! {
-    pub static STATIC_MOCK_LOCKS: Mutex<HashMap<TypeId, Arc<Mutex<()>>>> = Mutex::new(HashMap::new());
+    pub static STATIC_MOCK_LOCKS: RefCell<HashMap<TypeId, Arc<Mutex<()>>>> = RefCell::new(HashMap::new());
 }
 
 #[doc(hidden)]
@@ -27,9 +31,14 @@ pub fn static_record_call_and_find_mock_output<I: MockableArg, O: MockableRet>(
     input: I,
 ) -> Option<O> {
     STATIC_MOCKS.with(|mocks| {
-        mocks
-            .lock()
-            .record_call_and_find_mock_output(key, name, input)
+        if let Some(mut lock) = mocks.try_lock() {
+            lock.record_call_and_find_mock_output(key, name, input)
+        } else {
+            // In single threaded scenario, this branch means that a mock behavior recursively calls the target function.
+            // In that case, user would intent partial mocking.
+            // So we return None to avoid panic.
+            None
+        }
     })
 }
 
@@ -66,7 +75,7 @@ pub struct StaticMocks(Mocks);
 fn check_locked(key: &TypeId) -> bool {
     STATIC_MOCK_LOCKS.with(|locks| {
         locks
-            .lock()
+            .borrow()
             .get(key)
             .map(|lock| lock.try_lock().is_none())
             .unwrap_or(false)
@@ -120,7 +129,7 @@ pub fn __mutexes(mut keys: Vec<(TypeId, String)>) -> Vec<StaticMockMutex> {
             name,
             mutex: STATIC_MOCK_LOCKS.with(|locks| {
                 locks
-                    .lock()
+                    .borrow_mut()
                     .entry(key)
                     .or_insert(Arc::new(Default::default()))
                     .clone()
@@ -386,15 +395,15 @@ mod tests {
 
     fn insert_lock(key: TypeId, lock: Arc<Mutex<()>>) {
         STATIC_MOCK_LOCKS.with(|locks| {
-            locks.lock().insert(key, lock);
+            locks.borrow_mut().insert(key, lock);
         });
     }
 
     fn get_lock(key: TypeId) -> Option<Arc<Mutex<()>>> {
-        STATIC_MOCK_LOCKS.with(|locks| locks.lock().get(&key).cloned())
+        STATIC_MOCK_LOCKS.with(|locks| locks.borrow().get(&key).cloned())
     }
 
     fn cleanup_static_mock_lock(key: TypeId) {
-        STATIC_MOCK_LOCKS.with(|locks| locks.lock().remove(&key));
+        STATIC_MOCK_LOCKS.with(|locks| locks.borrow_mut().remove(&key));
     }
 }
