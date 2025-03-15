@@ -62,14 +62,22 @@ pub(crate) fn transform(
         })
         .collect();
     let mut is_impl_future = false;
-    let static_output_type = match &sig.output {
-        ReturnType::Default => quote!(()),
+    let OutputType {
+        static_type: static_output_type,
+        behavior_type: behavior_output_type,
+        send_wrapper: out_is_send_wrapper,
+    } = match &sig.output {
+        ReturnType::Default => OutputType {
+            static_type: quote!(()),
+            behavior_type: quote!(()),
+            send_wrapper: false,
+        },
         ReturnType::Type(_, ty) => {
             if let Some(output) = impl_future(ty) {
                 is_impl_future = true;
-                make_static_type(output)
+                make_output_type(output)
             } else {
-                make_static_type(ty)
+                make_output_type(ty)
             }
         }
     };
@@ -78,7 +86,15 @@ pub(crate) fn transform(
     let name = format!("{}{}", method_debug_prefix, ident);
     let bindings = bindings.iter().map(|(pat, arg)| quote![let #pat = #arg;]);
     let behavior_name = Ident::new(
-        &format!("Behavior{}", inputs_without_receiver.len()),
+        &format!(
+            "Behavior{}{}",
+            if out_is_send_wrapper {
+                "SendWrapper"
+            } else {
+                ""
+            },
+            inputs_without_receiver.len()
+        ),
         Span::call_site(),
     );
     struct Arg {
@@ -134,7 +150,7 @@ pub(crate) fn transform(
             quote![#name]
         }
     });
-    let behavior_type = quote![mry::#behavior_name<(#(#input_types,)*), #static_output_type>];
+    let behavior_type = quote![mry::#behavior_name<(#(#input_types,)*), #behavior_output_type>];
     let allow_non_snake_case_or_blank = if ident.to_string().starts_with('_') {
         quote!(#[allow(non_snake_case)])
     } else {
@@ -147,15 +163,27 @@ pub(crate) fn transform(
             .into_iter()
             .chain(args_without_receiver.iter().cloned().map(FnArg::Typed)),
     );
-    let return_out = if is_impl_future {
-        quote! {
-            return async move { out };
-        }
+
+    // Check if the return type is a raw pointer
+
+    let out = if out_is_send_wrapper {
+        quote!(mry::send_wrapper::SendWrapper::take(out))
     } else {
-        quote! {
-            return out;
-        }
+        quote!(out)
     };
+
+    let return_out = if is_impl_future {
+        quote!(return async move { #out };)
+    } else {
+        quote!(return #out;)
+    };
+
+    let ret_to_out = if out_is_send_wrapper {
+        quote!(|out| mry::send_wrapper::SendWrapper::new(out))
+    } else {
+        quote!(std::convert::identity)
+    };
+
     (
         quote! {
             #(#attrs)*
@@ -172,12 +200,13 @@ pub(crate) fn transform(
             #[cfg(debug_assertions)]
             #allow_non_snake_case_or_blank
             #[must_use]
-            pub fn #mock_ident (#mock_receiver #(#mock_args),*) -> mry::MockLocator<(#(#input_types,)*), #static_output_type, #behavior_type> {
+            pub fn #mock_ident (#mock_receiver #(#mock_args),*) -> mry::MockLocator<(#(#input_types,)*), #static_output_type, #behavior_output_type, #behavior_type> {
                 mry::MockLocator::new(
                     #mocks_tokens,
                     #key,
                     #name,
                     (#(#into_matchers,)*).into(),
+                    #ret_to_out,
                 )
             }
         },
@@ -234,8 +263,15 @@ pub fn impl_future(ty: &Type) -> Option<&Type> {
     Some(&assoc.ty)
 }
 
-pub fn make_static_type(ty: &Type) -> TokenStream {
-    match &ty {
+struct OutputType {
+    static_type: TokenStream,
+    behavior_type: TokenStream,
+    send_wrapper: bool,
+}
+
+fn make_output_type(ty: &Type) -> OutputType {
+    let mut send_wrapper = false;
+    let ty = match ty {
         Type::Reference(ty) => {
             let ty = &ty.elem;
             quote!(&'static #ty)
@@ -244,7 +280,21 @@ pub fn make_static_type(ty: &Type) -> TokenStream {
             let bounds = &impl_trait.bounds;
             quote!(Box<dyn #bounds>)
         }
+        Type::Ptr(_) => {
+            send_wrapper = true;
+            quote!(#ty)
+        }
         ty => quote!(#ty),
+    };
+    let static_type = if send_wrapper {
+        quote!(mry::send_wrapper::SendWrapper<#ty>)
+    } else {
+        quote!(#ty)
+    };
+    OutputType {
+        static_type,
+        behavior_type: quote!(#ty),
+        send_wrapper,
     }
 }
 
@@ -358,6 +408,27 @@ mod test {
     }
 
     #[test]
+    fn test_make_static_raw_pointer() {
+        let ptr_t: Type = syn::parse_str("*const String").unwrap();
+        let static_type = make_output_type(&ptr_t);
+
+        assert_eq!(
+            static_type.static_type.to_string(),
+            "mry :: send_wrapper :: SendWrapper < * const String >"
+        );
+        assert_eq!(static_type.behavior_type.to_string(), "* const String");
+
+        let ptr_t: Type = syn::parse_str("*mut String").unwrap();
+        let static_type = make_output_type(&ptr_t);
+
+        assert_eq!(
+            static_type.static_type.to_string(),
+            "mry :: send_wrapper :: SendWrapper < * mut String >"
+        );
+        assert_eq!(static_type.behavior_type.to_string(), "* mut String");
+    }
+
+    #[test]
     fn adds_mock_function() {
         let input: ImplItemFn = parse2(quote! {
             fn meow(&self, count: usize) -> String {
@@ -379,12 +450,13 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -415,12 +487,13 @@ mod test {
                 #[cfg(debug_assertions)]
                 #[allow(non_snake_case)]
                 #[must_use]
-                pub fn mock__meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                pub fn mock__meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::_meow),
                         "Cat::_meow",
                         (count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -450,12 +523,13 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self,) -> mry::MockLocator<(), String, mry::Behavior0<(), String> > {
+                pub fn mock_meow(&mut self,) -> mry::MockLocator<(), String, String, mry::Behavior0<(), String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         ().into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -485,12 +559,13 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self, base: impl Into<mry::ArgMatcher<String>>, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(String, usize,), String, mry::Behavior2<(String, usize,), String> > {
+                pub fn mock_meow(&mut self, base: impl Into<mry::ArgMatcher<String>>, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(String, usize,), String, String, mry::Behavior2<(String, usize,), String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (base.into(), count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -521,12 +596,13 @@ mod test {
                 #[cfg(debug_assertions)]
                 #[must_use]
                 pub fn mock_meow(&mut self, out: impl Into <mry::ArgMatcher<String>>, base: impl Into<mry::ArgMatcher<String>>, count: impl Into<mry::ArgMatcher<usize>>)
-                    -> mry::MockLocator<(String, String, usize,), (), mry::Behavior3<(String, String, usize,), ()> > {
+                    -> mry::MockLocator<(String, String, usize,), (), (), mry::Behavior3<(String, String, usize,), ()> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (out.into(), base.into(), count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -556,12 +632,13 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -593,12 +670,13 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self, arg0: impl Into<mry::ArgMatcher<A>>, count: impl Into<mry::ArgMatcher<usize>>, arg2: impl Into<mry::ArgMatcher<String>>) -> mry::MockLocator<(A, usize, String,), String, mry::Behavior3<(A, usize, String,), String> > {
+                pub fn mock_meow(&mut self, arg0: impl Into<mry::ArgMatcher<A>>, count: impl Into<mry::ArgMatcher<usize>>, arg2: impl Into<mry::ArgMatcher<String>>) -> mry::MockLocator<(A, usize, String,), String, String, mry::Behavior3<(A, usize, String,), String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (arg0.into(), count.into(), arg2.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -654,12 +732,13 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_increment(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), usize, mry::Behavior1<(usize,), usize> > {
+                pub fn mock_increment(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), usize, usize, mry::Behavior1<(usize,), usize> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::increment),
                         "Cat::increment",
                         (count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -689,12 +768,13 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self, a: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), &'static String, mry::Behavior1<(usize,), &'static String> > {
+                pub fn mock_meow(&mut self, a: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), &'static String, &'static String, mry::Behavior1<(usize,), &'static String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (a.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -724,12 +804,13 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -762,15 +843,51 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }.to_string()
+        );
+    }
+
+    #[test]
+    fn return_send_wrapper() {
+        let input: ImplItemFn = parse_quote! {
+            fn meow(&self, count: usize) -> *mut String {
+                Box::into_raw(Box::new("meow".repeat(count)))
+            }
+        };
+
+        assert_eq!(
+            t(&input).to_string(),
+            quote! {
+                fn meow(&self, count: usize) -> *mut String {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, mry::send_wrapper::SendWrapper<*mut String> >(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
+                        return mry::send_wrapper::SendWrapper::take(out);
+                    }
+                    Box::into_raw(Box::new("meow".repeat(count)))
+                }
+
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), mry::send_wrapper::SendWrapper<*mut String>, *mut String, mry::BehaviorSendWrapper1<(usize,), *mut String> > {
+                    mry::MockLocator::new(
+                        self.mry.mocks(),
+                        std::any::Any::type_id(&Self::meow),
+                        "Cat::meow",
+                        (count.into(),).into(),
+                        |out| mry::send_wrapper::SendWrapper::new(out),
+                    )
+                }
+            }
+            .to_string()
         );
     }
 }

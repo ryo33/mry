@@ -1,8 +1,7 @@
 pub mod times;
 
-use std::any::TypeId;
-use std::marker::PhantomData;
 use std::sync::Arc;
+use std::{any::TypeId, marker::PhantomData};
 
 use parking_lot::Mutex;
 
@@ -11,29 +10,31 @@ use crate::{mockable::MockableRet, Behavior, Matcher, MockGetter};
 use self::times::Times;
 
 /// Mock locator returned by mock_* methods
-pub struct MockLocator<I, O, B> {
+pub struct MockLocator<I, O, R, B> {
     pub(crate) mocks: Arc<Mutex<dyn MockGetter<I, O>>>,
     pub(crate) key: TypeId,
     pub(crate) name: &'static str,
     pub(crate) matcher: Arc<Mutex<Matcher<I>>>,
-    #[allow(clippy::type_complexity)]
-    _phantom: PhantomData<fn() -> (I, O, B)>,
+    pub(crate) ret_to_out: fn(R) -> O,
+    _phantom: PhantomData<fn() -> B>,
 }
 
-impl<I, O, B> MockLocator<I, O, B> {
+impl<I, O, R, B> MockLocator<I, O, R, B> {
     #[doc(hidden)]
     pub fn new(
         mocks: Arc<Mutex<dyn MockGetter<I, O>>>,
         key: TypeId,
         name: &'static str,
         matcher: Matcher<I>,
+        ret_to_out: fn(R) -> O,
     ) -> Self {
         Self {
             mocks,
             key,
             name,
             matcher: Arc::new(Mutex::new(matcher)),
-            _phantom: Default::default(),
+            ret_to_out,
+            _phantom: PhantomData,
         }
     }
 }
@@ -44,10 +45,8 @@ macro_rules! get_mut_or_default {
     };
 }
 
-impl<I, O, B> MockLocator<I, O, B>
+impl<I, O, R, B> MockLocator<I, O, R, B>
 where
-    I: 'static,
-    O: 'static,
     B: Into<Behavior<I, O>>,
 {
     /// Returns value with using a closure.
@@ -56,19 +55,15 @@ where
         get_mut_or_default!(self).returns_with(self.matcher.clone(), behavior.into().into());
         self
     }
-
-    /// Returns value once. After that, it panics.
-    pub fn returns_once(self, ret: O) -> Self {
-        get_mut_or_default!(self).returns_once(self.matcher.clone(), ret);
-        self
-    }
 }
 
-impl<I, O, B> MockLocator<I, O, B>
-where
-    I: 'static,
-    O: 'static,
-{
+impl<I, O, R, B> MockLocator<I, O, R, B> {
+    /// Returns value once. After that, it panics.
+    pub fn returns_once(self, ret: R) -> Self {
+        get_mut_or_default!(self).returns_once(self.matcher.clone(), (self.ret_to_out)(ret));
+        self
+    }
+
     /// This make the mock calls real impl. This is used for partial mocking.
     pub fn calls_real_impl(self) -> Self {
         get_mut_or_default!(self).calls_real_impl(self.matcher.clone());
@@ -83,15 +78,14 @@ where
     }
 }
 
-impl<I, O, B> MockLocator<I, O, B>
+impl<I, O, R, B> MockLocator<I, O, R, B>
 where
-    I: 'static,
-    O: Clone + MockableRet,
+    O: MockableRet + Clone,
 {
     /// This makes the mock returns the given constant value.
     /// This requires `Clone`. For returning not clone value, use `returns_once`.
-    pub fn returns(self, ret: O) -> Self {
-        get_mut_or_default!(self).returns(self.matcher.clone(), ret);
+    pub fn returns(self, ret: R) -> Self {
+        get_mut_or_default!(self).returns(self.matcher.clone(), (self.ret_to_out)(ret));
         self
     }
 }

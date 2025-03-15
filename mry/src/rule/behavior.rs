@@ -68,6 +68,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_assert_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<Behavior<(), ()>>();
+    }
+
+    #[test]
     fn function() {
         assert_eq!(
             Behavior::Function {

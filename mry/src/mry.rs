@@ -28,6 +28,14 @@ pub struct Mry {
     mocks: Option<Arc<Mutex<Mocks>>>,
 }
 
+#[test]
+fn assert_send_mry() {
+    fn assert_send<T: Send>(_: T) {}
+    fn assert_sync<T: Sync>(_: T) {}
+    assert_send(Mry::default());
+    assert_sync(Mry::default());
+}
+
 impl std::fmt::Debug for Mry {
     #[cfg(debug_assertions)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -53,12 +53,13 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                pub fn mock_meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         mry::get_static_mocks(),
                         std::any::Any::type_id(&meow),
                         "meow",
                         (count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }
@@ -91,12 +92,13 @@ mod test {
                 #[cfg(debug_assertions)]
                 #[allow(non_snake_case)]
                 #[must_use]
-                pub fn mock__meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, mry::Behavior1<(usize,), String> > {
+                pub fn mock__meow(count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
                     mry::MockLocator::new(
                         mry::get_static_mocks(),
                         std::any::Any::type_id(&_meow),
                         "_meow",
                         (count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }

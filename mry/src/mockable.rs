@@ -14,11 +14,10 @@ impl<T: Send + 'static> MockableArg for T {}
 
 impl<T: Send + 'static> MockableRet for T {}
 
-pub fn assert_mockable<T: MockableArg>(arg: T) -> T {
-    arg
-}
-
 #[test]
 fn a() {
+    fn assert_mockable<T: MockableArg>(arg: T) -> T {
+        arg
+    }
     assert_mockable::<&str>("a");
 }
