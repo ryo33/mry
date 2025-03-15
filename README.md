@@ -375,3 +375,24 @@ impl Iterator for MockIterator {
     }
 }
 ```
+
+### Mocking non-Send types
+
+Mry supports types that don't implement `Send` for both in arguments and return type by wrapping them in [`SendWrapper`](https://docs.rs/send_wrapper/latest/send_wrapper/index.html) in the background. If you need working with non-Send types, you have to specify `#[mry::mry(not_send(Your::Type::Path, Another::Type::Path))]` for non-`Send` types other than raw pointers. Raw pointers are wrapped always with no configuration.
+
+```rust
+#[mry::mry(not_send(Rc, NotSendValue))] // You cannot write generics fields here like `Rc<String>`
+impl DataHandler {
+    fn process_raw_ptr(&self, ptr: *mut String) -> bool {
+        // implementation...
+    }
+
+    fn returns_non_send_type(&self) -> Rc<String> {
+        // implementation...
+    }
+
+    fn your_non_send_type(&self, value: NotSendValue) {
+        // implementation...
+    }
+}
+```

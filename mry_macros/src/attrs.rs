@@ -39,6 +39,18 @@ impl MryAttr {
                 }
                 if self.not_send.0.iter().any(|p| p == path) {
                     self.found = true;
+                    return;
+                }
+                for segment in path.segments.iter() {
+                    self.visit_path_segment(segment);
+                }
+            }
+            fn visit_ident(&mut self, ident: &syn::Ident) {
+                if self.found {
+                    return;
+                }
+                if self.not_send.0.iter().any(|p| p.is_ident(ident)) {
+                    self.found = true;
                 }
             }
         }
@@ -78,11 +90,37 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
-        assert!(attr.debug.is_present());
-        assert!(matches!(attr.not_send, Some(NotSend(_))));
-        let lists = attr.not_send.as_ref().unwrap().0.clone();
+        let lists = attr.not_send.unwrap().0;
         assert_eq!(lists.len(), 2);
         assert_eq!(lists[0], parse_quote!(T));
         assert_eq!(lists[1], parse_quote!(U));
+    }
+
+    #[test]
+    fn test_not_send_path() {
+        let attr = MryAttr::from_list(
+            &NestedMeta::parse_meta_list(parse_quote! {
+                debug,not_send(A::B)
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert!(attr.test_non_send(&parse_quote!(A::B)));
+        assert!(!attr.test_non_send(&parse_quote!(A::C)));
+    }
+
+    #[test]
+    fn test_not_send_rc() {
+        let attr = MryAttr::from_list(
+            &NestedMeta::parse_meta_list(parse_quote! {
+                debug,not_send(Rc)
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert!(attr.test_non_send(&parse_quote!(Rc<String>)));
+        assert!(!attr.test_non_send(&parse_quote!(String)));
     }
 }

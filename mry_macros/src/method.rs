@@ -446,8 +446,14 @@ mod test {
             "mry::send_wrapper::SendWrapper::new(<A::B>::clone(&var))"
         );
         let (owned_type, converter) = make_owned_type(&attr, &ident, &c_d);
-        assert_eq!(owned_type, parse_quote!(C::D));
-        assert_eq!(remove_spaces(&converter.to_string()), "<C::D>::clone(&var)");
+        assert_eq!(
+            owned_type,
+            parse_quote!(mry::send_wrapper::SendWrapper<C::D>)
+        );
+        assert_eq!(
+            remove_spaces(&converter.to_string()),
+            "mry::send_wrapper::SendWrapper::new(<C::D>::clone(&var))"
+        );
     }
 
     #[test]
@@ -538,7 +544,10 @@ mod test {
             remove_spaces(&a_b_type.static_type.to_string()),
             "mry::send_wrapper::SendWrapper<A::B>"
         );
-        assert_eq!(remove_spaces(&c_d_type.static_type.to_string()), "C::D");
+        assert_eq!(
+            remove_spaces(&c_d_type.static_type.to_string()),
+            "mry::send_wrapper::SendWrapper<C::D>"
+        );
         assert_eq!(a_type.behavior_type.to_string(), "A");
         assert_eq!(remove_spaces(&a_b_type.behavior_type.to_string()), "A::B");
         assert_eq!(remove_spaces(&c_d_type.behavior_type.to_string()), "C::D");
