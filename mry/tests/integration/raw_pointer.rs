@@ -22,6 +22,20 @@ impl Test {
         }
         data
     }
+
+    fn use_ptr_array(&self, ptr: [*mut String; 3], data: u8) -> u8 {
+        unsafe {
+            println!("{} {}", *ptr[0], data);
+        }
+        data
+    }
+
+    fn use_slice_of_ptr(&self, ptr: &[*mut String], data: u8) -> u8 {
+        unsafe {
+            println!("{} {}", *ptr[0], data);
+        }
+        data
+    }
 }
 
 #[test]
@@ -112,4 +126,32 @@ fn test_raw_pointer_return_with() {
         // Clean up to avoid memory leaks
         let _ = Box::from_raw(result_ptr);
     }
+}
+
+#[test]
+fn test_use_ptr_array() {
+    let mut test = Test {
+        mry: Default::default(),
+    };
+    let ptr1 = Box::into_raw(Box::new(String::from("Hello, world!")));
+    let ptr2 = Box::into_raw(Box::new(String::from("Hello, world!")));
+    let ptr3 = Box::into_raw(Box::new(String::from("Hello, world!")));
+    let ptr_array = [ptr1, ptr2, ptr3];
+    test.mock_use_ptr_array(ptr_array, 1)
+        .returns_with(|vec: Vec<SendWrapper<*mut String>>, _| vec.len() as u8);
+    assert_eq!(test.use_ptr_array(ptr_array, 1), 3);
+}
+
+#[test]
+fn test_use_slice_of_ptr() {
+    let mut test = Test {
+        mry: Default::default(),
+    };
+    let ptr1 = Box::into_raw(Box::new(String::from("Hello, world!")));
+    let ptr2 = Box::into_raw(Box::new(String::from("Hello, world!")));
+    let ptr3 = Box::into_raw(Box::new(String::from("Hello, world!")));
+    let ptr_slice = &[ptr1, ptr2, ptr3] as &[*mut String];
+    test.mock_use_slice_of_ptr(ptr_slice, 1)
+        .returns_with(|vec: Vec<SendWrapper<*mut String>>, _| vec.len() as u8);
+    assert_eq!(test.use_slice_of_ptr(ptr_slice, 1), 3);
 }

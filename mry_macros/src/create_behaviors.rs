@@ -21,7 +21,7 @@ pub fn create() -> TokenStream {
             #[doc(hidden)]
             pub struct #behavior_name<I, O>(Box<dyn FnMut(I) -> O + Send + 'static>);
             #[doc(hidden)]
-            pub struct #behavior_name_send_wrapper<I, O>(Box<dyn FnMut(I) -> send_wrapper::SendWrapper<O> + Send + 'static>);
+            pub struct #behavior_name_send_wrapper<I, O>(Box<dyn FnMut(I) -> crate::send_wrapper::SendWrapper<O> + Send + 'static>);
 
             impl<Fn, O, #(#types),*> From<Fn> for #behavior_name<(#(#types,)*), O>
             where
@@ -37,7 +37,7 @@ pub fn create() -> TokenStream {
                 Fn: FnMut(#(#types),*) -> O + Send + 'static,
             {
                 fn from(mut function: Fn) -> Self {
-                    #behavior_name_send_wrapper(Box::new(move |(#(#args,)*)| send_wrapper::SendWrapper::new(function(#(#args),*))))
+                    #behavior_name_send_wrapper(Box::new(move |(#(#args,)*)| crate::send_wrapper::SendWrapper::new(function(#(#args),*))))
                 }
             }
 
@@ -50,8 +50,8 @@ pub fn create() -> TokenStream {
                 }
             }
 
-            impl<I: Clone, O> Into<Behavior<I, send_wrapper::SendWrapper<O>>> for #behavior_name_send_wrapper<I, O> {
-                fn into(self) -> Behavior<I, send_wrapper::SendWrapper<O>> {
+            impl<I: Clone, O> Into<Behavior<I, crate::send_wrapper::SendWrapper<O>>> for #behavior_name_send_wrapper<I, O> {
+                fn into(self) -> Behavior<I, crate::send_wrapper::SendWrapper<O>> {
                     Behavior::Function {
                         clone: Clone::clone,
                         call: self.0,

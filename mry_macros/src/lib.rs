@@ -1,3 +1,4 @@
+mod attrs;
 mod create_behaviors;
 mod create_matchers;
 mod item_fn;
@@ -7,6 +8,7 @@ mod item_trait;
 mod lock;
 mod method;
 mod new;
+use attrs::MryAttr;
 use darling::ast::NestedMeta;
 use darling::FromMeta;
 use lock::LockPaths;
@@ -25,11 +27,6 @@ enum TargetItem {
     Fn(ItemFn),
 }
 
-#[derive(FromMeta)]
-struct MryAttr {
-    debug: darling::util::Flag,
-}
-
 #[proc_macro_attribute]
 pub fn mry(
     attr: proc_macro::TokenStream,
@@ -45,9 +42,9 @@ pub fn mry(
         Ok(target) => {
             let token_stream = match target {
                 TargetItem::Struct(target) => item_struct::transform(target),
-                TargetItem::Impl(target) => item_impl::transform(target),
-                TargetItem::Trait(target) => item_trait::transform(target),
-                TargetItem::Fn(target) => item_fn::transform(target),
+                TargetItem::Impl(target) => item_impl::transform(&attr, target),
+                TargetItem::Trait(target) => item_trait::transform(&attr, target),
+                TargetItem::Fn(target) => item_fn::transform(&attr, target),
             };
             if attr.debug.is_present() {
                 println!("{}", token_stream);
@@ -85,23 +82,29 @@ pub fn lock(
     .into()
 }
 
-struct M(TokenStream);
+struct M {
+    mry_attr: MryAttr,
+    tokens: TokenStream,
+}
 
 impl VisitMut for M {
     fn visit_item_trait_mut(&mut self, i: &mut ItemTrait) {
-        item_trait::transform(i.clone()).to_tokens(&mut self.0)
+        item_trait::transform(&self.mry_attr, i.clone()).to_tokens(&mut self.tokens)
     }
     fn visit_item_struct_mut(&mut self, i: &mut ItemStruct) {
-        item_struct::transform(i.clone()).to_tokens(&mut self.0)
+        item_struct::transform(i.clone()).to_tokens(&mut self.tokens)
     }
     fn visit_item_impl_mut(&mut self, i: &mut ItemImpl) {
-        item_impl::transform(i.clone()).to_tokens(&mut self.0)
+        item_impl::transform(&self.mry_attr, i.clone()).to_tokens(&mut self.tokens)
     }
 }
 
 #[proc_macro]
 pub fn m(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut m = M(TokenStream::default());
+    let mut m = M {
+        mry_attr: MryAttr::default(),
+        tokens: TokenStream::default(),
+    };
     m.visit_file_mut(&mut parse2(input.into()).unwrap());
-    m.0.into()
+    m.tokens.into()
 }
