@@ -2,11 +2,14 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
     parse_quote, punctuated::Punctuated, Attribute, FnArg, Ident, Pat, PatIdent, ReturnType,
-    Signature, Type, Visibility,
+    Signature, Type, TypeArray, TypeSlice, Visibility,
 };
+
+use crate::attrs::MryAttr;
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn transform(
+    mry_attr: &MryAttr,
     mocks_tokens: TokenStream,  // `MOCKS.lock()`
     method_prefix: TokenStream, // `Self::`
     method_debug_prefix: &str,  // "Cat::"
@@ -75,9 +78,9 @@ pub(crate) fn transform(
         ReturnType::Type(_, ty) => {
             if let Some(output) = impl_future(ty) {
                 is_impl_future = true;
-                make_output_type(output)
+                make_output_type(mry_attr, output)
             } else {
-                make_output_type(ty)
+                make_output_type(mry_attr, ty)
             }
         }
     };
@@ -118,7 +121,7 @@ pub(crate) fn transform(
             } else {
                 format_ident!("arg{}", index)
             };
-            let (owned_ty, to_owned) = make_owned_type(&name, &org_ty);
+            let (owned_ty, to_owned) = make_owned_type(mry_attr, &name, &org_ty);
             Arg {
                 org_ty,
                 owned_ty: Some(owned_ty),
@@ -211,31 +214,41 @@ pub(crate) fn transform(
     )
 }
 
-pub fn make_owned_type(name: &Ident, ty: &Type) -> (Type, TokenStream) {
+pub fn make_owned_type(mry_attr: &MryAttr, name: &Ident, ty: &Type) -> (Type, TokenStream) {
     if is_str(ty) {
         return (parse_quote!(String), quote![#name.to_string()]);
     }
+    fn make_owned_type_slice(mry_attr: &MryAttr, name: &Ident, elem: &Type) -> (Type, TokenStream) {
+        let map_ident = Ident::new("elem", Span::call_site());
+        let (inner_owned, inner_clone) = make_owned_type(mry_attr, &map_ident, elem);
+        let owned_ty = parse_quote!(Vec<#inner_owned>);
+        let clone = quote![#name.iter().map(|#map_ident: &#elem| -> #inner_owned { #inner_clone }).collect::<Vec<_>>()];
+        (owned_ty, clone)
+    }
     let owned = match ty {
+        Type::Array(TypeArray { elem, .. }) => {
+            return make_owned_type_slice(mry_attr, name, elem);
+        }
         Type::Reference(ty) => match &*ty.elem {
-            Type::Slice(inner) => {
-                let elt_type = &inner.elem;
-                let map_ident = Ident::new("elem", Span::call_site());
-                let (inner_owned, inner_clone) = make_owned_type(&map_ident, elt_type);
-                let owned_ty = parse_quote!(Vec<#inner_owned>);
-                let clone = quote![#name.iter().map(|#map_ident: &#elt_type| -> #inner_owned { #inner_clone }).collect::<Vec<_>>()];
-                return (owned_ty, clone);
+            Type::Slice(TypeSlice { elem, .. }) | Type::Array(TypeArray { elem, .. }) => {
+                return make_owned_type_slice(mry_attr, name, elem)
             }
-            _ => ty.elem.as_ref().clone(),
+            _ => ty.elem.as_ref(),
         },
         Type::Ptr(_) => {
             let owned_ty = parse_quote!(mry::send_wrapper::SendWrapper<#ty>);
-            let clone = quote![mry::send_wrapper::SendWrapper::new(#name)];
+            let clone = quote![mry::send_wrapper::SendWrapper::new(<#ty>::clone(&#name))];
             return (owned_ty, clone);
         }
-        ty => ty.clone(),
+        ty => ty,
     };
     let cloned = quote![<#owned>::clone(&#name)];
-    (owned, cloned)
+    if mry_attr.test_non_send(owned) {
+        let owned_ty = parse_quote!(mry::send_wrapper::SendWrapper<#owned>);
+        let clone = quote![mry::send_wrapper::SendWrapper::new(#cloned)];
+        return (owned_ty, clone);
+    }
+    (owned.clone(), cloned)
 }
 
 pub fn impl_future(ty: &Type) -> Option<&Type> {
@@ -267,8 +280,8 @@ struct OutputType {
     send_wrapper: bool,
 }
 
-fn make_output_type(ty: &Type) -> OutputType {
-    let mut send_wrapper = false;
+fn make_output_type(mry_attr: &MryAttr, ty: &Type) -> OutputType {
+    let mut send_wrapper = mry_attr.test_non_send(ty);
     let ty = match ty {
         Type::Reference(ty) => {
             let ty = &ty.elem;
@@ -312,10 +325,13 @@ pub fn is_str(ty: &Type) -> bool {
 
 #[cfg(test)]
 mod test {
+    use crate::attrs::NotSend;
+
     use super::*;
+    use darling::FromMeta as _;
     use pretty_assertions::assert_eq;
     use quote::{quote, ToTokens};
-    use syn::{parse2, parse_quote, ImplItemFn};
+    use syn::{parse2, parse_quote, ImplItemFn, Meta};
 
     trait ToString {
         fn to_string(&self) -> String;
@@ -331,7 +347,13 @@ mod test {
     }
 
     fn t(method: &ImplItemFn) -> (TokenStream, TokenStream) {
+        t_with_attr(parse_quote!(mry()), method)
+    }
+
+    fn t_with_attr(attr: Meta, method: &ImplItemFn) -> (TokenStream, TokenStream) {
+        let attr = MryAttr::from_meta(&attr).unwrap();
         transform(
+            &attr,
             quote![self.mry.mocks()],
             quote![Self::],
             "Cat::",
@@ -358,7 +380,7 @@ mod test {
     fn test_make_owned_string() {
         let ident = Ident::new("var", Span::call_site());
         let str_t: Type = syn::parse_str("&str").unwrap();
-        let (owned_type, converter) = make_owned_type(&ident, &str_t);
+        let (owned_type, converter) = make_owned_type(&MryAttr::default(), &ident, &str_t);
         assert_eq!(owned_type, parse_quote!(String));
         assert_eq!(remove_spaces(&converter.to_string()), "var.to_string()");
     }
@@ -367,7 +389,7 @@ mod test {
     fn test_make_owned_slice() {
         let ident = Ident::new("var", Span::call_site());
         let slice_t: Type = syn::parse_str("&[String]").unwrap();
-        let (owned_type, converter) = make_owned_type(&ident, &slice_t);
+        let (owned_type, converter) = make_owned_type(&MryAttr::default(), &ident, &slice_t);
         dbg!(owned_type.to_token_stream().to_string());
         assert_eq!(owned_type, parse_quote!(Vec<String>));
         assert_eq!(
@@ -380,7 +402,7 @@ mod test {
     fn test_make_owned_slice_of_str() {
         let ident = Ident::new("var", Span::call_site());
         let slice_t: Type = syn::parse_str("&[&str]").unwrap();
-        let (owned_type, converter) = make_owned_type(&ident, &slice_t);
+        let (owned_type, converter) = make_owned_type(&MryAttr::default(), &ident, &slice_t);
         dbg!(owned_type.to_token_stream().to_string());
         assert_eq!(owned_type, parse_quote!(Vec<String>));
         assert_eq!(
@@ -393,7 +415,7 @@ mod test {
     fn test_make_owned_raw_pointer() {
         let ident = Ident::new("var", Span::call_site());
         let ptr_t: Type = syn::parse_str("*mut String").unwrap();
-        let (owned_type, converter) = make_owned_type(&ident, &ptr_t);
+        let (owned_type, converter) = make_owned_type(&MryAttr::default(), &ident, &ptr_t);
 
         assert_eq!(
             owned_type,
@@ -401,29 +423,149 @@ mod test {
         );
         assert_eq!(
             remove_spaces(&converter.to_string()),
-            "mry::send_wrapper::SendWrapper::new(var)"
+            "mry::send_wrapper::SendWrapper::new(<*mutString>::clone(&var))"
+        );
+    }
+
+    #[test]
+    fn test_make_owned_with_not_send() {
+        let attr = MryAttr {
+            not_send: Some(NotSend(vec![parse_quote!(A::B), parse_quote!(C)])),
+            ..Default::default()
+        };
+        let ident = Ident::new("var", Span::call_site());
+        let a_b: Type = syn::parse_str("A::B").unwrap();
+        let c_d: Type = syn::parse_str("C::D").unwrap();
+        let (owned_type, converter) = make_owned_type(&attr, &ident, &a_b);
+        assert_eq!(
+            owned_type,
+            parse_quote!(mry::send_wrapper::SendWrapper<A::B>)
+        );
+        assert_eq!(
+            remove_spaces(&converter.to_string()),
+            "mry::send_wrapper::SendWrapper::new(<A::B>::clone(&var))"
+        );
+        let (owned_type, converter) = make_owned_type(&attr, &ident, &c_d);
+        assert_eq!(
+            owned_type,
+            parse_quote!(mry::send_wrapper::SendWrapper<C::D>)
+        );
+        assert_eq!(
+            remove_spaces(&converter.to_string()),
+            "mry::send_wrapper::SendWrapper::new(<C::D>::clone(&var))"
+        );
+    }
+
+    #[test]
+    fn test_make_owned_slice_of_non_send() {
+        let attr = MryAttr {
+            not_send: Some(NotSend(vec![parse_quote!(A)])),
+            ..Default::default()
+        };
+        let ident = Ident::new("var", Span::call_site());
+        let a: Type = syn::parse_str("&[A]").unwrap();
+        let (owned_type, converter) = make_owned_type(&attr, &ident, &a);
+        assert_eq!(
+            owned_type,
+            parse_quote!(Vec<mry::send_wrapper::SendWrapper<A>>)
+        );
+        assert_eq!(
+            remove_spaces(&converter.to_string()),
+            "var.iter().map(|elem:&A|->mry::send_wrapper::SendWrapper<A>{mry::send_wrapper::SendWrapper::new(<A>::clone(&elem))}).collect::<Vec<_>>()"
+        );
+    }
+
+    #[test]
+    fn test_make_owned_slice_of_ptr() {
+        let ident = Ident::new("var", Span::call_site());
+        let a: Type = syn::parse_str("&[*mut String]").unwrap();
+        let (owned_type, converter) = make_owned_type(&MryAttr::default(), &ident, &a);
+        assert_eq!(
+            owned_type,
+            parse_quote!(Vec<mry::send_wrapper::SendWrapper<*mut String>>)
+        );
+        assert_eq!(
+            remove_spaces(&converter.to_string()),
+            "var.iter().map(|elem:&*mutString|->mry::send_wrapper::SendWrapper<*mutString>{mry::send_wrapper::SendWrapper::new(<*mutString>::clone(&elem))}).collect::<Vec<_>>()"
+        );
+    }
+
+    #[test]
+    fn test_make_owned_array_of_ptr() {
+        let ident = Ident::new("var", Span::call_site());
+        let a: Type = syn::parse_str("[*mut String; 3]").unwrap();
+        let (owned_type, converter) = make_owned_type(&MryAttr::default(), &ident, &a);
+        assert_eq!(
+            owned_type,
+            parse_quote!(Vec<mry::send_wrapper::SendWrapper<*mut String>>)
+        );
+        assert_eq!(
+            remove_spaces(&converter.to_string()),
+            "var.iter().map(|elem:&*mutString|->mry::send_wrapper::SendWrapper<*mutString>{mry::send_wrapper::SendWrapper::new(<*mutString>::clone(&elem))}).collect::<Vec<_>>()"
         );
     }
 
     #[test]
     fn test_make_static_raw_pointer() {
         let ptr_t: Type = syn::parse_str("*const String").unwrap();
-        let static_type = make_output_type(&ptr_t);
+        let output = make_output_type(&MryAttr::default(), &ptr_t);
 
         assert_eq!(
-            static_type.static_type.to_string(),
+            output.static_type.to_string(),
             "mry :: send_wrapper :: SendWrapper < * const String >"
         );
-        assert_eq!(static_type.behavior_type.to_string(), "* const String");
+        assert_eq!(output.behavior_type.to_string(), "* const String");
 
         let ptr_t: Type = syn::parse_str("*mut String").unwrap();
-        let static_type = make_output_type(&ptr_t);
+        let output = make_output_type(&MryAttr::default(), &ptr_t);
 
         assert_eq!(
-            static_type.static_type.to_string(),
+            output.static_type.to_string(),
             "mry :: send_wrapper :: SendWrapper < * mut String >"
         );
-        assert_eq!(static_type.behavior_type.to_string(), "* mut String");
+        assert_eq!(output.behavior_type.to_string(), "* mut String");
+    }
+
+    #[test]
+    fn test_make_static_with_not_send() {
+        let attr = MryAttr {
+            not_send: Some(NotSend(vec![parse_quote!(A::B), parse_quote!(C)])),
+            ..Default::default()
+        };
+        let a: Type = parse_quote!(A);
+        let a_b: Type = parse_quote!(A::B);
+        let c_d: Type = parse_quote!(C::D);
+        let a_type = make_output_type(&attr, &a);
+        let a_b_type = make_output_type(&attr, &a_b);
+        let c_d_type = make_output_type(&attr, &c_d);
+
+        assert_eq!(a_type.static_type.to_string(), "A");
+        assert_eq!(
+            remove_spaces(&a_b_type.static_type.to_string()),
+            "mry::send_wrapper::SendWrapper<A::B>"
+        );
+        assert_eq!(
+            remove_spaces(&c_d_type.static_type.to_string()),
+            "mry::send_wrapper::SendWrapper<C::D>"
+        );
+        assert_eq!(a_type.behavior_type.to_string(), "A");
+        assert_eq!(remove_spaces(&a_b_type.behavior_type.to_string()), "A::B");
+        assert_eq!(remove_spaces(&c_d_type.behavior_type.to_string()), "C::D");
+    }
+
+    #[test]
+    fn test_non_send_ref() {
+        let attr = MryAttr {
+            not_send: Some(NotSend(vec![parse_quote!(A)])),
+            ..Default::default()
+        };
+        let a: Type = parse_quote!(&A);
+        let a_type = make_output_type(&attr, &a);
+        assert_eq!(
+            remove_spaces(&a_type.static_type.to_string()),
+            "mry::send_wrapper::SendWrapper<&'staticA>"
+        );
+        assert_eq!(&a_type.behavior_type.to_string(), "& 'static A");
     }
 
     #[test]
@@ -855,6 +997,41 @@ mod test {
     }
 
     #[test]
+    fn input_send_wrapper_raw_pointer() {
+        let input: ImplItemFn = parse_quote! {
+            fn meow(&self, count: *mut String) -> usize {
+                count
+            }
+        };
+
+        assert_eq!(
+            t(&input).to_string(),
+            quote! {
+                fn meow(&self, count: *mut String) -> usize {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, usize>(std::any::Any::type_id(&Self::meow), "Cat::meow", (mry::send_wrapper::SendWrapper::new(<*mut String>::clone(&count)),)) {
+                        return out;
+                    }
+                    count
+                }
+
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<mry::send_wrapper::SendWrapper<*mut String> >>) -> mry::MockLocator<(mry::send_wrapper::SendWrapper<*mut String>,), usize, usize, mry::Behavior1<(mry::send_wrapper::SendWrapper<*mut String>,), usize> > {
+                    mry::MockLocator::new(
+                        self.mry.mocks(),
+                        std::any::Any::type_id(&Self::meow),
+                        "Cat::meow",
+                        (count.into(),).into(),
+                        std::convert::identity,
+                    )
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
     fn return_send_wrapper() {
         let input: ImplItemFn = parse_quote! {
             fn meow(&self, count: usize) -> *mut String {
@@ -882,6 +1059,82 @@ mod test {
                         "Cat::meow",
                         (count.into(),).into(),
                         |out| mry::send_wrapper::SendWrapper::new(out),
+                    )
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn not_send_output() {
+        let attr = parse_quote! {
+            mry(not_send(T))
+        };
+        let input: ImplItemFn = parse_quote! {
+            fn meow(&self, count: usize) -> T {
+                "meow".repeat(count)
+            }
+        };
+
+        assert_eq!(
+            t_with_attr(attr, &input).to_string(),
+            quote! {
+                fn meow(&self, count: usize) -> T {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, mry::send_wrapper::SendWrapper<T> >(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
+                        return mry::send_wrapper::SendWrapper::take(out);
+                    }
+                    "meow".repeat(count)
+                }
+
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), mry::send_wrapper::SendWrapper<T>, T, mry::BehaviorSendWrapper1<(usize,), T> > {
+                    mry::MockLocator::new(
+                        self.mry.mocks(),
+                        std::any::Any::type_id(&Self::meow),
+                        "Cat::meow",
+                        (count.into(),).into(),
+                        |out| mry::send_wrapper::SendWrapper::new(out),
+                    )
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn not_send_input() {
+        let attr = parse_quote! {
+            mry(not_send(T))
+        };
+        let input: ImplItemFn = parse_quote! {
+            fn meow(&self, count: T) -> usize {
+                "meow".repeat(count)
+            }
+        };
+
+        assert_eq!(
+            t_with_attr(attr, &input).to_string(),
+            quote! {
+                fn meow(&self, count: T) -> usize {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, usize>(std::any::Any::type_id(&Self::meow), "Cat::meow", (mry::send_wrapper::SendWrapper::new(<T>::clone(&count)),)) {
+                        return out;
+                    }
+                    "meow".repeat(count)
+                }
+
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<mry::send_wrapper::SendWrapper<T> >>) -> mry::MockLocator<(mry::send_wrapper::SendWrapper<T>,), usize, usize, mry::Behavior1<(mry::send_wrapper::SendWrapper<T>,), usize> > {
+                    mry::MockLocator::new(
+                        self.mry.mocks(),
+                        std::any::Any::type_id(&Self::meow),
+                        "Cat::meow",
+                        (count.into(),).into(),
+                        std::convert::identity,
                     )
                 }
             }

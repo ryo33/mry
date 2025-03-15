@@ -88,7 +88,7 @@ fn takes_slice_str_original_type_ok() {
 fn takes_slice_str_original_type_ok_array() {
     let mut target = mry::new!(Struct {});
     let mock = target
-        .mock_takes_slice_str(&["first arg", "second arg"])
+        .mock_takes_slice_str(["first arg", "second arg"])
         .returns(1);
 
     assert_eq!(target.takes_slice_str(&["first arg", "second arg"]), 1);

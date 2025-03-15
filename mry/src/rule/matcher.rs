@@ -123,11 +123,20 @@ where
     }
 }
 
+impl<O: PartialEq + MockableArg, I, const N: usize> From<[I; N]> for ArgMatcher<Vec<O>>
+where
+    I: Into<ArgMatcher<O>> + Clone,
+{
+    fn from(value: [I; N]) -> Self {
+        <&[I]>::into(&value[..])
+    }
+}
+
 #[cfg(feature = "send_wrapper")]
-impl<T: PartialEq + 'static> From<T> for ArgMatcher<send_wrapper::SendWrapper<T>> {
+impl<T: PartialEq + 'static> From<T> for ArgMatcher<crate::send_wrapper::SendWrapper<T>> {
     fn from(value: T) -> Self {
-        let value = send_wrapper::SendWrapper::new(value);
-        ArgMatcher::Fn(Box::new(move |input| **input == *value))
+        let value = crate::send_wrapper::SendWrapper::new(value);
+        ArgMatcher::Fn(Box::new(move |input| *input == value))
     }
 }
 
@@ -165,5 +174,18 @@ mod tests {
         assert!(!matcher.matches(&(3, 1)));
         assert!(!matcher.matches(&(1, 2)));
         assert!(!matcher.matches(&(1, 1)));
+    }
+
+    #[test]
+    fn matcher_vec_of_send_wrapper() {
+        let matcher: ArgMatcher<Vec<crate::send_wrapper::SendWrapper<u8>>> = [1u8, 2u8].into();
+        assert!(matcher.matches(&vec![
+            crate::send_wrapper::SendWrapper::new(1),
+            crate::send_wrapper::SendWrapper::new(2),
+        ]));
+        assert!(!matcher.matches(&vec![
+            crate::send_wrapper::SendWrapper::new(1),
+            crate::send_wrapper::SendWrapper::new(3),
+        ]));
     }
 }

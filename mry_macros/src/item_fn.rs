@@ -2,10 +2,11 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::ItemFn;
 
-use crate::method;
+use crate::{attrs::MryAttr, method};
 
-pub(crate) fn transform(input: ItemFn) -> TokenStream {
+pub(crate) fn transform(mry_attr: &MryAttr, input: ItemFn) -> TokenStream {
     let (original, mock) = method::transform(
+        mry_attr,
         quote![mry::get_static_mocks()],
         Default::default(),
         "",
@@ -39,7 +40,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&MryAttr::default(), input).to_string(),
             quote! {
                 fn meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
@@ -77,7 +78,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform(input).to_string(),
+            transform(&MryAttr::default(), input).to_string(),
             quote! {
                 fn _meow(count: usize) -> String {
                     #[cfg(debug_assertions)]

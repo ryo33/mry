@@ -20,4 +20,6 @@ mod simple_case;
 mod static_function;
 
 #[cfg(feature = "send_wrapper")]
+mod non_send;
+#[cfg(feature = "send_wrapper")]
 mod raw_pointer;
