@@ -42,6 +42,12 @@ fn test_use_pointer() {
     assert_eq!(test.use_mut_ptr(ptr1, 2), 20);
     assert_eq!(test.use_ptr(ptr2, 5), 5);
     assert_eq!(test.use_mut_ptr(ptr2, 6), 6);
+
+    unsafe {
+        // Clean up to avoid memory leaks
+        let _ = Box::from_raw(ptr1);
+        let _ = Box::from_raw(ptr2);
+    }
 }
 
 #[test]

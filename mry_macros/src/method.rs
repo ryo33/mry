@@ -164,8 +164,6 @@ pub(crate) fn transform(
             .chain(args_without_receiver.iter().cloned().map(FnArg::Typed)),
     );
 
-    // Check if the return type is a raw pointer
-
     let out = if out_is_send_wrapper {
         quote!(mry::send_wrapper::SendWrapper::take(out))
     } else {
