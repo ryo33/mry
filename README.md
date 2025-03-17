@@ -380,6 +380,8 @@ impl Iterator for MockIterator {
 
 Mry supports types that don't implement `Send` for both in arguments and return type by wrapping them in [`SendWrapper`](https://docs.rs/send_wrapper/latest/send_wrapper/index.html) in the background. If you need working with non-Send types, you have to specify `#[mry::mry(non_send(Your::Type::Path, Another::Type::Path))]` for non-`Send` types other than raw pointers. Raw pointers are wrapped always with no configuration.
 
+Also `skip` attribute is another option for non-`Send` types if you don't need to mock them.
+
 ```rust
 #[mry::mry(non_send(Rc, NotSendValue))] // You cannot write generics fields here like `Rc<String>`
 impl DataHandler {
@@ -394,5 +396,23 @@ impl DataHandler {
     fn your_non_send_type(&self, value: NotSendValue) {
         // implementation...
     }
+}
+```
+
+### Skipping types
+
+If you have some arguments in a function that you don't need to mock or that are not yet supported in `mry`, you can skip them by using `#[mry::mry(skip(A, B, ...))]` attribute.
+
+```rust
+#[mry::mry(skip(Rc))]
+fn hello(rc: Rc<String>, count: usize) -> String {
+    rc.to_string().repeat(count)
+}
+
+#[test]
+#[mry::lock(hello)]
+fn test_hello() {
+    mock_hello(2).returns_with(|num| "mocked".repeat(num)); // Rc is skipped here
+    assert_eq!(hello(Rc::new("aaa".into()), 2), "mockedmocked");
 }
 ```

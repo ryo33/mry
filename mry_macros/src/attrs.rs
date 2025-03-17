@@ -5,9 +5,11 @@ use syn::{visit::Visit, Meta};
 pub(crate) struct MryAttr {
     pub debug: darling::util::Flag,
     pub non_send: Option<NotSend>,
+    pub skip: Option<Skip>,
 }
 
 pub(crate) struct NotSend(pub Vec<syn::Path>);
+pub(crate) struct Skip(pub Vec<syn::Path>);
 
 impl FromMeta for NotSend {
     fn from_list(list: &[NestedMeta]) -> darling::Result<Self> {
@@ -23,43 +25,70 @@ impl FromMeta for NotSend {
     }
 }
 
+impl FromMeta for Skip {
+    fn from_list(list: &[NestedMeta]) -> darling::Result<Self> {
+        list.iter()
+            .map(|meta| match meta {
+                NestedMeta::Meta(Meta::Path(path)) => Ok(path.clone()),
+                _ => Err(darling::Error::custom(
+                    "expected a list of types like skip(T, U)",
+                )),
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(Skip)
+    }
+}
+
 impl MryAttr {
     pub fn test_non_send(&self, ty: &syn::Type) -> bool {
         let Some(non_send) = &self.non_send else {
             return false;
         };
-        struct Visitor<'a> {
-            non_send: &'a NotSend,
-            found: bool,
-        }
-        impl Visit<'_> for Visitor<'_> {
-            fn visit_path(&mut self, path: &syn::Path) {
-                if self.found {
-                    return;
-                }
-                if self.non_send.0.iter().any(|p| p == path) {
-                    self.found = true;
-                    return;
-                }
-                for segment in path.segments.iter() {
-                    self.visit_path_segment(segment);
-                }
-            }
-            fn visit_ident(&mut self, ident: &syn::Ident) {
-                if self.found {
-                    return;
-                }
-                if self.non_send.0.iter().any(|p| p.is_ident(ident)) {
-                    self.found = true;
-                }
-            }
-        }
-        let mut visitor = Visitor {
-            non_send,
+        let mut visitor = TypeVisitor {
+            paths: &non_send.0,
             found: false,
         };
         visitor.visit_type(ty);
         visitor.found
+    }
+
+    pub fn test_skip(&self, ty: &syn::Type) -> bool {
+        let Some(skip) = &self.skip else {
+            return false;
+        };
+        let mut visitor = TypeVisitor {
+            paths: &skip.0,
+            found: false,
+        };
+        visitor.visit_type(ty);
+        visitor.found
+    }
+}
+
+struct TypeVisitor<'a> {
+    paths: &'a Vec<syn::Path>,
+    found: bool,
+}
+impl Visit<'_> for TypeVisitor<'_> {
+    fn visit_path(&mut self, path: &syn::Path) {
+        if self.found {
+            return;
+        }
+        if self.paths.iter().any(|p| p == path) {
+            self.found = true;
+            return;
+        }
+        for segment in path.segments.iter() {
+            self.visit_path_segment(segment);
+        }
+    }
+    fn visit_ident(&mut self, ident: &syn::Ident) {
+        if self.found {
+            return;
+        }
+        if self.paths.iter().any(|p| p.is_ident(ident)) {
+            self.found = true;
+        }
     }
 }
 
