@@ -8,7 +8,7 @@ struct NonCloneable;
 #[derive(Clone, PartialEq, Debug)]
 struct A;
 
-#[mry::mry(skip(NonCloneable, Rc, A))]
+#[mry::mry(skip_args(NonCloneable, Rc, A))]
 impl Cat {
     fn many_args(&self, non_clonable: NonCloneable, rc: Rc<String>, count: usize) -> String {
         let _ = non_clonable;
@@ -20,12 +20,12 @@ impl Cat {
     }
 }
 
-#[mry::mry(skip(Rc))]
+#[mry::mry(skip_args(Rc))]
 fn skip_rc(rc: Rc<String>) -> String {
     rc.to_string()
 }
 
-#[mry::mry(skip(Rc))]
+#[mry::mry(skip_args(Rc))]
 fn hello(rc: Rc<String>, count: usize) -> String {
     rc.to_string().repeat(count)
 }

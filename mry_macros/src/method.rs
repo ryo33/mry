@@ -33,7 +33,7 @@ pub(crate) fn transform(
     let inputs_without_receiver: Vec<_> = inputs
         .map(|input| {
             if let FnArg::Typed(typed_arg) = input {
-                (typed_arg.clone(), mry_attr.test_skip(&typed_arg.ty))
+                (typed_arg.clone(), mry_attr.test_skip_args(&typed_arg.ty))
             } else {
                 panic!("multiple receiver?");
             }
@@ -1153,7 +1153,7 @@ mod test {
     #[test]
     fn skip() {
         let attr = parse_quote! {
-            mry(skip(A, B))
+            mry(skip_args(A, B))
         };
         let input: ImplItemFn = parse_quote! {
             fn meow(&self, a: A, b: B, count: usize) -> String {
@@ -1191,7 +1191,7 @@ mod test {
     #[test]
     fn skip_return_type_no_effect() {
         let attr = parse_quote! {
-            mry(skip(T))
+            mry(skip_args(T))
         };
 
         let input: ImplItemFn = parse_quote! {

@@ -2,7 +2,8 @@
 
 ## 0.13
 
-- Added `#[mry::mry(skip(A, B, ...))]` attribute to skip types.
+- Added `#[mry::mry(skip_args(A, B, ...))]` attribute to skip types.
+- Added `#[mry::mry(skip_methods(method_name))]` attribute to skip some methods in trait or impl block.
 
 ## 0.12
 

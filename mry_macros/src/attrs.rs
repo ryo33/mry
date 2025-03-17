@@ -5,7 +5,8 @@ use syn::{visit::Visit, Meta};
 pub(crate) struct MryAttr {
     pub debug: darling::util::Flag,
     pub non_send: Option<NotSend>,
-    pub skip: Option<Skip>,
+    pub skip_args: Option<Skip>,
+    pub skip_methods: Option<Skip>,
 }
 
 pub(crate) struct NotSend(pub Vec<syn::Path>);
@@ -52,8 +53,8 @@ impl MryAttr {
         visitor.found
     }
 
-    pub fn test_skip(&self, ty: &syn::Type) -> bool {
-        let Some(skip) = &self.skip else {
+    pub fn test_skip_args(&self, ty: &syn::Type) -> bool {
+        let Some(skip) = &self.skip_args else {
             return false;
         };
         let mut visitor = TypeVisitor {
@@ -62,6 +63,15 @@ impl MryAttr {
         };
         visitor.visit_type(ty);
         visitor.found
+    }
+
+    pub fn should_skip_method(&self, method_name: &syn::Ident) -> bool {
+        if let Some(skip) = &self.skip_methods {
+            if skip.0.iter().any(|p| p.is_ident(method_name)) {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -151,5 +161,18 @@ mod tests {
 
         assert!(attr.test_non_send(&parse_quote!(Rc<String>)));
         assert!(!attr.test_non_send(&parse_quote!(String)));
+    }
+
+    #[test]
+    fn test_skip_method() {
+        let attr = MryAttr::from_list(
+            &NestedMeta::parse_meta_list(parse_quote! {
+                skip_methods(skipped)
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(attr.should_skip_method(&parse_quote!(skipped)));
+        assert!(!attr.should_skip_method(&parse_quote!(not_skipped)));
     }
 }
