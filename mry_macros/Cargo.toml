@@ -1,6 +1,6 @@
 [package]
 name = "mry_macros"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Macro crate for mry, a simple but powerful mocking library that supports struct, trait, and function."
