@@ -6,7 +6,7 @@ struct Cat {
     name: String,
 }
 
-#[mry::mry(skip_methods(skipped))]
+#[mry::mry(skip_fns(skipped))]
 impl Cat {
     fn meow(&self) -> String {
         format!("{} meows", self.name)
@@ -17,13 +17,13 @@ impl Cat {
     }
 }
 
-#[mry::mry(skip_methods(skipped))]
+#[mry::mry(skip_fns(skipped))]
 trait SkipTrait {
     fn not_skipped(&self) -> String;
     fn skipped(&self, rc: Rc<String>) -> String;
 }
 
-#[mry::mry(skip_methods(skipped))]
+#[mry::mry(skip_fns(skipped))]
 impl SkipTrait for Cat {
     fn not_skipped(&self) -> String {
         format!("{} meows", self.name)
@@ -53,7 +53,7 @@ fn test_not_skipped_in_trait() {
 }
 
 #[test]
-#[should_panic(expected = "this method is skipped with `#[mry::mry(skip_methods(...))]` attribute")]
+#[should_panic(expected = "this method is skipped with `#[mry::mry(skip_fns(...))]` attribute")]
 fn test_skipped_in_trait() {
     let mock = MockSkipTrait::default();
     mock.skipped(Rc::new("a".to_string()));

@@ -6,7 +6,7 @@ pub(crate) struct MryAttr {
     pub debug: darling::util::Flag,
     pub non_send: Option<NotSend>,
     pub skip_args: Option<Skip>,
-    pub skip_methods: Option<Skip>,
+    pub skip_fns: Option<Skip>,
 }
 
 pub(crate) struct NotSend(pub Vec<syn::Path>);
@@ -66,7 +66,7 @@ impl MryAttr {
     }
 
     pub fn should_skip_method(&self, method_name: &syn::Ident) -> bool {
-        if let Some(skip) = &self.skip_methods {
+        if let Some(skip) = &self.skip_fns {
             if skip.0.iter().any(|p| p.is_ident(method_name)) {
                 return true;
             }
@@ -167,7 +167,7 @@ mod tests {
     fn test_skip_method() {
         let attr = MryAttr::from_list(
             &NestedMeta::parse_meta_list(parse_quote! {
-                skip_methods(skipped)
+                skip_fns(skipped)
             })
             .unwrap(),
         )

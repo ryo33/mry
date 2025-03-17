@@ -426,7 +426,7 @@ mod test {
         .unwrap();
 
         let attr = MryAttr::from_meta(&parse_quote! {
-            mry(skip_methods(skipped))
+            mry(skip_fns(skipped))
         })
         .unwrap();
 
@@ -449,7 +449,7 @@ mod test {
     #[test]
     fn test_skip_in_impl_with_trait() {
         let attr = MryAttr::from_meta(&parse_quote! {
-            mry(skip_methods(skipped))
+            mry(skip_fns(skipped))
         })
         .unwrap();
 

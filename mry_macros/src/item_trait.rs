@@ -27,19 +27,15 @@ pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemTrait) -> TokenStream
         .map(|item| match item {
             syn::TraitItem::Fn(method) => {
                 if mry_attr.should_skip_method(&method.sig.ident) {
-                    let mut modified = method.clone();
-                    modified.default = Some(parse_quote!({
-                        panic!(
-                            "this method is skipped with `#[mry::mry(skip_methods(...))]` attribute"
-                        )
+                    let mut method = method.clone();
+                    method.default = Some(parse_quote!({
+                        panic!("this method is skipped with `#[mry::mry(skip_fns(...))]` attribute")
                     }));
-                    modified
-                        .attrs
-                        .push(parse_quote!(#[allow(unused_variables)]));
+                    method.attrs.push(parse_quote!(#[allow(unused_variables)]));
                     return (
-                        syn::TraitItem::Fn(method.clone()),
+                        item.clone(),
                         (
-                            syn::TraitItem::Fn(modified).to_token_stream(),
+                            syn::TraitItem::Fn(method).to_token_stream(),
                             Default::default(),
                         ),
                     );
@@ -436,7 +432,7 @@ mod test {
     #[test]
     fn test_skip_in_trait() {
         let attr = MryAttr::from_meta(&parse_quote! {
-            mry(skip_methods(skipped))
+            mry(skip_fns(skipped))
         })
         .unwrap();
 
@@ -472,7 +468,7 @@ mod test {
                     }
                     #[allow(unused_variables)]
                     fn skipped(&self, rc: Rc<String>) -> String {
-                        panic!("this method is skipped with `#[mry::mry(skip_methods(...))]` attribute")
+                        panic!("this method is skipped with `#[mry::mry(skip_fns(...))]` attribute")
                     }
                 }
 

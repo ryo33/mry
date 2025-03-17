@@ -18,7 +18,7 @@ mod reference_and_pattern;
 mod returns_with_recursive_call;
 mod simple_case;
 mod skip_arg;
-mod skip_methods;
+mod skip_fns;
 mod static_function;
 
 #[cfg(feature = "send_wrapper")]

@@ -380,7 +380,7 @@ impl Iterator for MockIterator {
 
 Mry supports types that don't implement `Send` for both in arguments and return type by wrapping them in [`SendWrapper`](https://docs.rs/send_wrapper/latest/send_wrapper/index.html) in the background. If you need working with non-Send types, you have to specify `#[mry::mry(non_send(Your::Type::Path, Another::Type::Path))]` for non-`Send` types other than raw pointers. Raw pointers are wrapped always with no configuration.
 
-Also `skip_args` and `skip_methods` attributes are available for non-`Send` types if you don't need to mock the arg or the method.
+Also `skip_args` and `skip_fns` attributes are available for non-`Send` types if you don't need to mock the arg or the method.
 
 ```rust
 #[mry::mry(non_send(Rc, NotSendValue))] // You cannot write generics fields here like `Rc<String>`
@@ -419,11 +419,11 @@ fn test_hello() {
 
 ### Skipping methods
 
-If you want to skip some methods in trait or impl block, you can use `#[mry::mry(skip_methods(method_name))]` attribute for `impl` block and `trait` block.
+If you want to skip some methods in trait or impl block, you can use `#[mry::mry(skip_fns(method_name))]` attribute for `impl` block and `trait` block.
 
 ```rust
 // For impl block
-#[mry::mry(skip_methods(skipped))]
+#[mry::mry(skip_fns(skipped))]
 impl Cat {
     fn meow(&self, count: usize) -> String {
         format!("{}: {}", self.name, "meow".repeat(count))
@@ -435,7 +435,7 @@ impl Cat {
 }
 
 // For impl block for trait
-#[mry::mry(skip_methods(skipped))]
+#[mry::mry(skip_fns(skipped))]
 impl SomeTrait for Cat {
     fn not_skipped(&self) -> String {
         "not skipped".to_string()
@@ -447,7 +447,7 @@ impl SomeTrait for Cat {
 }
 
 // For trait block
-#[mry::mry(skip_methods(skipped))]
+#[mry::mry(skip_fns(skipped))]
 trait SkipTrait {
     fn not_skipped(&self) -> String;
     fn skipped(&self, rc: Rc<String>) -> String;
