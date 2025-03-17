@@ -127,6 +127,9 @@ pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemImpl) -> TokenStream 
         .iter()
         .map(|item| {
             if let ImplItem::Fn(method) = item {
+                if mry_attr.should_skip_method(&method.sig.ident) {
+                    return (item.to_token_stream(), TokenStream::default());
+                }
                 if let Some(FnArg::Receiver(_)) = method.sig.inputs.first() {
                     method::transform(
                         mry_attr,
@@ -189,8 +192,9 @@ pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemImpl) -> TokenStream 
 
 #[cfg(test)]
 mod test {
+    use darling::FromMeta as _;
     use pretty_assertions::assert_eq;
-    use syn::parse2;
+    use syn::{parse2, parse_quote};
 
     use super::*;
 
@@ -404,6 +408,70 @@ mod test {
                             std::convert::identity,
                         )
                     }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn test_skip_in_impl() {
+        let input: ItemImpl = parse2(quote! {
+            impl Cat {
+                fn skipped(&self, rc: Rc<String>) -> String {
+                    format!("skipped {} meows", self.name)
+                }
+            }
+        })
+        .unwrap();
+
+        let attr = MryAttr::from_meta(&parse_quote! {
+            mry(skip_fns(skipped))
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&attr, input).to_string(),
+            quote! {
+                impl Cat {
+                    fn skipped(&self, rc: Rc<String>) -> String {
+                        format!("skipped {} meows", self.name)
+                    }
+                }
+
+                impl Cat {
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn test_skip_in_impl_with_trait() {
+        let attr = MryAttr::from_meta(&parse_quote! {
+            mry(skip_fns(skipped))
+        })
+        .unwrap();
+
+        let input: ItemImpl = parse2(quote! {
+            impl Cat for MockCat {
+                fn skipped(&self, rc: Rc<String>) -> String {
+                    format!("skipped {} meows", self.name)
+                }
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&attr, input).to_string(),
+            quote! {
+                impl Cat for MockCat {
+                    fn skipped(&self, rc: Rc<String>) -> String {
+                        format!("skipped {} meows", self.name)
+                    }
+                }
+
+                impl MockCat {
                 }
             }
             .to_string()

@@ -1,10 +1,10 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{Ident, ItemTrait};
+use syn::{parse_quote, Ident, ItemTrait};
 
 use crate::{attrs::MryAttr, method};
 
-pub(crate) fn transform(mry_attr: &MryAttr, input: ItemTrait) -> TokenStream {
+pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemTrait) -> TokenStream {
     let async_trait_or_blank = if input.attrs.iter().any(|attr| {
         attr.path()
             .segments
@@ -21,11 +21,25 @@ pub(crate) fn transform(mry_attr: &MryAttr, input: ItemTrait) -> TokenStream {
     let mry_ident = Ident::new(&format!("Mock{}", &input.ident), Span::call_site());
     let vis = &input.vis;
     let panic_message = format!("mock not found for {}", trait_ident);
-    let (items, impl_items): (Vec<_>, Vec<_>) = input
+    let (def, generated): (Vec<_>, Vec<_>) = input
         .items
         .iter()
         .map(|item| match item {
             syn::TraitItem::Fn(method) => {
+                if mry_attr.should_skip_method(&method.sig.ident) {
+                    let mut method = method.clone();
+                    method.default = Some(parse_quote!({
+                        panic!("this method is skipped with `#[mry::mry(skip_fns(...))]` attribute")
+                    }));
+                    method.attrs.push(parse_quote!(#[allow(unused_variables)]));
+                    return (
+                        item.clone(),
+                        (
+                            syn::TraitItem::Fn(method).to_token_stream(),
+                            Default::default(),
+                        ),
+                    );
+                }
                 let method_prefix = quote![<#mry_ident as #trait_ident>::];
                 let body = &method
                     .default
@@ -33,34 +47,43 @@ pub(crate) fn transform(mry_attr: &MryAttr, input: ItemTrait) -> TokenStream {
                     .map(|default| default.to_token_stream())
                     .unwrap_or(quote![panic!(#panic_message)]);
                 if method.sig.receiver().is_none() {
-                    method::transform(
-                        mry_attr,
-                        quote![mry::get_static_mocks()],
-                        method_prefix,
-                        &format!("<{} as {}>::", mry_ident, trait_ident),
-                        quote![mry::static_record_call_and_find_mock_output],
-                        None,
-                        &method.attrs,
-                        &method.sig,
-                        body,
+                    (
+                        item.clone(),
+                        method::transform(
+                            mry_attr,
+                            quote![mry::get_static_mocks()],
+                            method_prefix,
+                            &format!("<{} as {}>::", mry_ident, trait_ident),
+                            quote![mry::static_record_call_and_find_mock_output],
+                            None,
+                            &method.attrs,
+                            &method.sig,
+                            body,
+                        ),
                     )
                 } else {
-                    method::transform(
-                        mry_attr,
-                        quote![self.mry.mocks()],
-                        method_prefix,
-                        &(trait_ident.to_string() + "::"),
-                        quote![self.mry.record_call_and_find_mock_output],
-                        None,
-                        &method.attrs,
-                        &method.sig,
-                        body,
+                    (
+                        item.clone(),
+                        method::transform(
+                            mry_attr,
+                            quote![self.mry.mocks()],
+                            method_prefix,
+                            &(trait_ident.to_string() + "::"),
+                            quote![self.mry.record_call_and_find_mock_output],
+                            None,
+                            &method.attrs,
+                            &method.sig,
+                            body,
+                        ),
                     )
                 }
             }
-            _item => todo!(),
+            item => (item.clone(), Default::default()),
         })
         .unzip();
+    input.items = def;
+    let items = generated.iter().map(|item| &item.0);
+    let impl_items = generated.iter().map(|item| &item.1);
 
     quote! {
         #input
@@ -89,6 +112,7 @@ pub(crate) fn transform(mry_attr: &MryAttr, input: ItemTrait) -> TokenStream {
 
 #[cfg(test)]
 mod test {
+    use darling::FromMeta as _;
     use pretty_assertions::assert_eq;
     use syn::{parse2, parse_quote};
 
@@ -403,5 +427,67 @@ mod test {
                 }
             }
         }.to_string());
+    }
+
+    #[test]
+    fn test_skip_in_trait() {
+        let attr = MryAttr::from_meta(&parse_quote! {
+            mry(skip_fns(skipped))
+        })
+        .unwrap();
+
+        let input: ItemTrait = parse_quote! {
+            trait Cat {
+                fn not_skipped(&self) -> String;
+                fn skipped(&self, rc: Rc<String>) -> String;
+            }
+        };
+
+        assert_eq!(
+            transform(&attr, input).to_string(),
+            quote! {
+                trait Cat {
+                    fn not_skipped(&self) -> String;
+                    fn skipped(&self, rc: Rc<String>) -> String;
+                }
+
+                #[cfg(debug_assertions)]
+                #[derive(Default, Clone, Debug)]
+                struct MockCat {
+                    pub mry : mry::Mry,
+                }
+
+                #[cfg(debug_assertions)]
+                impl Cat for MockCat {
+                    fn not_skipped(&self) -> String {
+                        #[cfg(debug_assertions)]
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::not_skipped), "Cat::not_skipped", ()) {
+                            return out;
+                        }
+                        panic!("mock not found for Cat")
+                    }
+                    #[allow(unused_variables)]
+                    fn skipped(&self, rc: Rc<String>) -> String {
+                        panic!("this method is skipped with `#[mry::mry(skip_fns(...))]` attribute")
+                    }
+                }
+
+                #[cfg(debug_assertions)]
+                impl MockCat {
+                    #[cfg(debug_assertions)]
+                    #[must_use]
+                    pub fn mock_not_skipped(&mut self,) -> mry::MockLocator<(), String, String, mry::Behavior0<(), String> > {
+                        mry::MockLocator::new(
+                            self.mry.mocks(),
+                            std::any::Any::type_id(&<MockCat as Cat>::not_skipped),
+                            "Cat::not_skipped",
+                            ().into(),
+                            std::convert::identity,
+                        )
+                    }
+                }
+            }
+            .to_string()
+        );
     }
 }

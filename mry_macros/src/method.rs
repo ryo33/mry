@@ -33,7 +33,7 @@ pub(crate) fn transform(
     let inputs_without_receiver: Vec<_> = inputs
         .map(|input| {
             if let FnArg::Typed(typed_arg) = input {
-                typed_arg.clone()
+                (typed_arg.clone(), mry_attr.test_skip_args(&typed_arg.ty))
             } else {
                 panic!("multiple receiver?");
             }
@@ -44,8 +44,10 @@ pub(crate) fn transform(
     let args_without_receiver: Vec<_> = inputs_without_receiver
         .iter()
         .enumerate()
-        .map(|(i, input)| {
-            if let Pat::Ident(_) = *input.pat {
+        .map(|(i, (input, skip))| {
+            if *skip {
+                input.clone()
+            } else if let Pat::Ident(_) = *input.pat {
                 input.clone()
             } else {
                 let pat = input.pat.clone();
@@ -96,7 +98,10 @@ pub(crate) fn transform(
             } else {
                 ""
             },
-            inputs_without_receiver.len()
+            inputs_without_receiver
+                .iter()
+                .filter(|(_, skip)| !*skip)
+                .count()
         ),
         Span::call_site(),
     );
@@ -114,7 +119,10 @@ pub(crate) fn transform(
     let args: Vec<Arg> = inputs_without_receiver
         .iter()
         .enumerate()
-        .map(|(index, input)| {
+        .filter_map(|(index, (input, skip))| {
+            if *skip {
+                return None;
+            }
             let org_ty = input.ty.as_ref().clone();
             let name = if let Pat::Ident(ident) = &*input.pat {
                 ident.ident.clone()
@@ -122,12 +130,12 @@ pub(crate) fn transform(
                 format_ident!("arg{}", index)
             };
             let (owned_ty, to_owned) = make_owned_type(mry_attr, &name, &org_ty);
-            Arg {
+            Some(Arg {
                 org_ty,
                 owned_ty: Some(owned_ty),
                 to_owned,
                 name,
-            }
+            })
         })
         .collect();
     let mock_args = args.iter().map(|arg| {
@@ -1134,6 +1142,83 @@ mod test {
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (count.into(),).into(),
+                        std::convert::identity,
+                    )
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn skip() {
+        let attr = parse_quote! {
+            mry(skip_args(A, B))
+        };
+        let input: ImplItemFn = parse_quote! {
+            fn meow(&self, a: A, b: B, count: usize) -> String {
+                "meow".repeat(count)
+            }
+        };
+
+        assert_eq!(
+            t_with_attr(attr, &input).to_string(),
+            quote! {
+                fn meow(&self, a: A, b: B, count: usize) -> String {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
+                        return out;
+                    }
+                    "meow".repeat(count)
+                }
+
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
+                    mry::MockLocator::new(
+                        self.mry.mocks(),
+                        std::any::Any::type_id(&Self::meow),
+                        "Cat::meow",
+                        (count.into(),).into(),
+                        std::convert::identity,
+                    )
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn skip_return_type_no_effect() {
+        let attr = parse_quote! {
+            mry(skip_args(T))
+        };
+
+        let input: ImplItemFn = parse_quote! {
+            fn meow(&self, a: A, b: B, count: usize) -> T {
+                "meow".repeat(count).into()
+            }
+        };
+
+        assert_eq!(
+            t_with_attr(attr, &input).to_string(),
+            quote! {
+                fn meow(&self, a: A, b: B, count: usize) -> T {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, T>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<A>::clone(&a), <B>::clone(&b), <usize>::clone(&count),)) {
+                        return out;
+                    }
+                    "meow".repeat(count).into()
+                }
+
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_meow(&mut self, a: impl Into<mry::ArgMatcher<A>>, b: impl Into<mry::ArgMatcher<B>>, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(A, B, usize,), T, T, mry::Behavior3<(A, B, usize,), T> > {
+                    mry::MockLocator::new(
+                        self.mry.mocks(),
+                        std::any::Any::type_id(&Self::meow),
+                        "Cat::meow",
+                        (a.into(), b.into(), count.into(),).into(),
                         std::convert::identity,
                     )
                 }

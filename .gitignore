@@ -5,6 +5,7 @@
 !*.rs
 !.gitignore
 !README.md
+!CHANGELOG.md
 !.github/**/*.yml
 
 /target
