@@ -4,6 +4,7 @@
 ![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)
 [![Crates.io](https://img.shields.io/crates/v/mry)](https://crates.io/crates/mry)
 [![docs.rs](https://img.shields.io/docsrs/mry)](https://docs.rs/mry)
+[![DeepWiki](https://img.shields.io/badge/DeepWiki-ryo33/mry-4F46E5)](https://deepwiki.com/ryo33/mry)
 ![GitHub Repo stars](https://img.shields.io/github/stars/ryo33/mry?style=social)
 
 A simple but powerful mocking library for **structs**, **traits**, and **function**.
