@@ -1,8 +1,8 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
-    parse_quote, punctuated::Punctuated, Attribute, FnArg, Ident, Pat, PatIdent, ReturnType,
-    Signature, Type, TypeArray, TypeSlice, Visibility,
+    parse_quote, punctuated::Punctuated, Attribute, FnArg, GenericParam, Ident, Pat, PatIdent,
+    ReturnType, Signature, Type, TypeArray, TypeSlice, Visibility,
 };
 
 use crate::attrs::MryAttr;
@@ -188,13 +188,35 @@ pub(crate) fn transform(
     } else {
         TokenStream::default()
     };
-    let key = quote![std::any::Any::type_id(&#method_prefix #ident)];
+
+    // Extract non-lifetime generic parameters from the method
+    let non_lifetime_generics: Vec<_> = sig
+        .generics
+        .params
+        .iter()
+        .filter_map(|param| {
+            match param {
+                GenericParam::Type(type_param) => Some(&type_param.ident),
+                GenericParam::Const(const_param) => Some(&const_param.ident),
+                GenericParam::Lifetime(_) => None, // Skip lifetime parameters
+            }
+        })
+        .collect();
+
+    let key = if non_lifetime_generics.is_empty() {
+        quote![std::any::Any::type_id(&#method_prefix #ident)]
+    } else {
+        quote![std::any::Any::type_id(&#method_prefix #ident::<#(#non_lifetime_generics),*>)]
+    };
+
     let mut sig = sig.clone();
     sig.inputs = Punctuated::from_iter(
         receiver
             .into_iter()
             .chain(args_without_receiver.iter().cloned().map(FnArg::Typed)),
     );
+    let generics = &sig.generics;
+    let where_clause = &sig.generics.where_clause;
 
     let out = if out_is_send_wrapper {
         quote!(mry::send_wrapper::SendWrapper::take(out))
@@ -252,7 +274,9 @@ pub(crate) fn transform(
             #[cfg(debug_assertions)]
             #allow_non_snake_case_or_blank
             #[must_use]
-            pub fn #mock_ident (#mock_receiver #(#mock_args),*) -> mry::MockLocator<(#(#input_types,)*), #static_output_type, #behavior_output_type, #behavior_type> {
+            pub fn #mock_ident #generics (#mock_receiver #(#mock_args),*) -> mry::MockLocator<(#(#input_types,)*), #static_output_type, #behavior_output_type, #behavior_type>
+            #where_clause
+            {
                 mry::MockLocator::new(
                     #mocks_tokens,
                     #key,
@@ -980,7 +1004,7 @@ mod test {
                 #[cfg_attr(debug_assertions, track_caller)]
                 fn meow<'a, T: Display, const A: usize>(&self, a: usize) -> &'a String {
                     #[cfg(debug_assertions)]
-                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, &'static String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&a),)) {
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, &'static String>(std::any::Any::type_id(&Self::meow::<T, A>), "Cat::meow", (<usize>::clone(&a),)) {
                         return out;
                     }
                     (move || {
@@ -990,10 +1014,10 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 #[must_use]
-                pub fn mock_meow(&mut self, a: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), &'static String, &'static String, mry::Behavior1<(usize,), &'static String> > {
+                pub fn mock_meow<'a, T: Display, const A: usize>(&mut self, a: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), &'static String, &'static String, mry::Behavior1<(usize,), &'static String> > {
                     mry::MockLocator::new(
                         self.mry.mocks(),
-                        std::any::Any::type_id(&Self::meow),
+                        std::any::Any::type_id(&Self::meow::<T, A>),
                         "Cat::meow",
                         (a.into(),).into(),
                         std::convert::identity,
@@ -1393,6 +1417,54 @@ mod test {
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (count.into(),).into(),
+                        std::convert::identity,
+                    )
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn preserves_where_clause_on_method() {
+        let input: ImplItemFn = parse2(quote! {
+            fn meow<T>(&self, value: T) -> String
+            where
+                T: Display + Clone,
+            {
+                format!("{}", value)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            t(&input).to_string(),
+            quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
+                fn meow<T>(&self, value: T) -> String
+                where
+                    T: Display + Clone,
+                {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow::<T>), "Cat::meow", (<T>::clone(&value),)) {
+                        return out;
+                    }
+                    (move || {
+                        format!("{}", value)
+                    })()
+                }
+
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_meow<T>(&mut self, value: impl Into<mry::ArgMatcher<T>>) -> mry::MockLocator<(T,), String, String, mry::Behavior1<(T,), String> >
+                where
+                    T: Display + Clone,
+                {
+                    mry::MockLocator::new(
+                        self.mry.mocks(),
+                        std::any::Any::type_id(&Self::meow::<T>),
+                        "Cat::meow",
+                        (value.into(),).into(),
                         std::convert::identity,
                     )
                 }

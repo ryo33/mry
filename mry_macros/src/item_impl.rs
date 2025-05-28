@@ -1,23 +1,8 @@
 use crate::{method, MryAttr};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use syn::visit::Visit;
 use syn::visit_mut::VisitMut;
 use syn::{parse2, FnArg, Ident, ImplItem, ItemImpl, Path};
-
-#[derive(Default)]
-struct TypeParameterVisitor(Vec<String>);
-
-impl<'ast> Visit<'ast> for TypeParameterVisitor {
-    fn visit_path_segment(&mut self, path_seg: &'ast syn::PathSegment) {
-        self.visit_path_arguments(&path_seg.arguments);
-
-        self.0.push(path_seg.ident.to_string());
-    }
-    fn visit_lifetime(&mut self, lifetime: &'ast syn::Lifetime) {
-        self.0.push(lifetime.ident.to_string());
-    }
-}
 
 struct QualifiesAssociatedTypes(Path, Vec<Ident>);
 impl VisitMut for QualifiesAssociatedTypes {
@@ -66,21 +51,6 @@ pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemImpl) -> TokenStream 
         QualifiesAssociatedTypes(ty, associated_types).visit_item_impl_mut(&mut input);
     }
     let generics = &input.generics;
-    let mut type_params = TypeParameterVisitor::default();
-    type_params.visit_type(&input.self_ty);
-    let impl_generics: Vec<_> = input
-        .generics
-        .params
-        .iter()
-        .filter(|param| {
-            let ident = match param {
-                syn::GenericParam::Type(ty) => &ty.ident,
-                syn::GenericParam::Lifetime(lifetime) => &lifetime.lifetime.ident,
-                syn::GenericParam::Const(cons) => &cons.ident,
-            };
-            type_params.0.contains(&ident.to_string())
-        })
-        .collect();
     let struct_type = &input.self_ty;
     let mut trait_name = None;
     let trait_ = match &input.trait_ {
@@ -175,18 +145,14 @@ pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemImpl) -> TokenStream 
         })
         .unzip();
 
-    let impl_generics = if impl_generics.is_empty() {
-        TokenStream::default()
-    } else {
-        quote!( <#(#impl_generics),*>)
-    };
+    let where_clause = &generics.where_clause;
 
     quote! {
-        impl #generics #trait_ #struct_type {
+        impl #generics #trait_ #struct_type #where_clause {
             #(#members)*
         }
 
-        impl #impl_generics #struct_type {
+        impl #generics #struct_type #where_clause {
             #(#impl_members)*
         }
     }
@@ -267,7 +233,7 @@ mod test {
                     #[cfg_attr(debug_assertions, track_caller)]
                     fn meow<'a, B>(&'a self, count: usize) -> B {
                         #[cfg(debug_assertions)]
-                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, B>(std::any::Any::type_id(&<Cat<'_, A> >::meow), "Cat<'a, A>::meow", (<usize>::clone(&count),)) {
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, B>(std::any::Any::type_id(&<Cat<'_, A> >::meow::<B>), "Cat<'a, A>::meow", (<usize>::clone(&count),)) {
                             return out;
                         }
                         (move || {
@@ -279,10 +245,10 @@ mod test {
                 impl <'a, A: Clone> Cat<'a, A> {
                     #[cfg(debug_assertions)]
                     #[must_use]
-                    pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), B, B, mry::Behavior1<(usize,), B> > {
+                    pub fn mock_meow<'a, B>(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), B, B, mry::Behavior1<(usize,), B> > {
                         mry::MockLocator::new(
                             self.mry.mocks(),
-                            std::any::Any::type_id(&<Cat<'_, A> >::meow),
+                            std::any::Any::type_id(&<Cat<'_, A> >::meow::<B>),
                             "Cat<'a, A>::meow",
                             (count.into(),).into(),
                             std::convert::identity,
@@ -321,7 +287,7 @@ mod test {
                     }
                 }
 
-                impl Cat {
+                impl<A: Clone> Cat {
                     #[cfg(debug_assertions)]
                     #[must_use]
                     pub fn mock_name(&mut self,) -> mry::MockLocator<(), String, String, mry::Behavior0<(), String> > {
@@ -489,6 +455,114 @@ mod test {
                 }
 
                 impl MockCat {
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn preserves_where_clause_for_impl() {
+        let input: ItemImpl = parse2(quote! {
+            impl<T> Cat<T>
+            where
+                T: Clone + Send,
+            {
+                fn meow(&self, value: T) -> String {
+                    format!("meow: {:?}", value)
+                }
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&MryAttr::default(), input).to_string(),
+            quote! {
+                impl<T> Cat<T>
+                where
+                    T: Clone + Send,
+                {
+                    #[cfg_attr(debug_assertions, track_caller)]
+                    fn meow(&self, value: T) -> String {
+                        #[cfg(debug_assertions)]
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<Cat<T> >::meow), "Cat<T>::meow", (<T>::clone(&value),)) {
+                            return out;
+                        }
+                        (move || {
+                            format!("meow: {:?}", value)
+                        })()
+                    }
+                }
+
+                impl<T> Cat<T>
+                where
+                    T: Clone + Send,
+                {
+                    #[cfg(debug_assertions)]
+                    #[must_use]
+                    pub fn mock_meow(&mut self, value: impl Into<mry::ArgMatcher<T>>) -> mry::MockLocator<(T,), String, String, mry::Behavior1<(T,), String> > {
+                        mry::MockLocator::new(
+                            self.mry.mocks(),
+                            std::any::Any::type_id(&<Cat<T> >::meow),
+                            "Cat<T>::meow",
+                            (value.into(),).into(),
+                            std::convert::identity,
+                        )
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn preserves_where_clause_for_impl_trait() {
+        let input: ItemImpl = parse2(quote! {
+            impl<T> Animal<T> for Cat<T>
+            where
+                T: Clone + Send + 'static,
+            {
+                fn name(&self, prefix: T) -> String {
+                    format!("{:?}: {}", prefix, self.name)
+                }
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&MryAttr::default(), input).to_string(),
+            quote! {
+                impl<T> Animal<T> for Cat<T>
+                where
+                    T: Clone + Send + 'static,
+                {
+                    #[cfg_attr(debug_assertions, track_caller)]
+                    fn name(&self, prefix: T) -> String {
+                        #[cfg(debug_assertions)]
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<Cat<T> as Animal<T>  >::name), "<Cat<T> as Animal<T>>::name", (<T>::clone(&prefix),)) {
+                            return out;
+                        }
+                        (move || {
+                            format!("{:?}: {}", prefix, self.name)
+                        })()
+                    }
+                }
+
+                impl<T> Cat<T>
+                where
+                    T: Clone + Send + 'static,
+                {
+                    #[cfg(debug_assertions)]
+                    #[must_use]
+                    pub fn mock_name(&mut self, prefix: impl Into<mry::ArgMatcher<T>>) -> mry::MockLocator<(T,), String, String, mry::Behavior1<(T,), String> > {
+                        mry::MockLocator::new(
+                            self.mry.mocks(),
+                            std::any::Any::type_id(&< Cat < T > as Animal < T > >::name),
+                            "<Cat<T> as Animal<T>>::name",
+                            (prefix.into(),).into(),
+                            std::convert::identity,
+                        )
+                    }
                 }
             }
             .to_string()
