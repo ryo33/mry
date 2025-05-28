@@ -7,6 +7,22 @@ use syn::{
 
 use crate::attrs::MryAttr;
 
+fn has_track_caller_attr(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        if attr.path().is_ident("track_caller") {
+            return true;
+        }
+        if attr.path().is_ident("cfg_attr") {
+            if let Ok(meta) = attr.meta.require_list() {
+                let tokens = &meta.tokens;
+                let token_str = tokens.to_string();
+                return token_str.contains("track_caller");
+            }
+        }
+        false
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn transform(
     mry_attr: &MryAttr,
@@ -18,6 +34,8 @@ pub(crate) fn transform(
     attrs: &[Attribute],
     sig: &Signature,
     body: &TokenStream,
+    // The body must not be wrapped in a closure even if the method has no `#[track_caller]`
+    force_location_tracking: bool,
 ) -> (TokenStream, TokenStream) {
     // Split into receiver and other inputs
     let mut receiver = None;
@@ -51,7 +69,7 @@ pub(crate) fn transform(
                 input.clone()
             } else {
                 let pat = input.pat.clone();
-                let arg_name = Ident::new(&format!("arg{}", i), Span::call_site());
+                let arg_name = Ident::new(&format!("arg{i}"), Span::call_site());
                 bindings.push((pat, arg_name.clone()));
                 let ident = Pat::Ident(PatIdent {
                     attrs: Default::default(),
@@ -87,9 +105,12 @@ pub(crate) fn transform(
         }
     };
     let ident = sig.ident.clone();
-    let mock_ident = Ident::new(&format!("mock_{}", ident), Span::call_site());
-    let name = format!("{}{}", method_debug_prefix, ident);
-    let bindings = bindings.iter().map(|(pat, arg)| quote![let #pat = #arg;]);
+    let mock_ident = Ident::new(&format!("mock_{ident}"), Span::call_site());
+    let name = format!("{method_debug_prefix}{ident}");
+    let bindings = bindings
+        .iter()
+        .map(|(pat, arg)| quote![let #pat = #arg;])
+        .collect::<Vec<_>>();
     let behavior_name = Ident::new(
         &format!(
             "Behavior{}{}",
@@ -193,9 +214,31 @@ pub(crate) fn transform(
         quote!(std::convert::identity)
     };
 
+    let has_track_caller_attr = has_track_caller_attr(attrs);
+    let track_caller_attr = if has_track_caller_attr {
+        quote!()
+    } else {
+        quote!(#[cfg_attr(debug_assertions, track_caller)])
+    };
+
+    // This ensures that the panic within the body is located at the correct line even if the method itself is not marked with `#[track_caller]`
+    let body = if has_track_caller_attr || force_location_tracking {
+        // If the method itself is marked with `#[track_caller]`, we can just use the body as is
+        body.clone()
+    } else if sig.asyncness.is_some() {
+        quote! {
+            (move || async move { #body })().await
+        }
+    } else {
+        quote! {
+            (move || { #body })()
+        }
+    };
+
     (
         quote! {
             #(#attrs)*
+            #track_caller_attr
             #vis #sig {
                 #[cfg(debug_assertions)]
                 if let Some(out) = #record_call_and_find_mock_output::<_, #static_output_type>(#key, #name, (#(#owned_args,)*)) {
@@ -377,6 +420,7 @@ mod test {
                     item.to_tokens(&mut stream);
                     stream
                 }),
+            false,
         )
     }
 
@@ -588,12 +632,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return out;
                     }
-                    "meow".repeat(count)
+                    (move || {
+                        "meow".repeat(count)
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -624,12 +671,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn _meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::_meow), "Cat::_meow", (<usize>::clone(&count),)) {
                         return out;
                     }
-                    "meow".repeat(count)
+                    (move || {
+                        "meow".repeat(count)
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -661,12 +711,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", ()) {
                         return out;
                     }
-                    "meow".into()
+                    (move || {
+                        "meow".into()
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -697,12 +750,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, base: String, count: usize) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<String>::clone(&base), <usize>::clone(&count),)) {
                         return out;
                     }
-                    base.repeat(count)
+                    (move || {
+                        base.repeat(count)
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -733,12 +789,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, out: &'static mut String, base: &str, count: &usize) {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, ()>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<String>::clone(&out), base.to_string(), <usize>::clone(&count),)) {
                         return out;
                     }
-                    *out = base.repeat(count);
+                    (move || {
+                        *out = base.repeat(count);
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -770,12 +829,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 async fn meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return out;
                     }
-                    base().await.repeat(count);
+                    (move || async move {
+                        base().await.repeat(count);
+                    })().await
                 }
 
                 #[cfg(debug_assertions)]
@@ -806,6 +868,7 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, arg0: A, count: usize, arg2: String) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<A>::clone(&arg0), <usize>::clone(&count), <String>::clone(&arg2),)) {
@@ -813,7 +876,9 @@ mod test {
                     }
                     let A { name } = arg0;
                     let _ = arg2;
-                    name.repeat(count)
+                    (move || {
+                        name.repeat(count)
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -844,12 +909,15 @@ mod test {
         assert_eq!(
             t(&input).0.to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 pub fn meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return out;
                     }
-                    "meow".repeat(count)
+                    (move || {
+                        "meow".repeat(count)
+                    })()
                 }
             }
             .to_string()
@@ -869,13 +937,16 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn increment(&self, mut count: usize) -> usize {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, usize>(std::any::Any::type_id(&Self::increment), "Cat::increment", (<usize>::clone(&count),)) {
                         return out;
                     }
-                    count += 1;
-                    count
+                    (move || {
+                        count += 1;
+                        count
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -906,12 +977,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow<'a, T: Display, const A: usize>(&self, a: usize) -> &'a String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, &'static String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&a),)) {
                         return out;
                     }
-                    todo!()
+                    (move || {
+                        todo!()
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -942,12 +1016,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 async fn meow(&self, count: usize) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return out;
                     }
-                    "meow".repeat(count)
+                    (move || async move {
+                        "meow".repeat(count)
+                    })().await
                 }
 
                 #[cfg(debug_assertions)]
@@ -979,14 +1056,17 @@ mod test {
         assert_eq!(
                 t(&input).to_string(),
                 quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, count: usize) -> impl std::future::Future<Output = String> + Send {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return async move { out };
                     }
-                    async move {
-                        "meow".repeat(count)
-                    }
+                    (move || {
+                        async move {
+                            "meow".repeat(count)
+                        }
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -1015,12 +1095,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, count: *mut String) -> usize {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, usize>(std::any::Any::type_id(&Self::meow), "Cat::meow", (mry::send_wrapper::SendWrapper::new(<*mut String>::clone(&count)),)) {
                         return out;
                     }
-                    count
+                    (move || {
+                        count
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -1050,12 +1133,15 @@ mod test {
         assert_eq!(
             t(&input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, count: usize) -> *mut String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, mry::send_wrapper::SendWrapper<*mut String> >(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return mry::send_wrapper::SendWrapper::take(out);
                     }
-                    Box::into_raw(Box::new("meow".repeat(count)))
+                    (move || {
+                        Box::into_raw(Box::new("meow".repeat(count)))
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -1088,12 +1174,15 @@ mod test {
         assert_eq!(
             t_with_attr(attr, &input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, count: usize) -> T {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, mry::send_wrapper::SendWrapper<T> >(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return mry::send_wrapper::SendWrapper::take(out);
                     }
-                    "meow".repeat(count)
+                    (move || {
+                        "meow".repeat(count)
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -1126,12 +1215,15 @@ mod test {
         assert_eq!(
             t_with_attr(attr, &input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, count: T) -> usize {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, usize>(std::any::Any::type_id(&Self::meow), "Cat::meow", (mry::send_wrapper::SendWrapper::new(<T>::clone(&count)),)) {
                         return out;
                     }
-                    "meow".repeat(count)
+                    (move || {
+                        "meow".repeat(count)
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -1164,12 +1256,15 @@ mod test {
         assert_eq!(
             t_with_attr(attr, &input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, a: A, b: B, count: usize) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
                         return out;
                     }
-                    "meow".repeat(count)
+                    (move || {
+                        "meow".repeat(count)
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -1203,12 +1298,15 @@ mod test {
         assert_eq!(
             t_with_attr(attr, &input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(&self, a: A, b: B, count: usize) -> T {
                     #[cfg(debug_assertions)]
                     if let Some(out) = self.mry.record_call_and_find_mock_output::<_, T>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<A>::clone(&a), <B>::clone(&b), <usize>::clone(&count),)) {
                         return out;
                     }
-                    "meow".repeat(count).into()
+                    (move || {
+                        "meow".repeat(count).into()
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -1219,6 +1317,82 @@ mod test {
                         std::any::Any::type_id(&Self::meow),
                         "Cat::meow",
                         (a.into(), b.into(), count.into(),).into(),
+                        std::convert::identity,
+                    )
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn does_not_add_track_caller_when_already_present() {
+        let input: ImplItemFn = parse2(quote! {
+            #[track_caller]
+            fn meow(&self, count: usize) -> String {
+                "meow".repeat(count)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            t(&input).to_string(),
+            quote! {
+                #[track_caller]
+                fn meow(&self, count: usize) -> String {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
+                        return out;
+                    }
+                    "meow".repeat(count)
+                }
+
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
+                    mry::MockLocator::new(
+                        self.mry.mocks(),
+                        std::any::Any::type_id(&Self::meow),
+                        "Cat::meow",
+                        (count.into(),).into(),
+                        std::convert::identity,
+                    )
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn does_not_add_track_caller_when_cfg_attr_track_caller_present() {
+        let input: ImplItemFn = parse2(quote! {
+            #[cfg_attr(debug_assertions, track_caller)]
+            fn meow(&self, count: usize) -> String {
+                "meow".repeat(count)
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            t(&input).to_string(),
+            quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
+                fn meow(&self, count: usize) -> String {
+                    #[cfg(debug_assertions)]
+                    if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&Self::meow), "Cat::meow", (<usize>::clone(&count),)) {
+                        return out;
+                    }
+                    "meow".repeat(count)
+                }
+
+                #[cfg(debug_assertions)]
+                #[must_use]
+                pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
+                    mry::MockLocator::new(
+                        self.mry.mocks(),
+                        std::any::Any::type_id(&Self::meow),
+                        "Cat::meow",
+                        (count.into(),).into(),
                         std::convert::identity,
                     )
                 }

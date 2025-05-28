@@ -25,6 +25,7 @@ pub fn get_static_mocks() -> Arc<Mutex<StaticMocks>> {
 }
 
 #[doc(hidden)]
+#[track_caller]
 pub fn static_record_call_and_find_mock_output<I: MockableArg, O: MockableRet>(
     key: TypeId,
     name: &'static str,
@@ -55,9 +56,9 @@ pub struct StaticMockLock<'a> {
     pub name: String,
     pub lock: Box<dyn Deref<Target = ()> + 'a>,
 }
-
-impl Drop for StaticMockLock<'_> {
-    fn drop(&mut self) {
+impl StaticMockLock<'_> {
+    #[track_caller]
+    fn release(&self) {
         let mocks = STATIC_MOCKS.with(Clone::clone);
         if mocks.lock().0.remove(&self.key).is_none() {
             panic!(
@@ -83,28 +84,25 @@ fn check_locked(key: &TypeId) -> bool {
 }
 
 impl<I: MockableArg, O: MockableRet> MockGetter<I, O> for StaticMocks {
+    #[track_caller]
     fn get(&self, key: &TypeId, name: &'static str) -> Option<&Mock<I, O>> {
         if !check_locked(key) {
-            panic!(
-                "the lock of `{name}` is not acquired. Try `#[mry::lock({name})]`",
-                name = name
-            );
+            panic!("the lock of `{name}` is not acquired. Try `#[mry::lock({name})]`");
         }
         self.0.get(key, name)
     }
 
+    #[track_caller]
     fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O> {
         if !check_locked(&key) {
-            panic!(
-                "the lock of `{name}` is not acquired. Try `#[mry::lock({name})]`",
-                name = name
-            );
+            panic!("the lock of `{name}` is not acquired. Try `#[mry::lock({name})]`");
         }
         self.0.get_mut_or_create(key, name)
     }
 }
 
 impl StaticMocks {
+    #[track_caller]
     pub fn record_call_and_find_mock_output<I: MockableArg, O: MockableRet>(
         &mut self,
         key: TypeId,
@@ -139,14 +137,17 @@ pub fn __mutexes(mut keys: Vec<(TypeId, String)>) -> Vec<StaticMockMutex> {
 }
 
 #[doc(hidden)]
+#[track_caller]
 pub fn __lock_and_run<T>(mut mutexes: Vec<StaticMockMutex>, function: fn() -> T) -> T {
     if let Some(mutex) = mutexes.pop() {
-        let _lock = StaticMockLock {
+        let lock = StaticMockLock {
             key: mutex.key,
             name: mutex.name,
             lock: Box::new(mutex.mutex.lock()),
         };
-        __lock_and_run(mutexes, function)
+        let result = __lock_and_run(mutexes, function);
+        lock.release();
+        result
     } else {
         function()
     }
@@ -279,11 +280,12 @@ mod tests {
             Mock::<usize, usize>::new(""),
         );
 
-        drop(StaticMockLock {
+        StaticMockLock {
             key: delete_mock_when_lock_is_dropped.type_id(),
             name: "name".to_string(),
             lock: Box::new(Box::new(())),
-        });
+        }
+        .release();
 
         let mocks = STATIC_MOCKS.with(Clone::clone);
         assert!(MockGetter::<usize, usize>::get(

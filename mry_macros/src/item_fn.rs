@@ -14,7 +14,15 @@ pub(crate) fn transform(mry_attr: &MryAttr, input: ItemFn) -> TokenStream {
         Some(&input.vis),
         &input.attrs,
         &input.sig,
-        &input.block.to_token_stream(),
+        &input
+            .block
+            .stmts
+            .iter()
+            .fold(TokenStream::default(), |mut stream, item| {
+                item.to_tokens(&mut stream);
+                stream
+            }),
+        false,
     );
 
     quote! {
@@ -42,14 +50,15 @@ mod test {
         assert_eq!(
             transform(&MryAttr::default(), input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = mry::static_record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&meow), "meow", (<usize>::clone(&count),)) {
                         return out;
                     }
-                    {
+                    (move || {
                         "meow".repeat(count)
-                    }
+                    })()
                 }
 
                 #[cfg(debug_assertions)]
@@ -80,14 +89,15 @@ mod test {
         assert_eq!(
             transform(&MryAttr::default(), input).to_string(),
             quote! {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn _meow(count: usize) -> String {
                     #[cfg(debug_assertions)]
                     if let Some(out) = mry::static_record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&_meow), "_meow", (<usize>::clone(&count),)) {
                         return out;
                     }
-                    {
+                    (move || {
                         "meow".repeat(count)
-                    }
+                    })()
                 }
 
                 #[cfg(debug_assertions)]

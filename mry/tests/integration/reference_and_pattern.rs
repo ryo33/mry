@@ -21,7 +21,7 @@ fn meow_returns_with() {
         ..Default::default()
     };
     cat.mock_meow("aaa", A(2), "bbb")
-        .returns_with(|base, count, string| format!("Called with {} {:?} {}", base, count, string));
+        .returns_with(|base, count, string| format!("Called with {base} {count:?} {string}"));
 
     assert_eq!(
         cat.meow("aaa", A(2), "bbb".into()),

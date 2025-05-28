@@ -73,6 +73,7 @@ impl<I, O, R, B> MockLocator<I, O, R, B> {
     /// Assert the mock is called.
     /// Returns `MockResult` allows to call `times(n)`
     /// Panics if not called
+    #[track_caller]
     pub fn assert_called(&self, times: impl Into<Times>) {
         get_mut_or_default!(self).assert_called(&self.matcher.lock(), times.into());
     }

@@ -29,6 +29,7 @@ pub mod send_wrapper {
             Self(send_wrapper::SendWrapper::new(value))
         }
 
+        #[track_caller]
         pub fn take(self) -> T {
             self.0.take()
         }

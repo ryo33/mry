@@ -10,9 +10,9 @@ struct A<T>(T);
 
 #[mry::mry]
 impl Cat {
-    fn meow(&self, mut string: String) -> String {
-        string = self.name.to_string();
-        string
+    fn meow(&self, string: &mut String) -> String {
+        *string = self.name.to_string();
+        string.clone()
     }
 }
 
@@ -23,7 +23,10 @@ fn meow_returns_with() {
         ..Default::default()
     };
     cat.mock_meow("aaa".to_string())
-        .returns_with(|string| format!("Called with {}", string));
+        .returns_with(|string| format!("Called with {string}"));
 
-    assert_eq!(cat.meow("aaa".to_string()), "Called with aaa".to_string());
+    assert_eq!(
+        cat.meow(&mut "aaa".to_string()),
+        "Called with aaa".to_string()
+    );
 }

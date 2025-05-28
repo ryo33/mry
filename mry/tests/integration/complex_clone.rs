@@ -49,7 +49,7 @@ fn takes_slice_but_ref_of_array() {
     mock.assert_called(1);
 }
 
-#[should_panic]
+#[should_panic(expected = "mock not found for Struct::takes_slice")]
 #[test]
 fn takes_slice_original_type_ko() {
     let mut target = mry::new!(Struct {});

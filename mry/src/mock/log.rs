@@ -21,14 +21,12 @@ impl<I> Logs<I> {
         )
     }
 
+    #[track_caller]
     pub(crate) fn assert_called(&self, name: &str, matcher: &Matcher<I>, times: Times) -> Self {
         let logs = self.filter_matches(matcher);
         let actual = logs.0.len();
         if !times.contains(&actual) {
-            panic!(
-                "Expected {} to be called {} times, but it was called {} times",
-                name, times, actual,
-            );
+            panic!("Expected {name} to be called {times} times, but it was called {actual} times",);
         }
         logs
     }

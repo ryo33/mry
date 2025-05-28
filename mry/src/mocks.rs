@@ -21,10 +21,12 @@ where
     T: DerefMut<Target = M> + Deref<Target = M>,
     M: MockGetter<I, O>,
 {
+    #[track_caller] // get may panic if the lock for static mocks is not acquired
     fn get<'a>(&'a self, key: &TypeId, name: &'static str) -> Option<&'a Mock<I, O>> {
         self.deref().get(key, name)
     }
 
+    #[track_caller] // get_mut_or_create may panic if the lock for static mocks is not acquired
     fn get_mut_or_create(&mut self, key: TypeId, name: &'static str) -> &mut Mock<I, O> {
         self.deref_mut().get_mut_or_create(key, name)
     }
@@ -53,6 +55,7 @@ impl<I: MockableArg, O: MockableRet> MockGetter<I, O> for Mocks {
 }
 
 impl Mocks {
+    #[track_caller]
     #[doc(hidden)]
     pub fn record_call_and_find_mock_output<I: MockableArg, O: MockableRet>(
         &mut self,

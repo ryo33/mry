@@ -57,17 +57,20 @@ impl Mry {
 
     #[doc(hidden)]
     #[cfg(debug_assertions)]
+    #[track_caller]
     pub fn record_call_and_find_mock_output<I: MockableArg, O: MockableRet>(
         &self,
         key: TypeId,
         name: &'static str,
         input: I,
     ) -> Option<O> {
-        self.mocks.as_ref().and_then(|mocks| {
+        if let Some(mocks) = self.mocks.as_ref() {
             mocks
                 .lock()
                 .record_call_and_find_mock_output(key, name, input)
-        })
+        } else {
+            None
+        }
     }
 
     #[cfg(not(debug_assertions))]

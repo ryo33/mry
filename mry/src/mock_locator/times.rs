@@ -51,19 +51,19 @@ use std::fmt;
 impl fmt::Display for Times {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Times::Exact(n) => write!(f, "{}", n),
+            Times::Exact(n) => write!(f, "{n}"),
             Times::Range((start, end)) => {
                 let start = match start {
-                    Bound::Included(n) => format!("{}<=", n),
-                    Bound::Excluded(n) => format!("{}<", n),
+                    Bound::Included(n) => format!("{n}<="),
+                    Bound::Excluded(n) => format!("{n}<"),
                     Bound::Unbounded => String::from(""),
                 };
                 let end = match end {
-                    Bound::Included(n) => format!("<={}", n),
-                    Bound::Excluded(n) => format!("<{}", n),
+                    Bound::Included(n) => format!("<={n}"),
+                    Bound::Excluded(n) => format!("<{n}"),
                     Bound::Unbounded => String::from(""),
                 };
-                write!(f, "{}x{}", start, end)
+                write!(f, "{start}x{end}")
             }
         }
     }

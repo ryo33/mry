@@ -47,7 +47,7 @@ pub fn mry(
                 TargetItem::Fn(target) => item_fn::transform(&attr, target),
             };
             if attr.debug.is_present() {
-                println!("{}", token_stream);
+                println!("{token_stream}");
             }
             token_stream.into()
         }

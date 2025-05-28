@@ -45,6 +45,7 @@ impl<I, O> Mock<I, O> {
 }
 
 impl<I, O> Mock<I, O> {
+    #[track_caller]
     pub(crate) fn assert_called(&self, matcher: &Matcher<I>, times: Times) {
         self.log.assert_called(self.name, matcher, times);
     }
@@ -55,6 +56,7 @@ impl<I, O> Mock<I, O> {
 }
 
 impl<I, O> Mock<I, O> {
+    #[track_caller]
     pub(crate) fn find_mock_output(&mut self, input: &I) -> Option<O> {
         for rule in &mut self.rules {
             if !rule.matches(input) {

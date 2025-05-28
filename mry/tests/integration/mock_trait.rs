@@ -27,7 +27,7 @@ fn with_mock() {
     let mut cat = MockCat::default();
 
     cat.mock_meow(2)
-        .returns_with(|count| format!("Called with {}", count));
+        .returns_with(|count| format!("Called with {count}"));
 
     assert_eq!(cat.meow(2), "Called with 2".to_string());
 }

@@ -48,7 +48,7 @@ fn meow_returns_with() {
         ..Default::default()
     };
     cat.mock_meow(2)
-        .returns_with(|count| format!("Called with {}", count));
+        .returns_with(|count| format!("Called with {count}"));
 
     assert_eq!(cat.meow(2), "Called with 2".to_string());
 }
@@ -84,7 +84,7 @@ fn assert_called_fails() {
         ..Default::default()
     };
     cat.mock_meow(3usize)
-        .returns_with(|count| format!("Called with {}", count));
+        .returns_with(|count| format!("Called with {count}"));
     let meow = cat.mock_meow(2).returns("Called".into());
 
     cat.meow(3);

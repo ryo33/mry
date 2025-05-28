@@ -20,7 +20,7 @@ pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemTrait) -> TokenStream
     let trait_ident = &input.ident;
     let mry_ident = Ident::new(&format!("Mock{}", &input.ident), Span::call_site());
     let vis = &input.vis;
-    let panic_message = format!("mock not found for {}", trait_ident);
+    let panic_message = format!("mock not found for {trait_ident}");
     let (def, generated): (Vec<_>, Vec<_>) = input
         .items
         .iter()
@@ -44,7 +44,15 @@ pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemTrait) -> TokenStream
                 let body = &method
                     .default
                     .as_ref()
-                    .map(|default| default.to_token_stream())
+                    .map(|default| {
+                        default
+                            .stmts
+                            .iter()
+                            .fold(TokenStream::new(), |mut tokens, stmt| {
+                                stmt.to_tokens(&mut tokens);
+                                tokens
+                            })
+                    })
                     .unwrap_or(quote![panic!(#panic_message)]);
                 if method.sig.receiver().is_none() {
                     (
@@ -53,12 +61,13 @@ pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemTrait) -> TokenStream
                             mry_attr,
                             quote![mry::get_static_mocks()],
                             method_prefix,
-                            &format!("<{} as {}>::", mry_ident, trait_ident),
+                            &format!("<{mry_ident} as {trait_ident}>::"),
                             quote![mry::static_record_call_and_find_mock_output],
                             None,
                             &method.attrs,
                             &method.sig,
                             body,
+                            method.default.is_none(),
                         ),
                     )
                 } else {
@@ -74,6 +83,7 @@ pub(crate) fn transform(mry_attr: &MryAttr, mut input: ItemTrait) -> TokenStream
                             &method.attrs,
                             &method.sig,
                             body,
+                            method.default.is_none(),
                         ),
                     )
                 }
@@ -142,6 +152,7 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 impl Cat for MockCat {
+                    #[cfg_attr(debug_assertions, track_caller)]
                     fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
@@ -194,6 +205,7 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 impl Cat for MockCat {
+                    #[cfg_attr(debug_assertions, track_caller)]
                     fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
@@ -249,6 +261,7 @@ mod test {
                 #[cfg(debug_assertions)]
                 #[async_trait::async_trait]
                 impl Cat for MockCat {
+                    #[cfg_attr(debug_assertions, track_caller)]
                     async fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
@@ -301,6 +314,7 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 impl Cat for MockCat {
+                    #[cfg_attr(debug_assertions, track_caller)]
                     fn _meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::_meow), "Cat::_meow", (<usize>::clone(&count),)) {
@@ -354,6 +368,7 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 impl Cat for MockCat {
+                    #[cfg_attr(debug_assertions, track_caller)]
                     async fn meow(&self, count: usize) -> String {
                         #[cfg(debug_assertions)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
@@ -403,6 +418,7 @@ mod test {
 
             #[cfg(debug_assertions)]
             impl Cat for MockCat {
+                #[cfg_attr(debug_assertions, track_caller)]
                 fn new(name: String) -> Self {
                     #[cfg(debug_assertions)]
                     if let Some(out) = mry::static_record_call_and_find_mock_output::<_, Self>(std::any::Any::type_id(&<MockCat as Cat>::new), "<MockCat as Cat>::new", (<String>::clone(&name),)) {
@@ -459,6 +475,7 @@ mod test {
 
                 #[cfg(debug_assertions)]
                 impl Cat for MockCat {
+                    #[cfg_attr(debug_assertions, track_caller)]
                     fn not_skipped(&self) -> String {
                         #[cfg(debug_assertions)]
                         if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::not_skipped), "Cat::not_skipped", ()) {
@@ -482,6 +499,65 @@ mod test {
                             std::any::Any::type_id(&<MockCat as Cat>::not_skipped),
                             "Cat::not_skipped",
                             ().into(),
+                            std::convert::identity,
+                        )
+                    }
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn trait_with_default_implementation() {
+        let input: ItemTrait = parse2(quote! {
+            trait Cat {
+                fn meow(&self, count: usize) -> String {
+                    "default meow".to_string()
+                }
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform(&MryAttr::default(), input).to_string(),
+            quote! {
+                trait Cat {
+                    fn meow(&self, count: usize) -> String {
+                        "default meow".to_string()
+                    }
+                }
+
+                #[cfg(debug_assertions)]
+                #[derive(Default, Clone, Debug)]
+                struct MockCat {
+                    pub mry : mry::Mry,
+                }
+
+                #[cfg(debug_assertions)]
+                impl Cat for MockCat {
+                    #[cfg_attr(debug_assertions, track_caller)]
+                    fn meow(&self, count: usize) -> String {
+                        #[cfg(debug_assertions)]
+                        if let Some(out) = self.mry.record_call_and_find_mock_output::<_, String>(std::any::Any::type_id(&<MockCat as Cat>::meow), "Cat::meow", (<usize>::clone(&count),)) {
+                            return out;
+                        }
+                        (move || {
+                            "default meow".to_string()
+                        })()
+                    }
+                }
+
+                #[cfg(debug_assertions)]
+                impl MockCat {
+                    #[cfg(debug_assertions)]
+                    #[must_use]
+                    pub fn mock_meow(&mut self, count: impl Into<mry::ArgMatcher<usize>>) -> mry::MockLocator<(usize,), String, String, mry::Behavior1<(usize,), String> > {
+                        mry::MockLocator::new(
+                            self.mry.mocks(),
+                            std::any::Any::type_id(&<MockCat as Cat>::meow),
+                            "Cat::meow",
+                            (count.into(),).into(),
                             std::convert::identity,
                         )
                     }

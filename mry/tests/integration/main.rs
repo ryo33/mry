@@ -20,6 +20,7 @@ mod simple_case;
 mod skip_arg;
 mod skip_fns;
 mod static_function;
+mod track_caller;
 
 #[cfg(feature = "send_wrapper")]
 mod non_send;
