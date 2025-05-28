@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.0
+
+- Preserve generics and where clause on methods.
+- Add `#[track_caller]` attribute to mock methods for better error messages.
+
 ## 0.13
 
 - Added `#[mry::mry(skip_args(A, B, ...))]` attribute to skip types.
