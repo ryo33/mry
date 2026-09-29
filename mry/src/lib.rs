@@ -1,4 +1,5 @@
 mod mock;
+mod mock_default;
 mod mock_locator;
 mod mockable;
 mod mocks;
@@ -7,6 +8,7 @@ mod rule;
 mod static_mocks;
 
 pub use crate::mry::*;
+pub use mock_default::*;
 pub use mock_locator::*;
 pub use mocks::*;
 pub use mry_macros::{lock, m, mry, new};

@@ -15,7 +15,7 @@ use lock::LockPaths;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::visit_mut::VisitMut;
-use syn::{parse, parse2, parse_macro_input, ExprStruct, ItemFn, ItemImpl, ItemStruct, ItemTrait};
+use syn::{parse, parse2, parse_macro_input, Expr, ItemFn, ItemImpl, ItemStruct, ItemTrait};
 
 /// functions may not be instrumented if they take more than this number of arguments
 const MAX_ARGUMENT_COUNT: u32 = 10;
@@ -57,7 +57,7 @@ pub fn mry(
 
 #[proc_macro]
 pub fn new(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    new::transform(parse_macro_input!(input as ExprStruct)).into()
+    new::transform(parse_macro_input!(input as Expr)).into()
 }
 
 #[proc_macro]

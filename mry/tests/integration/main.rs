@@ -9,6 +9,7 @@ mod generics;
 mod impl_trait;
 mod iterator;
 mod many_arguments;
+mod mock_default;
 mod mock_trait;
 mod mut_param;
 mod nested_mock;

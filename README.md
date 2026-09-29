@@ -167,7 +167,11 @@ impl Cat {
 `#[mry::mry]` adds a visible but ghostly field `mry` to your struct, so your struct must be constructed by the following ways.
 
 ```rust
-// An easy way
+// The easiest way. All fields are set to `Default::default()`.
+// This compiles only when all fields implement `Default`.
+mry::new!(Cat)
+
+// An easy way with explicit field values
 mry::new!(Cat { name: "Tama" })
 
 // is equivalent to:

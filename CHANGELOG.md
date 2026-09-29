@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0
+
+- Added `mry::new!(Cat)` to construct a mock object with all fields set to `Default::default()`. It requires `Default` only for the fields, not for the struct, and only when `mry::new!(Cat)` is called.
+
 ## 0.14.0
 
 - Preserve generics and where clause on methods.
