@@ -61,6 +61,11 @@ pub fn new(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 #[proc_macro]
+pub fn dummy(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    new::transform_dummy(parse_macro_input!(input as Expr)).into()
+}
+
+#[proc_macro]
 pub fn create_behaviors(_: proc_macro::TokenStream) -> proc_macro::TokenStream {
     create_behaviors::create().into()
 }

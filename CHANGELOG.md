@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `mry::dummy!(Cat)` to construct a mock object that is equal only to itself and its clones. It is useful to distinguish values in tests.
+
 ## 0.15.0
 
 - Added `mry::new!(Cat)` to construct a mock object with all fields set to `Default::default()`. It requires `Default` only for the fields, not for the struct, and only when `mry::new!(Cat)` is called.
