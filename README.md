@@ -186,6 +186,23 @@ Cat::default();
 Cat { name: "Tama", ..Default::default() };
 ```
 
+The `mry` field is ignored by `PartialEq` and `Ord`, so `mry::new!(Cat) == mry::new!(Cat)`.
+If you need values that are distinguishable in tests, use `mry::dummy!` instead.
+A dummy is equal only to itself and its clones, even if all the other fields are equal.
+
+```rust
+let a = mry::dummy!(Cat);
+let b = mry::dummy!(Cat);
+assert_ne!(a, b);
+assert_eq!(a.clone(), a);
+
+// Explicit field values are also supported
+mry::dummy!(Cat { name: "Tama" })
+```
+
+> [!NOTE]
+> Dummies are distinguishable only in debug build. In release build, they behave the same as `mry::new!`.
+
 > [!IMPORTANT]
 > When release build, the `mry` field of your struct will be zero sized, and `mock_*` functions will be unavailable.
 
