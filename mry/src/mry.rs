@@ -22,17 +22,17 @@ pub type MryId = u16;
 #[cfg(debug_assertions)]
 static ID: AtomicU16 = AtomicU16::new(0);
 #[cfg(debug_assertions)]
-static DUMMY_ID: AtomicUsize = AtomicUsize::new(0);
+static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
 /// Mock container that has blank and harmless trait implementation for major traits such as `Eq` and `Ord`
 ///
-/// The only exception is a dummy created by `mry::dummy!`, which is equal only to itself and its clones in debug build.
+/// The only exception is a unique mock created by `mry::unique!`, which is equal only to itself and its clones in debug build.
 pub struct Mry {
     #[cfg(debug_assertions)]
     id: MryId,
     #[cfg(debug_assertions)]
-    dummy_id: Option<usize>,
+    unique_id: Option<usize>,
     #[cfg(debug_assertions)]
     mocks: Option<Arc<Mutex<Mocks>>>,
 }
@@ -49,8 +49,8 @@ impl std::fmt::Debug for Mry {
     #[cfg(debug_assertions)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut debug_struct = f.debug_struct("Mry");
-        match self.dummy_id {
-            Some(dummy_id) => debug_struct.field("dummy_id", &dummy_id),
+        match self.unique_id {
+            Some(unique_id) => debug_struct.field("unique_id", &unique_id),
             None => debug_struct.field("id", &self.id),
         };
         debug_struct.finish()
@@ -64,16 +64,16 @@ impl std::fmt::Debug for Mry {
 impl Mry {
     #[doc(hidden)]
     #[cfg(debug_assertions)]
-    pub fn dummy() -> Self {
+    pub fn unique() -> Self {
         Self {
-            dummy_id: Some(DUMMY_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
+            unique_id: Some(UNIQUE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             ..Self::default()
         }
     }
 
     #[doc(hidden)]
     #[cfg(not(debug_assertions))]
-    pub fn dummy() -> Self {
+    pub fn unique() -> Self {
         Self::default()
     }
 
@@ -127,7 +127,7 @@ impl Default for Mry {
     fn default() -> Self {
         Self {
             id: ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            dummy_id: None,
+            unique_id: None,
             mocks: None,
         }
     }
@@ -151,7 +151,7 @@ impl Eq for Mry {
 impl Ord for Mry {
     #[cfg(debug_assertions)]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.dummy_id.cmp(&other.dummy_id)
+        self.unique_id.cmp(&other.unique_id)
     }
 
     #[cfg(not(debug_assertions))]
@@ -169,7 +169,7 @@ impl std::hash::Hash for Mry {
 impl PartialEq for Mry {
     #[cfg(debug_assertions)]
     fn eq(&self, other: &Self) -> bool {
-        self.dummy_id == other.dummy_id
+        self.unique_id == other.unique_id
     }
 
     #[cfg(not(debug_assertions))]
@@ -246,33 +246,33 @@ mod test {
     }
 
     #[test]
-    fn dummy_is_not_equal_to_another_dummy() {
-        assert_ne!(Mry::dummy(), Mry::dummy());
+    fn unique_is_not_equal_to_another_unique() {
+        assert_ne!(Mry::unique(), Mry::unique());
     }
 
     #[test]
-    fn dummy_is_equal_to_its_clone() {
-        let dummy = Mry::dummy();
-        assert_eq!(dummy.clone(), dummy);
-        assert_eq!(dummy.clone().cmp(&dummy), Ordering::Equal);
+    fn unique_is_equal_to_its_clone() {
+        let unique = Mry::unique();
+        assert_eq!(unique.clone(), unique);
+        assert_eq!(unique.clone().cmp(&unique), Ordering::Equal);
     }
 
     #[test]
-    fn debug_shows_dummy_id_instead_of_id_for_dummy() {
+    fn debug_shows_unique_id_instead_of_id_for_unique() {
         let mry = Mry::default();
         assert_eq!(format!("{mry:?}"), format!("Mry {{ id: {} }}", mry.id));
 
-        let dummy = Mry::dummy();
+        let unique = Mry::unique();
         assert_eq!(
-            format!("{dummy:?}"),
-            format!("Mry {{ dummy_id: {} }}", dummy.dummy_id.unwrap())
+            format!("{unique:?}"),
+            format!("Mry {{ unique_id: {} }}", unique.unique_id.unwrap())
         );
     }
 
     #[test]
-    fn dummy_is_not_equal_to_default() {
-        assert_ne!(Mry::dummy(), Mry::default());
-        assert_ne!(Mry::dummy().cmp(&Mry::default()), Ordering::Equal);
+    fn unique_is_not_equal_to_default() {
+        assert_ne!(Mry::unique(), Mry::default());
+        assert_ne!(Mry::unique().cmp(&Mry::default()), Ordering::Equal);
     }
 
     #[test]

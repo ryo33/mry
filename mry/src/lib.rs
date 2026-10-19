@@ -11,7 +11,7 @@ pub use crate::mry::*;
 pub use mock_default::*;
 pub use mock_locator::*;
 pub use mocks::*;
-pub use mry_macros::{dummy, lock, m, mry, new};
+pub use mry_macros::{lock, m, mry, new, unique};
 pub use rule::*;
 pub use static_mocks::*;
 

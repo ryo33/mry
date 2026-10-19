@@ -61,8 +61,8 @@ pub fn new(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 #[proc_macro]
-pub fn dummy(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    new::transform_dummy(parse_macro_input!(input as Expr)).into()
+pub fn unique(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    new::transform_unique(parse_macro_input!(input as Expr)).into()
 }
 
 #[proc_macro]

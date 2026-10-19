@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Added `mry::dummy!(Cat)` to construct a mock object that is equal only to itself and its clones. It is useful to distinguish values in tests.
+- Added `mry::unique!(Cat)` to construct a mock object that is equal only to itself and its clones. It is useful to distinguish values in tests.
 
 ## 0.15.0
 

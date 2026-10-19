@@ -187,17 +187,17 @@ Cat { name: "Tama", ..Default::default() };
 ```
 
 The `mry` field is ignored by `PartialEq` and `Ord`, so `mry::new!(Cat) == mry::new!(Cat)`.
-If you need values that are distinguishable in tests, use `mry::dummy!` instead.
-A dummy is equal only to itself and its clones, even if all the other fields are equal.
+If you need values that are distinguishable in tests, use `mry::unique!` instead.
+A unique mock is equal only to itself and its clones, even if all the other fields are equal.
 
 ```rust
-let a = mry::dummy!(Cat);
-let b = mry::dummy!(Cat);
+let a = mry::unique!(Cat);
+let b = mry::unique!(Cat);
 assert_ne!(a, b);
 assert_eq!(a.clone(), a);
 
 // Explicit field values are also supported
-mry::dummy!(Cat { name: "Tama" })
+mry::unique!(Cat { name: "Tama" })
 ```
 
 > [!NOTE]

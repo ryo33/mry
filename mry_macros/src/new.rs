@@ -10,17 +10,17 @@ pub(crate) fn transform(input: Expr) -> TokenStream {
     }
 }
 
-pub(crate) fn transform_dummy(input: Expr) -> TokenStream {
-    let mry = quote!(mry::Mry::dummy());
+pub(crate) fn transform_unique(input: Expr) -> TokenStream {
+    let mry = quote!(mry::Mry::unique());
     match input {
         Expr::Struct(input) => transform_struct(input, mry),
         Expr::Path(input) => {
             let mock_default = transform_path(input);
             quote! {
                 {
-                    let mut __mry_dummy = #mock_default;
-                    __mry_dummy.mry = #mry;
-                    __mry_dummy
+                    let mut __mry_unique = #mock_default;
+                    __mry_unique.mry = #mry;
+                    __mry_unique
                 }
             }
         }
@@ -144,7 +144,7 @@ mod test {
     }
 
     #[test]
-    fn dummy_adds_dummy_mry() {
+    fn unique_adds_unique_mry() {
         let input: Expr = parse2(quote! {
             Cat {
                 name: "aaa",
@@ -153,11 +153,11 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            transform_dummy(input).to_string(),
+            transform_unique(input).to_string(),
             quote! {
                 Cat {
                     name: "aaa",
-                    mry: mry::Mry::dummy(),
+                    mry: mry::Mry::unique(),
                 }
             }
             .to_string()
@@ -165,16 +165,16 @@ mod test {
     }
 
     #[test]
-    fn dummy_path_replaces_mry_of_mock_default() {
+    fn unique_path_replaces_mry_of_mock_default() {
         let input: Expr = parse2(quote!(Cat::<A>)).unwrap();
 
         assert_eq!(
-            transform_dummy(input).to_string(),
+            transform_unique(input).to_string(),
             quote! {
                 {
-                    let mut __mry_dummy = <Cat::<A> as mry::MockDefault>::mock_default();
-                    __mry_dummy.mry = mry::Mry::dummy();
-                    __mry_dummy
+                    let mut __mry_unique = <Cat::<A> as mry::MockDefault>::mock_default();
+                    __mry_unique.mry = mry::Mry::unique();
+                    __mry_unique
                 }
             }
             .to_string()

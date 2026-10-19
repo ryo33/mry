@@ -4,7 +4,6 @@ mod async_method;
 mod async_trait;
 mod bounds;
 mod complex_clone;
-mod dummy;
 mod function_style_macro;
 mod generics;
 mod impl_trait;
@@ -23,6 +22,7 @@ mod skip_arg;
 mod skip_fns;
 mod static_function;
 mod track_caller;
+mod unique;
 
 #[cfg(feature = "send_wrapper")]
 mod non_send;
