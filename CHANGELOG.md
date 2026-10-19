@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.16.0
 
 - Added `mry::unique!(Cat)` to construct a mock object that is equal only to itself and its clones. It is useful to distinguish values in tests.
 
