@@ -49,6 +49,11 @@ fn transform_struct(input: ExprStruct, mry: TokenStream) -> TokenStream {
         .iter()
         .map(|field| {
             if let Member::Named(ident) = &field.member {
+                if field.colon_token.is_none() {
+                    return quote! {
+                        #ident,
+                    };
+                }
                 let expr = &field.expr;
                 quote! {
                     #ident: #expr,
@@ -89,6 +94,29 @@ mod test {
             quote! {
                 Cat {
                     name: "aaa",
+                    mry: Default::default(),
+                }
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn keeps_shorthand_fields() {
+        let input: ExprStruct = parse2(quote! {
+            Cat {
+                name,
+                age: 3,
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            transform_struct(input, quote!(Default::default())).to_string(),
+            quote! {
+                Cat {
+                    name,
+                    age: 3,
                     mry: Default::default(),
                 }
             }
