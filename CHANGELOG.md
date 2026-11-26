@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.0
+
+- `mry::new!` and `mry::unique!` now keep shorthand field syntax (`Cat { name }`) as-is in the expansion, avoiding `clippy::redundant_field_names` warnings.
+
 ## 0.16.0
 
 - Added `mry::unique!(Cat)` to construct a mock object that is equal only to itself and its clones. It is useful to distinguish values in tests.
